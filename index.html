@@ -368,6 +368,18 @@ var SYMBOLS = NSE_STOCKS.slice();
 async function loadSymbols(){
   if(window.SYMBOLS_LOADED) return;
   try{
+    var stored = window.localStorage.getItem('nc_symbols');
+    if(stored){
+      var parsed = JSON.parse(stored);
+      if(Array.isArray(parsed) && parsed.length){
+        var map = {};
+        SYMBOLS.forEach(function(s){ if(s && s.t) map[s.t]=s; });
+        parsed.forEach(function(s){ if(s && s.t) map[s.t]=s; });
+        SYMBOLS = Object.keys(map).map(function(k){return map[k];});
+        window.SYMBOLS_LOADED = true;
+        return;
+      }
+    }
     var r = await fetch('symbols.json');
     var j = await r.json();
     if(Array.isArray(j)){
@@ -375,17 +387,18 @@ async function loadSymbols(){
       SYMBOLS.forEach(function(s){ if(s && s.t) map[s.t]=s; });
       j.forEach(function(s){ if(s && s.t) map[s.t]=s; });
       SYMBOLS = Object.keys(map).map(function(k){return map[k];});
+      window.localStorage.setItem('nc_symbols', JSON.stringify(j));
     }
   }catch(e){console.log('Could not load symbols.json',e)}
   window.SYMBOLS_LOADED = true;
 }
-function getSymbols(){ return (window.SYMBOLS_LOADED||SYMBOLS.length>0)? SYMBOLS : NSE_STOCKS; }
+function getSymbols(){ return SYMBOLS.length>0 ? SYMBOLS : NSE_STOCKS; }
 
 /* ── Lightweight AI/chat fallback using free APIs ─────── */
 async function ai(prompt, useSearch) {
   // Simple intent detection: look for known NSE tickers or crypto names
   var up = prompt.toUpperCase();
-  // Check NSE tickers
+  await loadSymbols();
   var syms = getSymbols();
   for (var i=0;i<syms.length;i++){
     var t = syms[i].t;
@@ -393,7 +406,7 @@ async function ai(prompt, useSearch) {
       // Fetch quote (Alpha Vantage) if key present
       if (AV_KEY) {
         var q = await fetchAlphaQuote(t);
-        if (q) return formatStockReply(NSE_STOCKS[i], q);
+        if (q) return formatStockReply(syms[i], q);
         return "Unable to fetch live quote right now. Try again later.";
       } else {
         return "Live NSE quotes require a free Alpha Vantage API key. Set `AV_KEY` in the page to use live quotes (https://www.alphavantage.co).";
@@ -937,6 +950,7 @@ async function sendChat(){
   msgs.scrollTop=msgs.scrollHeight;
   try{
     // Lightweight chat: if user asked about a ticker, show analysis; if crypto, show price; else provide help.
+    await loadSymbols();
     var up = q.toUpperCase();
     var found = getSymbols().find(function(s){return up.indexOf(s.t)!==-1 || up.indexOf(s.n.toUpperCase())!==-1;});
     var el=document.getElementById(tid);
