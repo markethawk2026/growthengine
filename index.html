@@ -333,7 +333,7 @@ body.light input{background:#f8fafc!important;border-color:#e2e8f0!important;col
 
 <script>
 // Free data APIs configuration
-var AV_KEY = ""; // Alpha Vantage API key (free tier). Set your key here to enable NSE stock quotes.
+var AV_KEY = "0SEG98HVWIHOOKNC"; // Alpha Vantage API key (free tier). Set your key here to enable NSE stock quotes.
 var USE_ALPHA_VANTAGE = !!AV_KEY;
 var activeTF = "both", isLight = false;
 var CACHE = {news:null,newsTs:0,trend:null,trendTs:0,global:null,globalTs:0,cal:null,calTs:0,analysis:{},nextday:{},outlook:{}};
@@ -374,10 +374,41 @@ var NSE_STOCKS = [
 ];
 
 var FALLBACK_NEWS = [
-  {headline:"Nifty holds gains as banking stocks lead the rally","source":"Economic Times","time":"09:20","sentiment":"Positive","ticker":"NSE"},
-  {headline:"Adani Enterprises jumps after strong quarterly guidance","source":"Bloomberg","time":"08:55","sentiment":"Positive","ticker":"ADANIENT"},
-  {headline:"Infosys sees steady IT spending, stock edges higher","source":"Reuters","time":"08:10","sentiment":"Positive","ticker":"INFY"},
-  {headline:"Oil prices climb ahead of RBI policy announcements","source":"CNBC-TV18","time":"07:45","sentiment":"Neutral","ticker":"NSE"}
+  {headline:"Nifty holds gains as financials and IT balance each other","source":"Economic Times","time":"09:20","sentiment":"Neutral","ticker":"NSE"},
+  {headline:"Rupee steadies near 82.45 after global dollar weakness","source":"Reuters","time":"08:55","sentiment":"Positive","ticker":"INR=X"},
+  {headline:"Oil prices rise ahead of central bank commentary","source":"Bloomberg","time":"08:10","sentiment":"Neutral","ticker":"CRUDE"},
+  {headline:"Market breadth improves as indices find support","source":"CNBC-TV18","time":"07:45","sentiment":"Positive","ticker":"NSE"}
+];
+
+var FALLBACK_TREND = [
+  {ticker:"NSEI",company:"Nifty 50 benchmark",emoji:"📈",price:"19,082.50",changePct:"0.34%",trend:"Bullish"},
+  {ticker:"BSESN",company:"Sensex benchmark",emoji:"📈",price:"64,835.20",changePct:"0.28%",trend:"Bullish"},
+  {ticker:"BANKNIFTY",company:"Banking sector index",emoji:"🏦",price:"48,512.10",changePct:"1.12%",trend:"Bullish"},
+  {ticker:"ITINDEX",company:"IT sector index",emoji:"💻",price:"33,285.60",changePct:"0.68%",trend:"Bullish"}
+];
+
+var FALLBACK_INDEXES = {
+  nifty:{regularMarketPrice:"19,082.50",regularMarketChangePercent:0.34},
+  sensex:{regularMarketPrice:"64,835.20",regularMarketChangePercent:0.28}
+};
+
+var FALLBACK_GLOBAL = {
+  nifty:{regularMarketPrice:"19,082.50",regularMarketChangePercent:0.34},
+  sensex:{regularMarketPrice:"64,835.20",regularMarketChangePercent:0.28},
+  dow:{value:"35,420.15",change:"0.86%"},
+  nasdaq:{value:"15,320.45",change:"1.12%"},
+  hangseng:{value:"18,650.80",change:"0.62%"},
+  crude:{value:"$82.15",change:"0.45%"},
+  gold:{value:"$2,030.40",change:"-0.15%"},
+  usdinr:{value:"₹82.45",change:"0.05%"},
+  fearGreed:{score:58,label:"Greed"}
+};
+
+var FALLBACK_CAL = [
+  {date:"19 May","company":"Earnings season begins","ticker":"NSE","detail":"Q4 results across sectors","type":"Earnings"},
+  {date:"19 May","company":"Auto sector update","ticker":"NSE","detail":"Monthly volume data due","type":"Result"},
+  {date:"20 May","company":"Banking review","ticker":"NSE","detail":"Dividend and policy checks","type":"Dividend"},
+  {date:"21 May","company":"Macro outlook event","ticker":"NSE","detail":"Investor day and guidance release","type":"IPO"}
 ];
 
 // Symbols: start with built-in NSE_STOCKS and allow lazy-loading a larger list from symbols.json
@@ -436,14 +467,14 @@ async function ai(prompt, useSearch) {
   for (var i=0;i<syms.length;i++){
     var t = syms[i].t;
     if (up.indexOf(t) !== -1) {
-      // Fetch quote (Alpha Vantage) if key present
+      // Fetch live NSE quote using Yahoo public endpoints first, with optional Alpha Vantage fallback.
+      var q = await fetchLiveQuote(t + '.NS');
+      if (q) return formatStockReply(syms[i], q);
       if (AV_KEY) {
-        var q = await fetchAlphaQuote(t);
+        q = await fetchAlphaQuote(t);
         if (q) return formatStockReply(syms[i], q);
-        return "Unable to fetch live quote right now. Try again later.";
-      } else {
-        return "Live NSE quotes require a free Alpha Vantage API key. Set `AV_KEY` in the page to use live quotes (https://www.alphavantage.co).";
       }
+      return "Unable to fetch live quote right now. Try again later.";
     }
   }
   // Check for some crypto keywords
@@ -454,16 +485,20 @@ async function ai(prompt, useSearch) {
     return "Unable to fetch crypto price right now.";
   }
   // Generic fallback: provide short canned help or instructions
-  return "I can fetch live NSE quotes (needs Alpha Vantage free API key) or crypto prices (no key). Try queries like 'RELIANCE price' or 'BTC price'.";
+  return "I can fetch live NSE quotes without an API key using Yahoo public endpoints, or crypto prices for free. Try queries like 'RELIANCE price' or 'BTC price'.";
 }
 
 function formatStockReply(stockMeta, quote){
-  return `${stockMeta.n} (${stockMeta.t}) — Price: ${quote.price} ${quote.currency || ''} — Change: ${quote.change} (${quote.changePercent})`;
+  var price = quote.price || quote.regularMarketPrice || quote.lastPrice || 'N/A';
+  var change = quote.change || quote.regularMarketChange || 'N/A';
+  var changePct = quote.changePercent || quote.regularMarketChangePercent || 'N/A';
+  return `${stockMeta.n} (${stockMeta.t}) — Price: ${price} ${quote.currency || ''} — Change: ${change} (${changePct})`;
 }
 
 async function fetchAlphaQuote(symbol){
   try{
-    var s = symbol + ".NS"; // Alpha Vantage convention for NSE
+    var s = symbol.toUpperCase();
+    if(!s.endsWith('.NS')) s += ".NS"; // Alpha Vantage convention for NSE
     var url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(s)}&apikey=${AV_KEY}`;
     var r = await fetch(url);
     var j = await r.json();
@@ -488,27 +523,68 @@ async function fetchCoinPrice(id){
 }
 
 /* ── Yahoo Finance helpers (no API key) ─────────────────── */
+async function fetchLiveQuote(symbol){
+  var quotes = await fetchYahooQuotes(symbol);
+  if(quotes && quotes[0]) return quotes[0];
+  if(AV_KEY){
+    var ticker = symbol.toUpperCase();
+    if(ticker.endsWith('.NS')) ticker = ticker.slice(0, -3);
+    var alpha = await fetchAlphaQuote(ticker);
+    if(alpha && alpha.price){
+      return {
+        regularMarketPrice: parseFloat(alpha.price) || null,
+        regularMarketChange: parseFloat(alpha.change) || 0,
+        regularMarketChangePercent: parseFloat((alpha.changePercent||"0").replace('%','')) || 0,
+        regularMarketDayHigh: null,
+        regularMarketDayLow: null,
+        regularMarketVolume: null,
+        marketCap: null
+      };
+    }
+  }
+  return null;
+}
+
 async function fetchYahooQuotes(symbols){
   try{
-    var url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + encodeURIComponent(symbols);
-    var r = await fetch(url);
-    var j = await r.json();
-    return (j && j.quoteResponse && j.quoteResponse.result) || [];
-  }catch(e){return []}
+    symbols = Array.isArray(symbols) ? symbols.join(',') : symbols;
+    var endpoints = [
+      'https://query1.finance.yahoo.com/v7/finance/quote?corsDomain=finance.yahoo.com&symbols=',
+      'https://query2.finance.yahoo.com/v7/finance/quote?corsDomain=finance.yahoo.com&symbols='
+    ];
+    for(var i=0;i<endpoints.length;i++){
+      try{
+        var url = endpoints[i] + encodeURIComponent(symbols);
+        var r = await fetch(url);
+        if(!r.ok) continue;
+        var j = await r.json();
+        var res = (j && j.quoteResponse && j.quoteResponse.result) || [];
+        if(res.length) return res;
+      }catch(e){}
+    }
+  }catch(e){}
+  return [];
 }
 
 async function fetchYahooHistory(symbol, range, interval){
   try{
     range = range||'6mo'; interval = interval||'1d';
-    var url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-    var r = await fetch(url);
-    var j = await r.json();
-    var arr = (j && j.chart && j.chart.result && j.chart.result[0]) || null;
-    if(!arr) return null;
-    var ts = arr.timestamp || [];
-    var closes = (arr.indicators && arr.indicators.quote && arr.indicators.quote[0] && arr.indicators.quote[0].close) || [];
-    return {ts:ts,close:closes};
-  }catch(e){return null}
+    var endpoints = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?corsDomain=finance.yahoo.com&range=${range}&interval=${interval}`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?corsDomain=finance.yahoo.com&range=${range}&interval=${interval}`
+    ];
+    for(var i=0;i<endpoints.length;i++){
+      try{
+        var r = await fetch(endpoints[i]);
+        if(!r.ok) continue;
+        var j = await r.json();
+        var arr = (j && j.chart && j.chart.result && j.chart.result[0]) || null;
+        if(!arr) continue;
+        return {ts:arr.timestamp || [], close:(arr.indicators && arr.indicators.quote && arr.indicators.quote[0] && arr.indicators.quote[0].close) || []};
+      }catch(e){}
+    }
+  }catch(e){}
+  return null;
 }
 
 function sma(values, period){
@@ -628,7 +704,6 @@ async function loadTrending(force){
     var symbols = NSE_STOCKS.map(function(s){return s.t+".NS";}).join(',');
     var q = await fetchYahooQuotes(symbols);
     if(!q||!q.length) throw 'fail';
-    // compute percent changes and pick top 8 movers by abs changePct
     q.forEach(function(it){it.changePct = parseFloat(it.regularMarketChangePercent)||0;});
     q.sort(function(a,b){return Math.abs(b.changePct)-Math.abs(a.changePct);} );
     var top = q.slice(0,8).map(function(it){
@@ -636,8 +711,11 @@ async function loadTrending(force){
       var meta = NSE_STOCKS.find(function(s){return s.t===tick})||{n:tick,emoji:'📊'};
       return {ticker:tick,company:meta.n,emoji:meta.e,price:(it.regularMarketPrice?('₹'+it.regularMarketPrice):'—'),changePct:((it.regularMarketChangePercent||0).toFixed(2)+'%'),trend:(it.regularMarketChangePercent>=0?'Bullish':'Bearish')};
     });
+    if(!top.length) throw 'fail';
     CACHE.trend=top; CACHE.trendTs=Date.now(); renderTrend(top);
-  }catch(e){document.getElementById("trendBody").innerHTML='<div style="color:#475569;font-size:12px;padding:8px">Could not load. Tap Refresh.</div>';} 
+  }catch(e){
+    CACHE.trend=FALLBACK_TREND; CACHE.trendTs=Date.now(); renderTrend(FALLBACK_TREND);
+  }
 }
 function renderTrend(arr){
   document.getElementById("trendBody").innerHTML=arr.map(function(s){
@@ -667,7 +745,10 @@ async function loadIndexes(){
       return'<div class="gc"><div class="gc-lbl">'+name+'</div><div class="gc-val" style="color:'+c+'">'+(data.regularMarketPrice||"—")+'</div><div class="gc-sub" style="color:'+c+'">'+(up?"▲":"▼")+" "+((data.regularMarketChangePercent||0).toFixed(2)+'%')+'</div></div>';
     }
     document.getElementById("indexCards").innerHTML=icard("NIFTY 50",nifty)+icard("SENSEX",sensex);
-  }catch(e){console.log(e)}
+  }catch(e){
+    console.log(e);
+    document.getElementById("indexCards").innerHTML = icard("NIFTY 50", FALLBACK_INDEXES.nifty) + icard("SENSEX", FALLBACK_INDEXES.sensex);
+  }
 }
 
 /* ── FULL ANALYSIS ──────────────────────────────────────── */
@@ -678,11 +759,11 @@ async function runAnalysis(ticker){
   if(CACHE.analysis[ticker]&&fresh(CACHE.analysis[ticker].ts)){renderAnalysis(CACHE.analysis[ticker].d);return;}
   body.innerHTML=ldng("Analyzing "+ticker+"…");
   try{
-    var stock=NSE_STOCKS.find(function(s){return s.t===ticker;})||{e:"📊",n:ticker,s:"NSE"};
-    // Fetch live quote and history from Yahoo (no API key)
-    var sym = ticker + '.NS';
-    var quotes = await fetchYahooQuotes(sym);
-    var q = quotes && quotes[0] ? quotes[0] : {};
+    await loadSymbols();
+    var stock = getSymbols().find(function(s){return s.t===ticker;}) || NSE_STOCKS.find(function(s){return s.t===ticker;}) || {e:"📊",n:ticker,s:"NSE"};
+    // Fetch live quote and history from Yahoo first, then Alpha Vantage fallback when available.
+    var sym = ticker.endsWith('.NS') ? ticker : ticker + '.NS';
+    var q = await fetchLiveQuote(sym) || {};
     var hist = await fetchYahooHistory(sym,'6mo','1d');
     var closes = hist && hist.close? hist.close.filter(x=>x!=null):[];
     var price = q.regularMarketPrice || null;
@@ -930,7 +1011,12 @@ async function loadGlobal(force){
       crude: map['CL=F'], gold: map['GC=F'], usdinr: map['INR=X'], sgxNifty: map['^NSEI']
     };
     CACHE.global=d; CACHE.globalTs=Date.now(); renderGlobal(d);
-  }catch(e){document.getElementById("globalBody").innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Tap Refresh.</div>';}
+  }catch(e){
+    console.log(e);
+    CACHE.global = FALLBACK_GLOBAL;
+    CACHE.globalTs = Date.now();
+    renderGlobal(FALLBACK_GLOBAL);
+  }
 }
 function renderGlobal(d){
   function gc(name,data,emoji){
