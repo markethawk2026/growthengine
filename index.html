@@ -422,6 +422,49 @@ async function fetchCoinPrice(id){
   }catch(e){return null}
 }
 
+/* ── Yahoo Finance helpers (no API key) ─────────────────── */
+async function fetchYahooQuotes(symbols){
+  try{
+    var url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + encodeURIComponent(symbols);
+    var r = await fetch(url);
+    var j = await r.json();
+    return (j && j.quoteResponse && j.quoteResponse.result) || [];
+  }catch(e){return []}
+}
+
+async function fetchYahooHistory(symbol, range, interval){
+  try{
+    range = range||'6mo'; interval = interval||'1d';
+    var url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+    var r = await fetch(url);
+    var j = await r.json();
+    var arr = (j && j.chart && j.chart.result && j.chart.result[0]) || null;
+    if(!arr) return null;
+    var ts = arr.timestamp || [];
+    var closes = (arr.indicators && arr.indicators.quote && arr.indicators.quote[0] && arr.indicators.quote[0].close) || [];
+    return {ts:ts,close:closes};
+  }catch(e){return null}
+}
+
+function sma(values, period){
+  if(!values||values.length<period) return null;
+  var out = [];
+  for(var i=0;i<=values.length-period;i++){var sum=0; for(var j=0;j<period;j++) sum+=values[i+j]; out.push(sum/period);} return out[out.length-1];
+}
+
+function ema(values, period){
+  if(!values||values.length<period) return null;
+  var k = 2/(period+1); var emaPrev = values.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  for(var i=period;i<values.length;i++){emaPrev = values[i]*k + emaPrev*(1-k);} return emaPrev;
+}
+
+function rsi(values, period){
+  if(!values||values.length<period+1) return null;
+  var gains=0, losses=0;
+  for(var i=values.length-period;i<values.length;i++){var change = values[i]-values[i-1]; if(change>0) gains+=change; else losses+=Math.abs(change);} 
+  var rs = gains/(losses||1); var r = 100 - (100/(1+rs)); return Math.round(r);
+}
+
 function pj(txt) {
   try { var s=txt.replace(/```json/g,"").replace(/```/g,"").trim(); var m=s.match(/\{[\s\S]*\}/); return m?JSON.parse(m[0]):null; } catch(e){return null;}
 }
@@ -479,13 +522,8 @@ si.addEventListener("keydown",function(e){if(e.key==="Enter"&&si.value.trim()){d
 /* ── HOME: news ─────────────────────────────────────────── */
 async function loadNews(force){
   if(!force&&CACHE.news&&fresh(CACHE.newsTs,TTL_SHORT)){renderNews(CACHE.news);return;}
-  document.getElementById("newsBody").innerHTML=skels(56,3);
-  try{
-    var txt=await ai("Search web for 5 latest Indian NSE BSE stock market news headlines today "+new Date().toDateString()+". Return ONLY raw JSON array: [{headline,source,time,sentiment,ticker}] sentiment=Positive/Negative/Neutral ticker=NSE ticker if mentioned. No markdown.",true);
-    var arr=pja(txt);
-    if(!arr||!arr.length)throw"fail";
-    CACHE.news=arr; CACHE.newsTs=Date.now(); renderNews(arr);
-  }catch(e){document.getElementById("newsBody").innerHTML='<div style="color:#475569;font-size:12px;padding:8px">Could not load news. Tap Refresh.</div>';}
+  // Free mode: News via web scraping requires a third-party API. Show helpful placeholder.
+  document.getElementById("newsBody").innerHTML='<div style="color:#64748b;font-size:13px;padding:18px;text-align:center">News is not available in no-key mode. Add a free RSS-to-JSON proxy or enable a news API to populate headlines.</div>';
 }
 function renderNews(arr){
   document.getElementById("newsBody").innerHTML=arr.map(function(n){
@@ -502,11 +540,20 @@ async function loadTrending(force){
   if(!force&&CACHE.trend&&fresh(CACHE.trendTs,TTL_SHORT)){renderTrend(CACHE.trend);return;}
   document.getElementById("trendBody").innerHTML=skels(58,4);
   try{
-    var txt=await ai("Search NSE India most active top movers stocks right now today "+new Date().toDateString()+". Pick 8 stocks with biggest moves. Return ONLY raw JSON array: [{ticker,company,emoji,price,changePct,trend}] trend=Bullish/Bearish/Neutral price with ₹ symbol. No markdown.",true);
-    var arr=pja(txt);
-    if(!arr||!arr.length)throw"fail";
-    CACHE.trend=arr; CACHE.trendTs=Date.now(); renderTrend(arr);
-  }catch(e){document.getElementById("trendBody").innerHTML='<div style="color:#475569;font-size:12px;padding:8px">Could not load. Tap Refresh.</div>';}
+    // Fetch quotes for known NSE tickers via Yahoo (no API key)
+    var symbols = NSE_STOCKS.map(function(s){return s.t+".NS";}).join(',');
+    var q = await fetchYahooQuotes(symbols);
+    if(!q||!q.length) throw 'fail';
+    // compute percent changes and pick top 8 movers by abs changePct
+    q.forEach(function(it){it.changePct = parseFloat(it.regularMarketChangePercent)||0;});
+    q.sort(function(a,b){return Math.abs(b.changePct)-Math.abs(a.changePct);} );
+    var top = q.slice(0,8).map(function(it){
+      var tick = (it.symbol||"").replace('.NS','');
+      var meta = NSE_STOCKS.find(function(s){return s.t===tick})||{n:tick,emoji:'📊'};
+      return {ticker:tick,company:meta.n,emoji:meta.e,price:(it.regularMarketPrice?('₹'+it.regularMarketPrice):'—'),changePct:((it.regularMarketChangePercent||0).toFixed(2)+'%'),trend:(it.regularMarketChangePercent>=0?'Bullish':'Bearish')};
+    });
+    CACHE.trend=top; CACHE.trendTs=Date.now(); renderTrend(top);
+  }catch(e){document.getElementById("trendBody").innerHTML='<div style="color:#475569;font-size:12px;padding:8px">Could not load. Tap Refresh.</div>';} 
 }
 function renderTrend(arr){
   document.getElementById("trendBody").innerHTML=arr.map(function(s){
@@ -525,17 +572,18 @@ document.getElementById("btnRefreshTrend").addEventListener("click",function(){l
 /* ── HOME: indexes ──────────────────────────────────────── */
 async function loadIndexes(){
   try{
-    var txt=await ai("Search current live values of NIFTY 50 and SENSEX right now today "+new Date().toDateString()+". Return ONLY raw JSON: {nifty:{value,change,changePct},sensex:{value,change,changePct}}. No markdown.",true);
-    var d=pj(txt);
-    if(!d)throw"fail";
+    // Yahoo symbols: ^NSEI (Nifty 50), ^BSESN (Sensex)
+    var d1 = await fetchYahooQuotes('^NSEI,^BSESN');
+    var nifty = d1.find(function(x){return x.symbol==='^NSEI'}) || {};
+    var sensex = d1.find(function(x){return x.symbol==='^BSESN'}) || {};
     function icard(name,data){
       if(!data)return"";
-      var up=isUp(data.changePct||data.change);
+      var up=isUp(data.regularMarketChangePercent||data.regularMarketChange);
       var c=up?"#22c55e":"#ef4444";
-      return'<div class="gc"><div class="gc-lbl">'+name+'</div><div class="gc-val" style="color:'+c+'">'+(data.value||"—")+'</div><div class="gc-sub" style="color:'+c+'">'+(up?"▲":"▼")+" "+(data.changePct||data.change||"—")+'</div></div>';
+      return'<div class="gc"><div class="gc-lbl">'+name+'</div><div class="gc-val" style="color:'+c+'">'+(data.regularMarketPrice||"—")+'</div><div class="gc-sub" style="color:'+c+'">'+(up?"▲":"▼")+" "+((data.regularMarketChangePercent||0).toFixed(2)+'%')+'</div></div>';
     }
-    document.getElementById("indexCards").innerHTML=icard("NIFTY 50",d.nifty)+icard("SENSEX",d.sensex);
-  }catch(e){}
+    document.getElementById("indexCards").innerHTML=icard("NIFTY 50",nifty)+icard("SENSEX",sensex);
+  }catch(e){console.log(e)}
 }
 
 /* ── FULL ANALYSIS ──────────────────────────────────────── */
@@ -547,33 +595,37 @@ async function runAnalysis(ticker){
   body.innerHTML=ldng("Analyzing "+ticker+"…");
   try{
     var stock=NSE_STOCKS.find(function(s){return s.t===ticker;})||{e:"📊",n:ticker,s:"NSE"};
-    var txt=await ai(
-      "You are an expert Indian stock market analyst. Search the web for '"+ticker+"' stock listed on NSE or BSE India.\n"+
-      "IMPORTANT: Even if exact live price is not available, use the most recent data you can find and ESTIMATE missing values based on your knowledge.\n"+
-      "Today: "+new Date().toDateString()+"\n"+
-      "Return ONLY a raw JSON object with ALL these keys filled (use estimates if needed, never leave empty):\n"+
-      "{price,change,changePct,high,low,volume,marketCap,"+
-      "rsi,rsiSignal,macd,macdSignal,volumeSignal,"+
-      "ema20,ema50,ema200,smaSignal,"+
-      "support1,support2,resistance1,resistance2,"+
-      "fiiActivity,diiActivity,optionsOI,"+
-      "trend,confidence,tradeDirection,"+
-      "entry,stopLoss,target1,target2,"+
-      "probBull,probBear,riskLevel,riskScore,"+
-      "reasons,summary,newsHeadline,newsSentiment,sectorMomentum,"+
-      "news:[{headline,source,time,sentiment}]}\n"+
-      "For price use ₹ symbol. For unknown fields use best estimates. No markdown, no explanation.",true);
-    var d=pj(txt);
-    if(!d)throw"fail";
-    // fill any missing fields with fallbacks
-    d.price=d.price||"N/A"; d.trend=d.trend||"Neutral"; d.confidence=d.confidence||55;
-    d.tradeDirection=d.tradeDirection||"WAIT"; d.riskLevel=d.riskLevel||"Medium";
-    d.riskScore=d.riskScore||50; d.probBull=d.probBull||50; d.probBear=d.probBear||50;
-    d.reasons=d.reasons||["Insufficient data — use with caution"];
-    d.summary=d.summary||"Analysis based on limited available data. Please verify before trading.";
+    // Fetch live quote and history from Yahoo (no API key)
+    var sym = ticker + '.NS';
+    var quotes = await fetchYahooQuotes(sym);
+    var q = quotes && quotes[0] ? quotes[0] : {};
+    var hist = await fetchYahooHistory(sym,'6mo','1d');
+    var closes = hist && hist.close? hist.close.filter(x=>x!=null):[];
+    var price = q.regularMarketPrice || null;
+    var change = q.regularMarketChange || 0;
+    var changePct = (q.regularMarketChangePercent||0).toFixed(2)+'%';
+    var high = q.regularMarketDayHigh || q.regularMarketPreviousClose || null;
+    var low = q.regularMarketDayLow || null;
+    var volume = q.regularMarketVolume || null;
+    var marketCap = q.marketCap || null;
+    var ema20 = ema(closes,20); var ema50 = ema(closes,50); var ema200 = ema(closes,200);
+    var rsi14 = rsi(closes,14);
+    var trend = (price && ema50 && price>ema50)? 'Bullish':(price&&ema50? 'Bearish':'Neutral');
+    var tradeDirection = trend==='Bullish' && rsi14 && rsi14<70? 'BUY': trend==='Bearish' && rsi14 && rsi14>30? 'SELL':'WAIT';
+    var confidence = Math.min(90,Math.max(40, Math.round((ema50?60:40) + (rsi14? (50-Math.abs(50-rsi14))/2 : 0))));
+    var probBull = confidence; var probBear = 100-confidence;
+    var support1 = closes.slice(-20).reduce((a,b)=>Math.min(a,b),Infinity).toFixed(2);
+    var resistance1 = closes.slice(-20).reduce((a,b)=>Math.max(a,b),0).toFixed(2);
+    var reasons = ["Technical indicators computed from recent price history. No web news used."]; 
+    var d = {price: price?('₹'+price):'N/A', change: change, changePct: changePct, high: high, low: low, volume: volume, marketCap: marketCap,
+             rsi: rsi14, rsiSignal: rsi14>70? 'Overbought':rsi14<30? 'Oversold':'Neutral', macd: 'N/A', macdSignal:'N/A', volumeSignal:'N/A',
+             ema20: ema20?('₹'+ema20.toFixed(2)):'N/A', ema50: ema50?('₹'+ema50.toFixed(2)):'N/A', ema200: ema200?('₹'+ema200.toFixed(2)):'N/A', smaSignal: (price && ema50?(price>ema50?'Bullish':'Bearish'):'Neutral'),
+             support1: support1, support2:'N/A', resistance1: resistance1, resistance2:'N/A', fiiActivity:'N/A', diiActivity:'N/A', optionsOI:'N/A',
+             trend: trend, confidence: confidence, tradeDirection: tradeDirection, entry: (price?('₹'+(price*0.99).toFixed(2)):'—'), stopLoss:(price?('₹'+(price*0.97).toFixed(2)):'—'), target1:(price?('₹'+(price*1.03).toFixed(2)):'—'), target2:(price?('₹'+(price*1.08).toFixed(2)):'—'),
+             probBull: probBull, probBear: probBear, riskLevel: confidence>70?'Low':confidence<45?'High':'Medium', riskScore: Math.round(100-confidence),
+             reasons: reasons, summary: 'Automated technical summary (no web AI). Check fundamentals and news separately.', newsHeadline:null, newsSentiment:null, sectorMomentum:'N/A'};
     d.ticker=ticker; d.company=stock.n; d.sector=stock.s; d.emoji=stock.e;
-    CACHE.analysis[ticker]={d:d,ts:Date.now()};
-    renderAnalysis(d);
+    CACHE.analysis[ticker]={d:d,ts:Date.now()}; renderAnalysis(d);
   }catch(e){body.innerHTML='<div style="text-align:center;padding:40px;color:#ef4444">⚠️ Could not analyze "'+ticker+'". Try again.</div>';}
 }
 
@@ -677,8 +729,16 @@ async function runNextDay(ticker){
   if(CACHE.nextday[ticker]&&fresh(CACHE.nextday[ticker].ts)){renderNextDay(CACHE.nextday[ticker].d);return;}
   body.innerHTML=ldng("Predicting tomorrow for "+ticker+"…");
   try{
-    var txt=await ai("Expert Indian stock analyst. Search today's live data for "+ticker+" NSE India "+new Date().toDateString()+". Predict TOMORROW's likely price movement. Return ONLY raw JSON: {company,ticker,trend,confidence,gapUpDown,expectedRange,keyLevel,catalysts,entry,stopLoss,target1,riskLevel,riskScore,probBull,probBear,reasons,summary,currentPrice}. No markdown.",true);
-    var d=pj(txt);if(!d)throw"fail";
+    // Build next-day prediction from technical analysis (no AI/web search)
+    await runAnalysis(ticker);
+    var base = CACHE.analysis[ticker] && CACHE.analysis[ticker].d;
+    if(!base) throw 'fail';
+    var trend = base.trend || 'Neutral';
+    var confidence = base.confidence || 55;
+    var gapUpDown = trend==='Bullish'?'Gap Up likely':'Gap Down possible';
+    var expectedRange = base.price && base.price.startsWith('₹')? ( (parseFloat(base.price.replace('₹',''))*0.98).toFixed(2) + ' - ' + (parseFloat(base.price.replace('₹',''))*1.02).toFixed(2) ) : '—';
+    var keyLevel = base.support1 || base.resistance1 || '—';
+    var d = {company: base.company, ticker: base.ticker, trend: trend, confidence: confidence, gapUpDown: gapUpDown, expectedRange: expectedRange, keyLevel: keyLevel, catalysts: [], entry: base.entry, stopLoss: base.stopLoss, target1: base.target1, riskLevel: base.riskLevel, riskScore: base.riskScore, probBull: base.probBull, probBear: base.probBear, reasons: base.reasons, summary: 'Next-day view derived from technical indicators (no web AI).', currentPrice: base.price};
     CACHE.nextday[ticker]={d:d,ts:Date.now()}; renderNextDay(d);
   }catch(e){body.innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not predict. Try again.</div>';}
 }
@@ -725,13 +785,15 @@ async function runOutlook(ticker){
     if(tf==="both")prompt="Expert Indian stock analyst. Search live data for "+ticker+" NSE India today "+new Date().toDateString()+". Give SHORT TERM (1-2 weeks) AND LONG TERM (3-12 months) outlook. Return ONLY raw JSON with keys shortTerm and longTerm each: {trend,confidence,entry,stopLoss,target1,target2,riskLevel,riskScore,probBull,reasons,summary,keyEvents}. No markdown.";
     else if(tf==="short")prompt="Expert Indian stock analyst. Search "+ticker+" NSE India. SHORT TERM 1-2 week swing trade outlook. Return ONLY raw JSON: {trend,confidence,entry,stopLoss,target1,target2,riskLevel,riskScore,probBull,reasons,summary,keyEvents,catalysts}. No markdown.";
     else prompt="Expert Indian stock analyst. Search "+ticker+" NSE India. LONG TERM 3-12 month investment outlook. Return ONLY raw JSON: {trend,confidence,entry,stopLoss,target1,target2,riskLevel,riskScore,probBull,reasons,summary,growthDrivers,valuationView}. No markdown.";
-    var txt=await ai(prompt,true); var d=pj(txt); if(!d)throw"fail";
-    var html;
-    if(tf==="both"&&d.shortTerm&&d.longTerm)
-      html='<div style="font-size:11px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚡ Short Term (1–2 Weeks)</div>'+oCard(d.shortTerm,"short")+
-           '<div style="font-size:11px;color:#f59e0b;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:13px 0 8px">🏔 Long Term (3–12 Months)</div>'+oCard(d.longTerm,"long")+
+    // Build outlook from technicals (no AI). Use moving averages and RSI to form short/long views.
+    await runAnalysis(ticker);
+    var base = CACHE.analysis[ticker] && CACHE.analysis[ticker].d;
+    if(!base) throw 'fail';
+    var shortTerm = {trend: base.trend, confidence: Math.max(40,Math.min(90,base.confidence||55)), entry: base.entry, stopLoss: base.stopLoss, target1: base.target1, target2: base.target2, riskLevel: base.riskLevel, riskScore: base.riskScore, probBull: base.probBull, reasons: base.reasons, summary: 'Short-term view from technical indicators.'};
+    var longTerm = {trend: (base.ema200 && base.price && parseFloat(base.price.replace('₹',''))>parseFloat((base.ema200||'0').replace('₹','')))?'Bullish':'Neutral', confidence: Math.max(35,Math.min(85,base.confidence||55)), entry: base.entry, stopLoss: base.stopLoss, target1: base.target1, target2: base.target2, riskLevel: base.riskLevel, riskScore: base.riskScore, probBull: base.probBull, reasons: base.reasons, summary: 'Long-term outlook based on MA trend.'};
+    var html = '<div style="font-size:11px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚡ Short Term (1–2 Weeks)</div>'+oCard(shortTerm,"short")+
+           '<div style="font-size:11px;color:#f59e0b;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:13px 0 8px">🏔 Long Term (3–12 Months)</div>'+oCard(longTerm,"long")+
           '<div class="disc">🤖 AI (free) · ⚠️ Not financial advice</div>';
-    else html=oCard(d,tf)+'<div class="disc">🤖 AI (free) · ⚠️ Not financial advice</div>';
     CACHE.outlook[key]={html:html,ts:Date.now()}; body.innerHTML=html;
   }catch(e){body.innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Try again.</div>';}
 }
@@ -774,8 +836,15 @@ async function loadGlobal(force){
   if(!force&&CACHE.global&&fresh(CACHE.globalTs,TTL_SHORT)){renderGlobal(CACHE.global);return;}
   document.getElementById("globalBody").innerHTML=skels(80,3);
   try{
-    var txt=await ai("Search live global market values right now today "+new Date().toDateString()+". Return ONLY raw JSON: {nifty:{value,change,dir},sensex:{value,change,dir},sgxNifty:{value,change,dir},dow:{value,change,dir},nasdaq:{value,change,dir},hangseng:{value,change,dir},crude:{value,change,dir},gold:{value,change,dir},usdinr:{value,change,dir},fearGreed:{score,label},globalImpact,keyRisks}. No markdown.",true);
-    var d=pj(txt); if(!d)throw"fail";
+    // Fetch common global symbols via Yahoo (no key)
+    var syms = '^NSEI,^BSESN,\^DJI,\^IXIC,\^HSI,CL=F,GC=F,INR=X';
+    var res = await fetchYahooQuotes(syms);
+    var map = {};
+    res.forEach(function(it){map[it.symbol]=it;});
+    var d = {
+      nifty: map['^NSEI'], sensex: map['^BSESN'], dow: map['^DJI'], nasdaq: map['^IXIC'], hangseng: map['^HSI'],
+      crude: map['CL=F'], gold: map['GC=F'], usdinr: map['INR=X'], sgxNifty: map['^NSEI']
+    };
     CACHE.global=d; CACHE.globalTs=Date.now(); renderGlobal(d);
   }catch(e){document.getElementById("globalBody").innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Tap Refresh.</div>';}
 }
@@ -806,9 +875,8 @@ async function loadCal(force){
   if(!force&&CACHE.cal&&fresh(CACHE.calTs,60*60*1000)){renderCal(CACHE.cal);return;}
   document.getElementById("calBody").innerHTML=skels(56,4);
   try{
-    var txt=await ai("Search for upcoming Indian NSE BSE stock market events this week and next 2 weeks. Today: "+new Date().toDateString()+". Include earnings results, IPO listings, board meetings, dividends, FPOs. Return ONLY raw JSON array 12 items: [{date,company,ticker,type,detail}] type=Earnings/IPO/Dividend/Result/BoardMeeting. No markdown.",true);
-    var arr=pja(txt); if(!arr||!arr.length)throw"fail";
-    CACHE.cal=arr; CACHE.calTs=Date.now(); renderCal(arr);
+    // Calendar/events require a web data source. In free no-key mode, show a helpful message.
+    document.getElementById("calBody").innerHTML='<div style="color:#64748b;font-size:13px;padding:18px;text-align:center">Calendar events are not available in no-key mode. Provide an events RSS or enable a calendar API to populate this list.</div>';
   }catch(e){document.getElementById("calBody").innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Tap Refresh.</div>';}
 }
 function renderCal(arr){
@@ -836,8 +904,18 @@ async function sendChat(){
   msgs.innerHTML+='<div class="cmsg cmsg-ai" id="'+tid+'"><span class="mspin"></span> Thinking…</div>';
   msgs.scrollTop=msgs.scrollHeight;
   try{
-    var txt=await ai("You are NanduChandu Markets AI, expert in Indian NSE/BSE stocks. Search web for latest info. Answer concisely in 3-4 sentences. User asked: "+q,true);
-    var el=document.getElementById(tid); if(el)el.innerHTML=txt.replace(/```/g,"").trim().slice(0,600);
+    // Lightweight chat: if user asked about a ticker, show analysis; if crypto, show price; else provide help.
+    var up = q.toUpperCase();
+    var found = NSE_STOCKS.find(function(s){return up.indexOf(s.t)!==-1 || up.indexOf(s.n.toUpperCase())!==-1;});
+    var el=document.getElementById(tid);
+    if(found){ await runAnalysis(found.t); var summary = (CACHE.analysis[found.t] && CACHE.analysis[found.t].d && CACHE.analysis[found.t].d.summary) || 'No analysis available.'; if(el) el.innerHTML = summary; }
+    else if(/BTC|BITCOIN|ETH|ETHEREUM|DOGE|DOGECOIN/.test(up)){
+      var id = up.indexOf('BTC')!==-1||up.indexOf('BITCOIN')!==-1? 'bitcoin' : up.indexOf('ETH')!==-1||up.indexOf('ETHEREUM')!==-1? 'ethereum' : 'dogecoin';
+      var p = await fetchCoinPrice(id);
+      if(el) el.innerHTML = p? ('Current '+id+' price: $'+p): 'Could not fetch price.';
+    } else {
+      if(el) el.innerHTML = 'I can show live NSE quotes and simple technical analysis without any API key. Try: "RELIANCE price" or "BTC price".';
+    }
   }catch(e){var el=document.getElementById(tid);if(el)el.innerHTML="Sorry, couldn't fetch that. Please try again.";}
   msgs.scrollTop=msgs.scrollHeight;
 }
