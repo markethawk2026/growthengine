@@ -509,10 +509,21 @@ si.addEventListener("input",function(){
   var q=si.value.trim().toLowerCase();
   if(q.length<1){dd.classList.remove("open");return;}
   var found=NSE_STOCKS.filter(function(s){return s.t.toLowerCase().includes(q)||s.n.toLowerCase().includes(q)||s.s.toLowerCase().includes(q);}).slice(0,8);
-  if(!found.length){dd.classList.remove("open");return;}
-  dd.innerHTML=found.map(function(s){
+  // Always offer an option to search the exact typed ticker across all NSE symbols
+  var qUp = q.toUpperCase();
+  var items = [];
+  // if there's an exact ticker in list, prioritize it
+  var exact = NSE_STOCKS.find(function(s){return s.t===qUp;});
+  if(exact){ items.push(exact); }
+  // add filtered results (avoid duplicates)
+  found.forEach(function(s){ if(!items.find(function(x){return x.t===s.t;})) items.push(s); });
+  // build HTML: if no matches or user typed something not in list, add a 'Search all' entry
+  dd.innerHTML = items.map(function(s){
     return '<div class="ddr" data-t="'+s.t+'"><span class="ddr-tick">'+s.t+'</span><span class="ddr-name">'+s.n+'</span><span style="font-size:10px;color:#475569">'+s.s+'</span></div>';
   }).join("");
+  if(!items.find(function(x){return x.t===qUp;})){
+    dd.innerHTML = '<div class="ddr" data-t="'+qUp+'"><span class="ddr-tick">'+qUp+'</span><span class="ddr-name">Search all NSE tickers for this symbol</span><span style="font-size:10px;color:#64748b">Search</span></div>' + dd.innerHTML;
+  }
   dd.classList.add("open");
 });
 dd.addEventListener("click",function(e){var row=e.target.closest(".ddr");if(row){dd.classList.remove("open");si.value=row.getAttribute("data-t");runAnalysis(row.getAttribute("data-t"));}});
