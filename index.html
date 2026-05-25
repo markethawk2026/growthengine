@@ -352,12 +352,12 @@ function fresh(ts,t){return ts&&(Date.now()-ts)<t;}
 
 // ── UPGRADED FETCH VIA CORS PROXY ───────────────────────────
 async function proxyFetch(url) {
-  // Using AllOrigins /raw endpoint yields clean JSON directly without string wrappers
-  var r = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+  // Switched to corsproxy.io for cleaner, faster routing
+  var r = await fetch("https://corsproxy.io/?" + encodeURIComponent(url));
   if (!r.ok) throw new Error("Proxy fetch failed");
   return await r.json();
 }
-
+  
 // ── Yahoo Finance: get quote for any ticker ─────────────
 async function yfQuote(ticker) {
   ticker = ticker.toUpperCase().trim();
