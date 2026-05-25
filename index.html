@@ -378,7 +378,7 @@ async function yfQuote(ticker) {
   for (var i = 0; i < suffixes.length; i++) {
     try {
       var sym = ticker + suffixes[i];
-      var url = YF_QUOTE + encodeURIComponent(sym) + "?interval=1d&range=5d";
+      var url = YF_QUOTE + encodeURIComponent(sym) + "?interval=1d&range=1y";
       var j = await proxyFetch(url);
       var res = j.chart && j.chart.result && j.chart.result[0];
       if (!res) continue;
