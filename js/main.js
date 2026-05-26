@@ -245,6 +245,9 @@ async function loadNewsData() {
 /**
  * Populate Deep Analytical Structures and Metrics
  */
+/**
+ * Populate Deep Analytical Structures and Interactive Charts
+ */
 async function loadAssetAnalysis(symbol) {
   const container = document.getElementById('analysis-page');
   if (!container) return;
@@ -252,7 +255,12 @@ async function loadAssetAnalysis(symbol) {
   container.innerHTML = '<div class="spnr" style="margin-top: 40px;"></div>';
 
   try {
-    const quote = await fetchYfQuote(symbol);
+    // Concurrent fetch for real-time metrics and timeline points
+    const [quote, sparkData] = await Promise.all([
+      fetchYfQuote(symbol),
+      fetchYfSpark(symbol, "1d", "5m").catch(() => null) // Fallback gracefully if spark errors
+    ]);
+    
     const aiInsight = await fetchAISummary(symbol, quote);
 
     const isSaved = AppState.watchlist.includes(symbol);
@@ -260,8 +268,10 @@ async function loadAssetAnalysis(symbol) {
     const btnStyle = isSaved ? 'background: #1a1400; border-color: #f59e0b; color: #f59e0b;' : '';
 
     const changeSign = quote.regularMarketChangePercent >= 0 ? '+' : '';
-    const changeColor = quote.regularMarketChangePercent >= 0 ? '#22c55e' : '#ef4444';
+    const isPositive = quote.regularMarketChangePercent >= 0;
+    const changeColor = isPositive ? '#22c55e' : '#ef4444';
     
+    // Core Layout Structural Shell
     container.innerHTML = `
       <div id="ticker-details-box">
         <div class="acrd">
@@ -280,15 +290,137 @@ async function loadAssetAnalysis(symbol) {
             <button class="abtn" style="${btnStyle}" onclick="toggleWatchlist('${symbol}')">${btnText}</button>
           </div>
 
+          <div class="chart-container" id="chart-card-node">
+            <div class="chart-header">
+              <span style="font-size: 12px; font-weight: 600;">Intraday Performance</span>
+              <span class="time-pill">1D Interval (5m)</span>
+            </div>
+            <div class="chart-wrapper" id="chart-interactive-wrapper">
+              <div class="chart-tooltip" id="chart-tracker-tooltip"></div>
+              <svg class="chart-svg" id="svg-canvas-engine"></svg>
+            </div>
+          </div>
+
           <div class="asum">
             <strong>AI Operational Pulse:</strong> ${aiInsight}
           </div>
         </div>
       </div>
     `;
+
+    // Process Spark Points if timeline layer yielded array frames
+    if (sparkData && sparkData.close && sparkData.close.length > 1) {
+      generateSvgSparkline(sparkData, isPositive);
+    } else {
+      const chartNode = document.getElementById('chart-card-node');
+      if (chartNode) chartNode.innerHTML = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Timeline streaming charts currently suspended for ${symbol}.</div>`;
+    }
+
   } catch (err) {
     container.innerHTML = `<div class="errbox">Failed to generate profiling view for ${symbol}.</div>`;
   }
+}
+
+/**
+ * Native Responsive SVG Chart Generator with Interactive Floating Crosshair
+ */
+function generateSvgSparkline(sparkData, isPositive) {
+  const svg = document.getElementById('svg-canvas-engine');
+  const wrapper = document.getElementById('chart-interactive-wrapper');
+  const tooltip = document.getElementById('chart-tracker-tooltip');
+  if (!svg || !wrapper) return;
+
+  const prices = sparkData.close.filter(p => p !== null && p !== undefined);
+  const timestamps = sparkData.timestamp.filter((_, i) => sparkData.close[i] !== null);
+  if (prices.length < 2) return;
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const priceRange = maxPrice - minPrice === 0 ? 1 : maxPrice - minPrice;
+
+  // Track layout parameters dynamically matching responsive viewports
+  const width = wrapper.clientWidth;
+  const height = 220;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+  // Coordinate normalizer mapping vectors to the SVG coordinates grid
+  const points = prices.map((price, idx) => {
+    const x = (idx / (prices.length - 1)) * width;
+    const y = height - ((price - minPrice) / priceRange) * (height - 30) - 15;
+    return { x, y, price, time: timestamps[idx] };
+  });
+
+  const trendClass = isPositive ? 'up' : 'down';
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${height} L ${points[0].x.toFixed(1)} ${height} Z`;
+
+  // Inject structural graphics primitives, vector styles, and gradient templates
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="grad-up" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#22c55e" stop-opacity="0.0"/>
+      </linearGradient>
+      <linearGradient id="grad-down" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ef4444" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#ef4444" stop-opacity="0.0"/>
+      </linearGradient>
+    </defs>
+    <path class="chart-gradient ${trendClass}" d="${areaPath}" />
+    <path class="chart-line ${trendClass}" d="${linePath}" />
+    <line class="chart-hover-line" id="crosshair-y-axis" x1="0" y1="0" x2="0" y2="${height}"></line>
+    <circle r="4" fill="${isPositive ? '#22c55e' : '#ef4444'}" stroke="#fff" stroke-width="1.5" id="crosshair-dot" style="display:none;"></circle>
+  `;
+
+  // Dynamic Crosshair Tracking Calculations
+  const hoverLine = document.getElementById('crosshair-y-axis');
+  const hoverDot = document.getElementById('crosshair-dot');
+
+  function handleTracking(e) {
+    const rect = wrapper.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+
+    // Binary proximity mapping to extract closest coordinates point matching crosshair cursor X index
+    let closestPt = points[0];
+    let minDist = Math.abs(points[0].x - mouseX);
+
+    for (let i = 1; i < points.length; i++) {
+      const dist = Math.abs(points[i].x - mouseX);
+      if (dist < minDist) {
+        minDist = dist;
+        closestPt = points[i];
+      }
+    }
+
+    // Move elements to the tracked node coordinate position
+    if (hoverLine && hoverDot && tooltip) {
+      hoverLine.setAttribute('x1', closestPt.x);
+      hoverLine.setAttribute('x2', closestPt.x);
+      hoverLine.style.display = 'block';
+
+      hoverDot.setAttribute('cx', closestPt.x);
+      hoverDot.setAttribute('cy', closestPt.y);
+      hoverDot.style.display = 'block';
+
+      const formatTime = new Date(closestPt.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${Math.min(width - 110, Math.max(10, closestPt.x - 50))}px`;
+      tooltip.innerHTML = `<strong>${closestPt.price.toFixed(2)}</strong> <span style="color:#94a3b8; margin-left:4px;">${formatTime}</span>`;
+    }
+  }
+
+  function hideTracking() {
+    if (hoverLine) hoverLine.style.style.display = 'none';
+    if (hoverDot) hoverDot.style.display = 'none';
+    if (tooltip) tooltip.style.display = 'none';
+  }
+
+  // Bind interface cursor boundaries tracking hooks
+  wrapper.addEventListener('mousemove', handleTracking);
+  wrapper.addEventListener('mouseleave', hideTracking);
+  wrapper.addEventListener('touchstart', (e) => { if (e.touches[0]) handleTracking(e.touches[0]); }, {passthrough: true});
+  wrapper.addEventListener('touchmove', (e) => { if (e.touches[0]) handleTracking(e.touches[0]); }, {passthrough: true});
+  wrapper.addEventListener('touchend', hideTracking);
 }
 
 /**
