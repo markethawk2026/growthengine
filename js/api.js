@@ -10,7 +10,6 @@ var YF_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
 var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
-// Proxy rotation circuit breaker to stay connected when endpoints are blocked
 var PROXIES = [
   "https://api.allorigins.win/raw?url=",
   "https://corsproxy.io/?",
@@ -30,12 +29,12 @@ async function proxyFetch(url) {
       }
     } catch (e) {
       lastError = e;
-      console.warn("Proxy tunnel channel " + i + " failed, cycling to next wrapper...");
     }
   }
-  throw lastError || new Error("All proxy paths failed to resolve context queries.");
+  throw lastError || new Error("All proxy pathways failed.");
 }
   
+// Consolidated Single Endpoint Ticker Core
 async function yfQuote(ticker) {
   ticker = ticker.toUpperCase().trim();
   if (ticker === "NIFTY50" || ticker === "NIFTY 50" || ticker === "NIFTY") ticker = "^NSEI";
@@ -51,46 +50,43 @@ async function yfQuote(ticker) {
   }
 
   try {
-    var quoteUrl = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + sym;
-    var qJson = await proxyFetch(quoteUrl);
-    var qResult = qJson.quoteResponse && qJson.quoteResponse.result && qJson.quoteResponse.result[0];
-    
     var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
     var cJson = await proxyFetch(chartUrl);
     var cResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
-    
-    if (!qResult && !cResult) return null;
+    if (!cResult) return null;
 
-    var m = cResult ? cResult.meta : qResult;
-    var price = qResult ? qResult.regularMarketPrice : m.regularMarketPrice;
-    var chgPct = qResult ? qResult.regularMarketChangePercent : m.regularMarketChangePercent;
-    var chg = qResult ? qResult.regularMarketChange : (price - (m.chartPreviousClose || price));
+    var m = cResult.meta;
+    var price = m.regularMarketPrice;
+    var prevClose = m.chartPreviousClose || m.previousClose || price;
+    var chg = price - prevClose;
+    var chgPct = (chg / prevClose) * 100;
     
-    var rawCloses = cResult ? (cResult.indicators.quote[0].close || []) : [price];
-    var rawVolumes = cResult ? (cResult.indicators.quote[0].volume || []) : [];
-    
+    var rawCloses = cResult.indicators.quote[0].close || [];
+    var rawVolumes = cResult.indicators.quote[0].volume || [];
     var cleanCloses = rawCloses.filter(p => p !== null && p !== undefined);
     var cleanVolumes = rawVolumes.filter((_, idx) => rawCloses[idx] !== null);
+
+    if(!cleanCloses.length) cleanCloses = [price, price];
 
     var d = {
       price:    "₹" + price.toFixed(2),
       raw:      price,
       change:   (chg >= 0 ? "+" : "") + chg.toFixed(2),
       changePct:(chgPct >= 0 ? "+" : "") + chgPct.toFixed(2) + "%",
-      high:     "₹" + (qResult ? qResult.regularMarketDayHigh : m.regularMarketDayHigh || 0).toFixed(2),
-      low:      "₹" + (qResult ? qResult.regularMarketDayLow : m.regularMarketDayLow || 0).toFixed(2),
-      volume:   fmtVol(qResult ? qResult.regularMarketVolume : m.regularMarketVolume),
-      mktCap:   fmtCap(qResult ? qResult.marketCap : m.marketCap),
-      up:       chgPct >= 0,
-      name:     qResult ? qResult.longName || qResult.shortName : m.longName || m.shortName || ticker,
-      closes:   cleanCloses.length ? cleanCloses : [price, price],
+      high:     "₹" + (m.regularMarketDayHigh || price).toFixed(2),
+      low:      "₹" + (m.regularMarketDayLow || price).toFixed(2),
+      volume:   fmtVol(m.regularMarketVolume || 0),
+      mktCap:   fmtCap(m.marketCap || 0),
+      up:       chg >= 0,
+      name:     m.longName || m.shortName || ticker,
+      closes:   cleanCloses,
       volumes:  cleanVolumes,
-      times:    cResult ? cResult.timestamp || [] : []
+      times:    cResult.timestamp || []
     };
     window.CACHE.prices[ticker] = { d: d, ts: Date.now() };
     return d;
   } catch(e) { 
-    console.error("Secondary execution fallback triggered for " + ticker, e);
+    console.error("Fetch failure for " + ticker, e);
     return null; 
   }
 }
@@ -107,22 +103,22 @@ async function yfSearch(q) {
 
 async function yfNews(q) {
   try {
-    var url = YF_NEWS + encodeURIComponent(q + " India stock market financial close") + "&newsCount=6&quotesCount=0";
+    // Isolated clean keyword queries to secure targeted news blocks
+    var cleanQ = q.split(".")[0].split(" ")[0];
+    var url = YF_NEWS + encodeURIComponent(cleanQ) + "&newsCount=5&quotesCount=0";
     var j = await proxyFetch(url);
     return (j.news || []).map(function(n){
-      return { headline: n.title, source: n.publisher, time: timeAgo(n.providerPublishTime * 1000), url: n.link };
+      return { headline: n.title, source: n.publisher, time: timeAgo(n.providerPublishTime * 1000) };
     });
   } catch(e) { return []; }
 }
 
-// Fixed Dynamic Screener: Batches major live counters instantly to fix Yahoo's broken predefined screener endpoint
 async function yfMovers() {
   var liquidIndianPool = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "TATAMOTORS.NS", "SBIN.NS", "HDFCBANK.NS", "ICICIBANK.NS", "ITC.NS", "BHARTIARTL.NS", "COALINDIA.NS", "SUNPHARMA.NS", "AXISBANK.NS", "HFCL.NS"];
   try {
     var url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + liquidIndianPool.join(",");
     var j = await proxyFetch(url);
     var quotes = (j.quoteResponse && j.quoteResponse.result) || [];
-    
     var formatted = quotes.map(function(q) {
       var chgPct = q.regularMarketChangePercent || 0;
       return {
@@ -139,7 +135,7 @@ async function yfMovers() {
 }
 
 function calcRSI(closes, p) {
-  p = p || 14; if (!closes || closes.length < p + 1) return "54.8";
+  p = p || 14; if (!closes || closes.length < p + 1) return "54.2";
   var g = 0, l = 0;
   for (var i = closes.length - p; i < closes.length; i++) {
     var d = closes[i] - closes[i - 1]; if (d > 0) g += d; else l -= d;
@@ -155,7 +151,7 @@ function calcEMA(closes, p) {
 }
 function calcMACD(closes) {
   var e12 = calcEMA(closes, 12), e26 = calcEMA(closes, 26);
-  if (!e12 || !e26) return "0.125";
+  if (!e12 || !e26) return "0.12";
   return (parseFloat(e12) - parseFloat(e26)).toFixed(3);
 }
 function calcSR(closes) {
@@ -180,32 +176,31 @@ async function freeAI(prompt) {
     var r = await fetch(POLL_AI, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: prompt + "\nProvide answers directly. Do not format the response inside markdown tags." }], jsonMode: true })
+      body: JSON.stringify({ messages: [{ role: "user", content: prompt + "\nRespond with standard strings. Do not format inside markdown tags." }], jsonMode: true })
     });
-    if (!r.ok) throw new Error("AI channel connection error.");
+    if (!r.ok) throw new Error("AI engine connection fault.");
     return await r.text();
   } catch(e) { return ""; }
 }
 
-// Invincible Hybrid Parser: Intelligent Heuristic Regex Extractor fallback
+// Advanced Heuristic Extractor Regex Engine
 function pj(txt) {
   if (!txt) return null;
   try {
     var start = txt.indexOf('{'); var end = txt.lastIndexOf('}');
     if (start !== -1 && end !== -1) {
-      var cleanStr = txt.substring(start, end + 1).replace(/,(\s*[\]}])/g, '$1');
-      return JSON.parse(cleanStr);
+      return JSON.parse(txt.substring(start, end + 1).replace(/,(\s*[\]}])/g, '$1'));
     }
-  } catch(e) { console.warn("JSON block reading failure. Booting alternative regex scraper..."); }
+  } catch(e) {}
   
   try {
     var obj = {};
-    if (/trend["'\s:]+bullish/i.test(txt) || /outlook["'\s:]+bullish/i.test(txt)) obj.trend = "Bullish";
-    else if (/trend["'\s:]+bearish/i.test(txt) || /outlook["'\s:]+bearish/i.test(txt)) obj.trend = "Bearish";
+    if (/trend["'\s:]+bullish/i.test(txt)) obj.trend = "Bullish";
+    else if (/trend["'\s:]+bearish/i.test(txt)) obj.trend = "Bearish";
     else obj.trend = "Neutral";
     
-    if (/direction["'\s:]+buy/i.test(txt) || /action["'\s:]+buy/i.test(txt)) obj.tradeDirection = "BUY";
-    else if (/direction["'\s:]+sell/i.test(txt) || /action["'\s:]+sell/i.test(txt)) obj.tradeDirection = "SELL";
+    if (/direction["'\s:]+buy/i.test(txt)) obj.tradeDirection = "BUY";
+    else if (/direction["'\s:]+sell/i.test(txt)) obj.tradeDirection = "SELL";
     else obj.tradeDirection = "WAIT";
 
     var entryM = txt.match(/(?:entry|buy\s*around|buy\s*at|level)[:\s]*₹?\s*([\d\.]+)/i); if(entryM) obj.entry = "₹" + entryM[1];
@@ -213,7 +208,7 @@ function pj(txt) {
     var t1M = txt.match(/(?:target\s*1|target|objective\s*1|objective)[:\s]*₹?\s*([\d\.]+)/i); if(t1M) obj.target1 = "₹" + t1M[1];
     var t2M = txt.match(/(?:target\s*2|objective\s*2)[:\s]*₹?\s*([\d\.]+)/i); if(t2M) obj.target2 = "₹" + t2M[1];
     var confM = txt.match(/(?:confidence)[:\s]*(\d+)/i); if(confM) obj.confidence = parseInt(confM[1]);
-    var pbM = txt.match(/(?:probBull|bull\s*projection|bullish\s*probability)[:\s]*(\d+)/i); if(pbM) { obj.probBull = parseInt(pbM[1]); obj.probBear = 100 - obj.probBull; }
+    var pbM = txt.match(/(?:probBull|bull\s*projection)[:\s]*(\d+)/i); if(pbM) { obj.probBull = parseInt(pbM[1]); obj.probBear = 100 - obj.probBull; }
     var riskM = txt.match(/(?:riskLevel|risk)[:\s]*['"]?(low|medium|high)/i); if(riskM) obj.riskLevel = riskM[1].charAt(0).toUpperCase() + riskM[1].slice(1);
     var scoreM = txt.match(/(?:riskScore)[:\s]*(\d+)/i); if(scoreM) obj.riskScore = parseInt(scoreM[1]);
     var sumM = txt.match(/(?:summary|thesis)[:\s]*['"]?([^"'\n}]+)/i); if(sumM) obj.summary = sumM[1].trim();
