@@ -38,12 +38,9 @@ function drawNativeChart(closes, volumes, up) {
     '<div style="font-size:10px;color:#475569;margin-bottom:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:flex;justify-content:space-between;"><span>Intraday Technical Waveform</span><span>Dual-Axis Vol/Price</span></div>' +
     '<div style="height:120px;width:100%;"><svg viewBox="0 0 500 140" style="width:100%; height:100%; overflow:visible;">' +
     volumeHTML + '<polyline points="' + pricePts + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '</svg></div></div>';
+    </svg></div></div>';
 }
 
-document.getElementById("themeBtn").addEventListener("click", function(){ isLight = !isLight; document.body.classList.toggle("light", isLight); this.textContent = isLight ? "🌙" : "☀️"; });
-
-// Tab Focus Route Core Sync Fix
 function switchTab(name){
   document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-tab") === name); });
   document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
@@ -141,7 +138,6 @@ async function runAnalysis(ticker){
   var prompt = "You are an expert Indian stock analyst. Provide a technical target evaluation matrix review structure for ticker " + ticker + " with close price " + pData.price + ". Return strictly a single clean JSON dictionary layout string: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"tradeDirection\":\"BUY/SELL/WAIT\",\"entry\":\"₹X\",\"stopLoss\":\"₹Y\",\"target1\":\"₹Z\",\"target2\":\"₹W\",\"rsiSignal\":\"Text\",\"macdSignal\":\"Text\",\"volumeSignal\":\"Text\",\"smaSignal\":\"Text\",\"fiiActivity\":\"Text\",\"optionsOI\":\"Text\",\"probBull\":60,\"probBear\":40,\"riskLevel\":\"Low/Medium/High\",\"riskScore\":45,\"reasons\":[\"Factor A\",\"Factor B\"],\"summary\":\"Analysis overview profile parameters here.\"}";
   var aiTxt = await freeAI(prompt); var ai = pj(aiTxt) || {};
 
-  // Unbreakable Mathematical Fail-Safe Mapping Layout
   var d = {
     ticker: ticker, company: pData.name, price: pData.price, changePct: pData.changePct, up: pData.up,
     high: pData.high, low: pData.low, volume: pData.volume, mktCap: pData.mktCap, closes: closes, volumes: volumes,
@@ -165,7 +161,7 @@ function renderAnalysis(d){
 
   document.getElementById("aBody").innerHTML =
     '<button class="bbtn" onclick="switchTab(\'home\')">← Back Home</button>' +
-    '<div class="acrd"><div class="ahdr"><div><div class="anm">' + d.company + '</div><div class="asb">' + d.ticker + ' · India</div>' +
+    '<div class="acrd"><div class="ahdr"><div><div class="anm">' + d.company + '</div><div class="asb">' + d.ticker.replace("^", "") + ' · India</div>' +
     '<div class="atgs"><span class="atg" style="color:' + t.c + ';border-color:' + t.b + ';background:' + t.bg + '">' + d.trend + '</span><span class="atg">' + d.mktCap + '</span></div></div>' +
     '<div class="apr" style="margin-left:auto;text-align:right;"><div class="bprc" style="color:' + pc + '">' + d.price + '</div><div class="bchg" style="color:' + pc + '">' + d.changePct + '</div></div></div>' +
     '<div style="margin-top:10px; background:#111625; padding:10px; border-radius:10px; border:1px dashed #1c2a45; display:flex; justify-content:space-between; align-items:center;">' +
@@ -189,7 +185,6 @@ function renderAnalysis(d){
   document.getElementById("lnkTM").addEventListener("click", function(){ document.getElementById("tmIn").value = d.ticker; switchTab("term"); runOutlook(d.ticker); });
 }
 
-// ── NEXT DAY ANALYSIS ENGINE ──
 document.getElementById("ndBtn").addEventListener("click", function(){ var q = document.getElementById("ndIn").value.trim(); if(q) runNextDay(q); });
 async function runNextDay(ticker){
   ticker = ticker.toUpperCase().trim(); var body = document.getElementById("ndBody"); body.innerHTML = ldng("Processing tomorrow's forecasting parameters for " + ticker + "...");
@@ -205,7 +200,7 @@ async function runNextDay(ticker){
 }
 function renderND(d) {
   var t = tSty(d.trend);
-  document.getElementById("ndBody").innerHTML = '<div class="sec"><h3>Tomorrow\'s Forecast Target: ' + d.ticker + '</h3><br>' +
+  document.getElementById("ndBody").innerHTML = '<div class="sec"><h3>Tomorrow\'s Forecast Target: ' + d.ticker.replace("^", "") + '</h3><br>' +
     '<div>Current Base Close: <strong>' + d.price + '</strong></div>' +
     '<div>Model Open Indicator: <strong style="color:#3b82f6">' + d.gapUpDown + '</strong></div>' +
     '<div>Expected Range Variance: <strong>' + d.expectedRange + '</strong></div>' +
@@ -213,7 +208,6 @@ function renderND(d) {
     '<div class="asum" style="border-left-color:' + t.c + '">🤖 <strong>AI Target Direction:</strong> <span style="color:' + t.c + ';font-weight:700;">' + d.trend + ' (' + d.confidence + '%)</span><br><br>' + d.summary + '</div></div>';
 }
 
-// ── HORIZON STRATEGY STRATEGY OUTLOOK ENGINE ──
 document.querySelectorAll(".tfb").forEach(function(b){ b.addEventListener("click", function(){ document.querySelectorAll(".tfb").forEach(function(x){ x.classList.remove("active"); }); b.classList.add("active"); activeTF = b.getAttribute("data-tf"); if(window.activeTickerNode) runOutlook(window.activeTickerNode); }); });
 document.getElementById("tmBtn").addEventListener("click", function(){ var q = document.getElementById("tmIn").value.trim(); if(q) runOutlook(q); });
 async function runOutlook(ticker){
@@ -228,7 +222,7 @@ async function runOutlook(ticker){
   }
   
   var targetVal = d.target || d.target1 || "—"; var riskVal = d.risk || d.riskLevel || "Medium"; var t = tSty(d.trend);
-  body.innerHTML = '<div class="sec"><h3>Macro Strategy Horizon Outlook Model: ' + ticker + '</h3><br>' +
+  body.innerHTML = '<div class="sec"><h3>Macro Strategy Horizon Outlook Model: ' + ticker.replace("^", "") + '</h3><br>' +
     '<div>Trajectory Map Consensus: <strong style="color:' + t.c + '">' + d.trend + ' (' + d.confidence + '% Weighting)</strong></div>' +
     '<div>Structural Valuation Target Objective: <strong>' + targetVal + '</strong></div>' +
     '<div>Inherent Risk Parameters: <strong>' + riskVal + '</strong></div>' +
@@ -268,13 +262,12 @@ function renderCal(arr){
 }
 document.getElementById("btnCal").addEventListener("click", function(){ loadCal(true); });
 
-// ── CONTEXT-AWARE CHAT CO-PILOT ──
 document.getElementById("chatSend").addEventListener("click", sendChat);
 document.getElementById("chatIn").addEventListener("keydown", function(e){ if(e.key === "Enter") sendChat(); });
 async function sendChat(){
   var inp = document.getElementById("chatIn"); var q = inp.value.trim(); if(!q) return;
   inp.value = ""; var msgs = document.getElementById("chatMsgs"); msgs.innerHTML += '<div class="cm cmu">' + q + '</div>';
-  var tid = "m" + Date.now(); msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Verifying terminal configurations and evaluating targets data streams...</div>';
+  var tid = "m" + Date.now(); msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Cross-referencing indicator arrays and evaluating data streams...</div>';
   msgs.scrollTop = msgs.scrollHeight;
   
   var tokenMatch = q.toUpperCase().match(/\b([A-Z]{2,10})\b/g) || [];
