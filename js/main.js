@@ -14,68 +14,68 @@ function rls(arr){ if(!Array.isArray(arr)) return ""; return arr.map(function(r)
 function skels(h, n){ return Array(n).fill('<div class="skel" style="height:' + h + 'px;margin-bottom:8px"></div>').join(""); }
 function ldng(msg){ return '<div style="text-align:center;padding:40px 20px"><div class="spnr"></div><div style="font-size:13px;color:#64748b">' + msg + '</div></div>'; }
 
-// ── ENHANCEMENT: ADVANCED DUAL-AXIS SVG CHART (PRICE WAVE + VOLUME HISTOGRAM) ──
 function drawNativeChart(closes, volumes, up) {
   if(!closes || closes.length < 5) return '';
-  var w = 500, h = 160;
-  
-  // Math bounds mapping for Prices axis
+  var w = 500, h = 140;
   var minP = Math.min(...closes), maxP = Math.max(...closes);
   var rngP = maxP - minP || 1;
   var pricePts = closes.map((p, i) => {
     var x = (i / (closes.length - 1)) * w;
-    var y = h - ((p - minP) / rngP) * (h - 45) - 30; // Leave structural padding bands
+    var y = h - ((p - minP) / rngP) * (h - 45) - 30;
     return x.toFixed(1) + ',' + y.toFixed(1);
   }).join(' ');
 
-  // Math bounds mapping for Volumes histogram bars along the bottom baseline
   var volumeHTML = "";
   if(volumes && volumes.length > 0) {
-    var maxV = Math.max(...volumes) || 1;
-    var barCount = closes.length;
-    var barWidth = (w / barCount) * 0.75;
-    
+    var maxV = Math.max(...volumes) || 1; var barCount = closes.length; var barWidth = (w / barCount) * 0.75;
     volumes.forEach((v, idx) => {
-      var barHeight = (v / maxV) * 25; // Map bars to peak max heights of 25px
-      var x = (idx / (barCount - 1)) * w - (barWidth / 2);
-      var y = h - barHeight - 5;
+      var barHeight = (v / maxV) * 25; var x = (idx / (barCount - 1)) * w - (barWidth / 2); var y = h - barHeight - 5;
       volumeHTML += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barWidth.toFixed(1) + '" height="' + barHeight.toFixed(1) + '" fill="#1e293b" opacity="0.65"/>';
     });
   }
-  
   var color = up ? "#22c55e" : "#ef4444";
   return '<div style="margin:14px 0;background:#0b0f19;border:1px solid #1c2a45;border-radius:12px;padding:12px;">' +
     '<div style="font-size:10px;color:#475569;margin-bottom:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:flex;justify-content:space-between;"><span>Intraday Technical Waveform</span><span>Dual-Axis Vol/Price</span></div>' +
-    '<div style="height:150px;width:100%;"><svg viewBox="0 0 500 160" style="width:100%; height:100%; overflow:visible;">' +
-    volumeHTML +
-    '<polyline points="' + pricePts + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<div style="height:120px;width:100%;"><svg viewBox="0 0 500 140" style="width:100%; height:100%; overflow:visible;">' +
+    volumeHTML + '<polyline points="' + pricePts + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
     '</svg></div></div>';
 }
 
-// Theme Config Toggle
-document.getElementById("themeBtn").addEventListener("click", function(){ isLight = !isLight; document.body.classList.toggle("light", isLight); this.textContent = isLight ? "🌙" : "☀️"; });
-
-// State Navigation Switch
+// Switch Tab Router Context Trigger Fix
 function switchTab(name){
   document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-tab") === name); });
   document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
-  if(name === "global") loadGlobal();
+  
+  if(name === "global") loadGlobal(); 
   if(name === "calendar") loadCal();
+  
+  // Dynamic Tab Focus Sync: Autofills inputs and updates targets immediately on click
+  if(name === "nextday" && window.activeTickerNode) {
+    var ndInput = document.getElementById("ndIn");
+    if(ndInput && ndInput.value !== window.activeTickerNode) {
+      ndInput.value = window.activeTickerNode;
+      runNextDay(window.activeTickerNode);
+    }
+  }
+  if(name === "term" && window.activeTickerNode) {
+    var tmInput = document.getElementById("tmIn");
+    if(tmInput && tmInput.value !== window.activeTickerNode) {
+      tmInput.value = window.activeTickerNode;
+      runOutlook(window.activeTickerNode);
+    }
+  }
 }
 document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
 
-// Search Suggest Engine
 var siEl = document.getElementById("si"), ddEl = document.getElementById("dd");
 var ddTmr = null;
 siEl.addEventListener("input", function(){
-  clearTimeout(ddTmr); var q = siEl.value.trim();
-  if(q.length < 1){ ddEl.classList.remove("open"); return; }
+  clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ ddEl.classList.remove("open"); return; }
   ddTmr = setTimeout(function(){ doSearch(q); }, 300);
 });
 async function doSearch(q) {
   ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching dynamic fields...</div>';
-  ddEl.classList.add("open");
-  var res = await yfSearch(q);
+  ddEl.classList.add("open"); var res = await yfSearch(q);
   if (!res.length) { ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">No matching assets.</div>'; return; }
   ddEl.innerHTML = res.map(function(r){
     var sym = r.symbol.replace(".NS", "").replace(".BO", "");
@@ -85,19 +85,17 @@ async function doSearch(q) {
 ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
 document.addEventListener("click", function(e){ if(!e.target.closest(".sw")) ddEl.classList.remove("open"); });
 
-// Home components streams loaders
 async function loadNews(force){
   if(!force && window.CACHE.news && fresh(window.CACHE.nTs, window.TTL.s)) { renderNews(window.CACHE.news); return; }
   document.getElementById("newsBody").innerHTML = skels(56, 3);
-  var news = await yfNews("NSE NIFTY India");
-  window.CACHE.news = news; window.CACHE.nTs = Date.now(); renderNews(news);
+  var news = await yfNews("NSE NIFTY India"); window.CACHE.news = news; window.CACHE.nTs = Date.now(); renderNews(news);
 }
 function renderNews(arr){
-  if(!arr.length) { document.getElementById("newsBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">No active briefings found.</div>'; return; }
+  if(!arr.length) { document.getElementById("newsBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">No active market briefings.</div>'; return; }
   document.getElementById("newsBody").innerHTML = arr.map(function(n){
     var h = n.headline.toLowerCase(); var b = '<span class="su">Neutral</span>';
-    if(h.includes("rise") || h.includes("profit") || h.includes("surge") || h.includes("gain") || h.includes("up") || h.includes("buy")) b = '<span class="sp">🟢 Bullish</span>';
-    else if(h.includes("fall") || h.includes("loss") || h.includes("slump") || h.includes("drop") || h.includes("crash")) b = '<span class="sn">🔴 Bearish</span>';
+    if(h.includes("rise") || h.includes("profit") || h.includes("surge") || h.includes("gain") || h.includes("up")) b = '<span class="sp">🟢 Bullish</span>';
+    else if(h.includes("fall") || h.includes("loss") || h.includes("slump") || h.includes("drop")) b = '<span class="sn">🔴 Bearish</span>';
     return '<div class="nc"><div class="nc-head">' + n.headline + '</div><div class="nc-meta"><span class="nc-src">' + n.source + '</span><span class="nc-time">' + n.time + '</span>' + b + '</div></div>';
   }).join("");
 }
@@ -106,12 +104,10 @@ document.getElementById("btnNews").addEventListener("click", function(){ loadNew
 async function loadTrend(force){
   if(!force && window.CACHE.trend && fresh(window.CACHE.tTs, window.TTL.s)) { renderTrend(window.CACHE.trend); return; }
   document.getElementById("trendBody").innerHTML = skels(58, 4);
-  var movers = await yfMovers();
-  window.CACHE.trend = movers; window.CACHE.tTs = Date.now(); renderTrend(movers);
+  var movers = await yfMovers(); window.CACHE.trend = movers; window.CACHE.tTs = Date.now(); renderTrend(movers);
 }
 function renderTrend(arr){
-  if(!arr.length) { document.getElementById("trendBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">Trending streams currently synchronization locking.</div>'; return; }
-  
+  if(!arr.length) { document.getElementById("trendBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">Movers terminal temporarily offline.</div>'; return; }
   document.getElementById("trendBody").innerHTML = arr.slice(0, 8).map(function(s){
     var up = isUp(s.chg); var pc = up ? "#22c55e" : "#ef4444";
     var emoji = ["📈", "📊", "⚡", "🚀", "💎", "🔋", "🏢", "🏭"][Math.floor(Math.random() * 8)];
@@ -120,20 +116,12 @@ function renderTrend(arr){
       '<div style="text-align:right;"><div style="font-size:12px;font-weight:700;color:' + pc + '">' + s.price + '</div><div style="font-size:10px;color:' + pc + '">' + (up ? "▲" : "▼") + ' ' + s.chg + '</div></div></div>';
   }).join("");
   
-  // Dynamic generation of view handles without hardcoded keys
   var stripHTML = '<span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View:</span>';
-  arr.slice(0, 6).forEach(function(s) {
-    stripHTML += '<span class="csg" onclick="runAnalysis(\'' + s.ticker + '\')" style="margin:0; padding: 5px 12px;">' + s.ticker + '</span>';
-  });
+  arr.slice(0, 6).forEach(function(s) { stripHTML += '<span class="csg" onclick="runAnalysis(\'' + s.ticker + '\')" style="margin:0; padding: 5px 12px;">' + s.ticker + '</span>'; });
   document.getElementById("quickViewStrip").innerHTML = stripHTML;
 
-  // AI chat question templates sync automatically
-  var chatSgHTML = "";
-  arr.slice(0, 4).forEach(function(s) {
-    chatSgHTML += '<span class="csg" onclick="document.getElementById(\'chatIn\').value=this.textContent;sendChat();">Is ' + s.ticker + ' a good buy?</span>';
-  });
-  var chatSgBox = document.getElementById("chatSuggestions");
-  if(chatSgBox) chatSgBox.innerHTML = chatSgHTML;
+  var chatSgHTML = ""; arr.slice(0, 4).forEach(function(s) { chatSgHTML += '<span class="csg" onclick="document.getElementById(\'chatIn\').value=this.textContent;sendChat();">Is ' + s.ticker + ' a good buy?</span>'; });
+  var chatSgBox = document.getElementById("chatSuggestions"); if(chatSgBox) chatSgBox.innerHTML = chatSgHTML;
 
   document.querySelectorAll(".tcard").forEach(function(el){ el.addEventListener("click", function(){ runAnalysis(el.getAttribute("data-t")); }); });
 }
@@ -145,43 +133,35 @@ async function loadIdx(){
   document.getElementById("idxCards").innerHTML = ic("NIFTY 50", n) + ic("SENSEX", s);
 }
 
-// ── FULL SYSTEM TECHNICAL ANALYSIS CORE ──
 async function runAnalysis(ticker){
   ticker = ticker.toUpperCase().trim(); siEl.value = ticker; window.activeTickerNode = ticker; switchTab("analysis");
-  var body = document.getElementById("aBody");
-  if(window.CACHE.analysis[ticker] && fresh(window.CACHE.analysis[ticker].ts, window.TTL.m)) { renderAnalysis(window.CACHE.analysis[ticker].d); return; }
-  body.innerHTML = ldng("Processing dual-axis matrix nodes for " + ticker + "...");
+  var body = document.getElementById("aBody"); if(window.CACHE.analysis[ticker] && fresh(window.CACHE.analysis[ticker].ts, window.TTL.m)) { renderAnalysis(window.CACHE.analysis[ticker].d); return; }
+  body.innerHTML = ldng("Processing framework matrices for " + ticker + "...");
 
   var pData = await yfQuote(ticker); var closes = pData ? pData.closes : []; var volumes = pData ? pData.volumes : []; var news = await yfNews(ticker);
-  var rsi = calcRSI(closes, 14); var macd = calcMACD(closes);
-  var ema20 = calcEMA(closes, 20); var ema50 = calcEMA(closes, 50); var ema200 = calcEMA(closes, 200); var sr = calcSR(closes);
+  var rsi = calcRSI(closes, 14); var macd = calcMACD(closes); var ema20 = calcEMA(closes, 20); var ema50 = calcEMA(closes, 50); var sr = calcSR(closes);
 
-  // ── ENHANCEMENT: Generate the Algorithmic Health Metrics instantly ──
   var calculatedHealth = calculateTechnicalScore(closes, rsi, macd, ema20, ema50);
   var healthVerdict = calculatedHealth > 75 ? "Strong Buy" : calculatedHealth > 50 ? "Buy" : calculatedHealth > 35 ? "Hold" : "Sell";
   var healthColor = tSty(healthVerdict).c;
 
-  var prompt = "You are an expert Indian stock analyst. Provide a formal technical review structure for ticker " + ticker + " with absolute price close " + (pData ? pData.price : "N/A") + " and RSI parameter " + rsi + ". Return strictly a single JSON object (no backticks markdown wrappers): {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"tradeDirection\":\"BUY/SELL/WAIT\",\"entry\":\"₹X\",\"stopLoss\":\"₹Y\",\"target1\":\"₹Z\",\"target2\":\"₹W\",\"rsiSignal\":\"Text\",\"macdSignal\":\"Text\",\"volumeSignal\":\"Text\",\"smaSignal\":\"Text\",\"fiiActivity\":\"Text\",\"diiActivity\":\"Text\",\"optionsOI\":\"Text\",\"probBull\":60,\"probBear\":40,\"riskLevel\":\"Low/Medium/High\",\"riskScore\":45,\"reasons\":[\"Factor 1\",\"Factor 2\",\"Factor 3\",\"Factor 4\",\"Factor 5\"],\"summary\":\"Two sentence analysis synthesis here.\"}";
+  var prompt = "You are an expert Indian stock analyst. Provide a formal technical review structure for ticker " + ticker + " with close value " + (pData ? pData.price : "N/A") + ". Return strictly a single JSON dictionary object: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"tradeDirection\":\"BUY/SELL/WAIT\",\"entry\":\"₹X\",\"stopLoss\":\"₹Y\",\"target1\":\"₹Z\",\"target2\":\"₹W\",\"rsiSignal\":\"Text\",\"macdSignal\":\"Text\",\"volumeSignal\":\"Text\",\"smaSignal\":\"Text\",\"fiiActivity\":\"Text\",\"optionsOI\":\"Text\",\"probBull\":60,\"probBear\":40,\"riskLevel\":\"Low/Medium/High\",\"riskScore\":45,\"reasons\":[\"Factor A\",\"Factor B\"],\"summary\":\"Two sentence summary profile analysis here.\"}";
   var aiTxt = await freeAI(prompt); var ai = pj(aiTxt) || {};
 
   var d = {
     ticker: ticker, company: pData ? pData.name : ticker, price: pData ? pData.price : "N/A", changePct: pData ? pData.changePct : "—", up: pData ? pData.up : true,
     high: pData ? pData.high : "—", low: pData ? pData.low : "—", volume: pData ? pData.volume : "—", mktCap: pData ? pData.mktCap : "—", closes: closes, volumes: volumes,
-    rsi: rsi, macd: macd || "0.00", ema20: ema20 ? "₹" + ema20 : "—", ema50: ema50 ? "₹" + ema50 : "—", ema200: ema200 ? "₹" + ema200 : "—", support: sr.sup, resistance: sr.res, news: news.slice(0, 4),
-    healthScore: calculatedHealth, healthVerdict: healthVerdict, healthColor: healthColor,
-    trend: ai.trend || "Neutral", confidence: ai.confidence || 60, tradeDirection: ai.tradeDirection || "WAIT", entry: ai.entry || "—", stopLoss: ai.stopLoss || "—", target1: ai.target1 || "—", target2: ai.target2 || "—",
-    rsiSignal: ai.rsiSignal || "Neutral Distribution Profile", macdSignal: ai.macdSignal || "Convergence Zone Tracking", volumeSignal: ai.volumeSignal || "Standard Distribution", smaSignal: ai.smaSignal || "Tracking Standard Levels",
-    fiiActivity: ai.fiiActivity || "Balanced Flows", diiActivity: ai.diiActivity || "Institutional Consolidation", optionsOI: ai.optionsOI || "Neutral Build", probBull: ai.probBull || 50, probBear: ai.probBear || 50,
-    riskLevel: ai.riskLevel || "Medium", riskScore: ai.riskScore || 50, reasons: ai.reasons || ["Calculated via algorithmic model mapping."], summary: ai.summary || "System generated view based on historical pricing array matrices."
+    rsi: rsi, macd: macd || "0.00", support: sr.sup, resistance: sr.res, news: news.slice(0, 4), healthScore: calculatedHealth, healthVerdict: healthVerdict, healthColor: healthColor,
+    trend: ai.trend || healthVerdict, confidence: ai.confidence || calculatedHealth, tradeDirection: ai.tradeDirection || "WAIT", entry: ai.entry || "—", stopLoss: ai.stopLoss || "—", target1: ai.target1 || "—", target2: ai.target2 || "—",
+    rsiSignal: ai.rsiSignal || "Neutral Index Zone", macdSignal: ai.macdSignal || "Convergence Zone", volumeSignal: ai.volumeSignal || "Standard Volume", smaSignal: ai.smaSignal || "Balanced Lines",
+    fiiActivity: ai.fiiActivity || "Balanced Positions", optionsOI: ai.optionsOI || "Neutral Build", probBull: ai.probBull || calculatedHealth, probBear: ai.probBear || (100 - calculatedHealth),
+    riskLevel: ai.riskLevel || "Medium", riskScore: ai.riskScore || 50, reasons: ai.reasons || ["Calculated via background indicators matrix."], summary: ai.summary || "System parameters tracking stable movement trends."
   };
   window.CACHE.analysis[ticker] = { d: d, ts: Date.now() }; renderAnalysis(d);
 }
 
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444"; var t = tSty(d.trend);
-  var pb = d.probBull; var pbe = d.probBear; var rs = d.riskScore;
-  
-  // Render the enhanced Dual Axis Chart
   var chartHTML = drawNativeChart(d.closes, d.volumes, d.up);
   var nHTML = d.news.map(n => '<div class="nc"><div class="nc-head">' + n.headline + '</div><div class="nc-meta"><span>' + n.source + '</span><span>·</span><span>' + n.time + '</span></div></div>').join("");
 
@@ -190,25 +170,20 @@ function renderAnalysis(d){
     '<div class="acrd"><div class="ahdr"><div><div class="anm">' + d.company + '</div><div class="asb">' + d.ticker + ' · India</div>' +
     '<div class="atgs"><span class="atg" style="color:' + t.c + ';border-color:' + t.b + ';background:' + t.bg + '">' + d.trend + '</span><span class="atg">' + d.mktCap + '</span></div></div>' +
     '<div class="apr" style="margin-left:auto;text-align:right;"><div class="bprc" style="color:' + pc + '">' + d.price + '</div><div class="bchg" style="color:' + pc + '">' + d.changePct + '</div></div></div>' +
-    
-    // Injected Algorithmic Math health widget bar
     '<div style="margin-top:10px; background:#111625; padding:10px; border-radius:10px; border:1px dashed #1c2a45; display:flex; justify-content:space-between; align-items:center;">' +
-    '<div><span style="font-size:11px; color:#64748b; font-weight:600;">ALGORITHMIC HEALTH SCORE:</span>' +
-    '<div style="font-size:15px; font-weight:800; color:'+d.healthColor+'">' + d.healthScore + '% — ' + d.healthVerdict + '</div></div>' +
-    '<div style="height:6px; width:120px; background:#1c2a45; border-radius:3px; overflow:hidden;"><div style="height:100%; width:'+d.healthScore+'%; background:'+d.healthColor+'"></div></div></div>' +
-    '</div>' +
-    
+    '<div><span style="font-size:11px; color:#64748b; font-weight:600;">TECHNICAL SCORE:</span><div style="font-size:15px; font-weight:800; color:'+d.healthColor+'">' + d.healthScore + '% — ' + d.healthVerdict + '</div></div>' +
+    '<div style="height:6px; width:120px; background:#1c2a45; border-radius:3px; overflow:hidden;"><div style="height:100%; width:'+d.healthScore+'%; background:'+d.healthColor+'"></div></div></div></div>' +
     chartHTML +
-    '<div class="g4"><div class="gc"><div class="gcl">Support Support</div><div class="gcv" style="color:#22c55e">' + d.support + '</div></div><div class="gc"><div class="gcl">Resistance Resistance</div><div class="gcv" style="color:#ef4444">' + d.resistance + '</div></div><div class="gc"><div class="gcl">FII Operations</div><div class="gcv" style="font-size:11px">' + d.fiiActivity + '</div></div><div class="gc"><div class="gcl">OI Structure</div><div class="gcv" style="font-size:11px">' + d.optionsOI + '</div></div></div>' +
-    '<div class="sec"><div class="stitle">Technical Indicators</div><div class="g3">' +
+    '<div class="g4"><div class="gc"><div class="gcl">Support</div><div class="gcv" style="color:#22c55e">' + d.support + '</div></div><div class="gc"><div class="gcl">Resistance</div><div class="gcv" style="color:#ef4444">' + d.resistance + '</div></div><div class="gc"><div class="gcl">FII Operations</div><div class="gcv" style="font-size:11px">' + d.fiiActivity + '</div></div><div class="gc"><div class="gcl">OI Structure</div><div class="gcv" style="font-size:11px">' + d.optionsOI + '</div></div></div>' +
+    '<div class="sec"><div class="stitle">Indicators</div><div class="g3">' +
     '<div class="ic"><div class="icl">RSI (14)</div><div class="icv" style="color:#f59e0b">' + d.rsi + '</div><div class="icd">' + d.rsiSignal + '</div></div>' +
     '<div class="ic"><div class="icl">MACD Line</div><div class="icv" style="color:#3b82f6">' + d.macd + '</div><div class="icd">' + d.macdSignal + '</div></div>' +
     '<div class="ic"><div class="icl">Volume Multiplier</div><div class="icv" style="font-size:13px;">' + d.volume + '</div><div class="icd">' + d.volumeSignal + '</div></div></div></div>' +
-    '<div class="sec"><div class="stitle">AI Predictive Analyst Evaluation Model</div><div class="pr"><div><span class="pb2" style="color:' + t.c + ';background:' + t.bg + ';border-color:' + t.b + '">' + d.tradeDirection + ' DIRECTION</span><div style="font-size:11px;color:#94a3b8;margin-top:7px;">Confidence Threshold: <strong>' + d.confidence + '%</strong> | Risk Level: <strong>' + d.riskLevel + '</strong></div></div>' + ring(d.confidence) + '</div>' +
-    '<div class="pbl"><span style="color:#22c55e">🟢 Bull Projections ' + pb + '%</span><span style="color:#ef4444">Bear Projections ' + pbe + '% 🔴</span></div><div class="pbb"><div class="pb-b" style="width:' + pb + '%"></div><div class="pb-r" style="width:' + pbe + '%"></div></div>' +
-    '<div class="lvls"><div class="lv lv-e"><div class="lvl">Action Entry</div><div class="lvv">' + d.entry + '</div></div><div class="lv lv-s"><div class="lvl">Stop Loss Loss</div><div class="lvv">' + d.stopLoss + '</div></div><div class="lv lv-t"><div class="lvl">Objective 1</div><div class="lvv">' + d.target1 + '</div></div></div>' +
-    '<div class="asum">💡 <strong>Analysis Core Summary:</strong> ' + d.summary + '</div>' +
-    (rls(d.reasons) ? '<div style="margin-top:12px;"><div class="stitle">Key Technical Parameters Matrix</div>' + rls(d.reasons) + '</div>' : '') + '</div>' +
+    '<div class="sec"><div class="stitle">AI Evaluation Model</div><div class="pr"><div><span class="pb2" style="color:' + t.c + ';background:' + t.bg + ';border-color:' + t.b + '">' + d.tradeDirection + ' DIRECTION</span><div style="font-size:11px;color:#94a3b8;margin-top:7px;">Confidence: <strong>' + d.confidence + '%</strong> | Risk: <strong>' + d.riskLevel + '</strong></div></div>' + ring(d.confidence) + '</div>' +
+    '<div class="pbl"><span style="color:#22c55e">🟢 Bull Projections ' + d.probBull + '%</span><span style="color:#ef4444">Bear Projections ' + d.probBear + '% 🔴</span></div><div class="pbb"><div class="pb-b" style="width:' + d.probBull + '%"></div><div class="pb-r" style="width:' + d.probBear + '%"></div></div>' +
+    '<div class="lvls"><div class="lv lv-e"><div class="lvl">Action Entry</div><div class="lvv">' + d.entry + '</div></div><div class="lv lv-s"><div class="lvl">Stop Loss</div><div class="lvv">' + d.stopLoss + '</div></div><div class="lv lv-t"><div class="lvl">Objective 1</div><div class="lvv">' + d.target1 + '</div></div></div>' +
+    '<div class="asum">💡 <strong>Summary:</strong> ' + d.summary + '</div>' +
+    (rls(d.reasons) ? '<div style="margin-top:12px;"><div class="stitle">Core Matrix Factors</div>' + rls(d.reasons) + '</div>' : '') + '</div>' +
     (nHTML ? '<div class="sec"><div class="stitle">Ticker News Context</div>' + nHTML + '</div>' : '') +
     '<div style="display:flex;gap:8px;"><button class="abtn" id="lnkND">📅 Predict Next Day</button><button class="abtn" id="lnkTM">📈 Strategy Horizon Outlook</button></div>';
 
@@ -216,63 +191,60 @@ function renderAnalysis(d){
   document.getElementById("lnkTM").addEventListener("click", function(){ document.getElementById("tmIn").value = d.ticker; switchTab("term"); runOutlook(d.ticker); });
 }
 
-// ── NEXT DAY ANALYSIS ENGINE ──
+// ── NEXT DAY PREDICTIONS ──
 document.getElementById("ndBtn").addEventListener("click", function(){ var q = document.getElementById("ndIn").value.trim(); if(q) runNextDay(q); });
 async function runNextDay(ticker){
-  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("ndBody");
-  if(window.CACHE.nextday[ticker] && fresh(window.CACHE.nextday[ticker].ts, window.TTL.m)) { renderND(window.CACHE.nextday[ticker].d); return; }
-  body.innerHTML = ldng("Processing tomorrow's structural distribution map paths for " + ticker + "...");
-  
+  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("ndBody"); body.innerHTML = ldng("Processing tomorrow's pattern distribution channels for " + ticker + "...");
   var p = await yfQuote(ticker);
-  var prompt = "You are an Indian stocks specialist. Analyze tomorrow's probable directional behavior for " + ticker + " NSE. Current price is " + (p ? p.price : "N/A") + ". Return strictly a clean JSON block (no backticks markdown wrappers): {\"trend\":\"Bullish/Bearish\",\"confidence\":70,\"gapUpDown\":\"Gap Up / Gap Down / Flat Open\",\"expectedRange\":\"₹A - ₹B\",\"keyLevel\":\"₹C Pivot Point\",\"summary\":\"Provide a clear short summary statement regarding technical probabilities.\"}";
+  var prompt = "Analyze tomorrows probable directional movement setup for " + ticker + " NSE stock. Base price close is " + (p ? p.price : "N/A") + ". Return strictly a clean JSON layout block: {\"trend\":\"Bullish/Bearish\",\"confidence\":75,\"gapUpDown\":\"Gap Up / Flat Open\",\"expectedRange\":\"₹X - ₹Y\",\"keyLevel\":\"₹Z Pivot Line\",\"summary\":\"Two sentence analysis here.\"}";
   var aiTxt = await freeAI(prompt); var d = pj(aiTxt);
   
-  if(!d) { body.innerHTML = '<div class="errbox">AI engine timed out generating tomorrow\'s predictive boundaries profile. Please retry.</div>'; return; }
-  d.ticker = ticker; d.price = p ? p.price : "N/A";
-  window.CACHE.nextday[ticker] = { d: d, ts: Date.now() }; renderND(d);
+  if(!d) {
+    d = { trend: aiTxt.includes("Bull") ? "Bullish" : "Bearish", confidence: 70, gapUpDown: "Analytical Open Indicator", expectedRange: "Volatility Boundaries", keyLevel: "Pivot Bands", summary: aiTxt.replace(/\n/g, "<br>") };
+  }
+  d.ticker = ticker; d.price = p ? p.price : "N/A"; renderND(d);
 }
 function renderND(d) {
   var t = tSty(d.trend);
-  document.getElementById("ndBody").innerHTML = '<div class="sec"><h3 style="margin-bottom:10px;">Tomorrow\'s Predictive Target Profile: ' + d.ticker + '</h3>' +
-    '<div>Current Baseline Value Close: <strong>' + d.price + '</strong></div>' +
-    '<div>Algorithmic Open Indicator: <strong style="color:#3b82f6">' + d.gapUpDown + '</strong></div>' +
-    '<div>Modeled Trading Range: <strong>' + d.expectedRange + '</strong></div>' +
-    '<div>Key Pivot Level: <strong style="color:#f59e0b">' + d.keyLevel + '</strong></div>' +
-    '<div class="asum" style="border-left-color:' + t.c + '">🤖 <strong>Predictive Path Consensus:</strong> <span style="color:' + t.c + ';font-weight:700;">' + d.trend + ' (' + d.confidence + '%)</span><br><br>' + d.summary + '</div></div>';
+  document.getElementById("ndBody").innerHTML = '<div class="sec"><h3>Tomorrow\'s Forecast Target: ' + d.ticker + '</h3><br>' +
+    '<div>Current Base Close: <strong>' + d.price + '</strong></div>' +
+    '<div>Model Open Indicator: <strong style="color:#3b82f6">' + d.gapUpDown + '</strong></div>' +
+    '<div>Expected Range Variance: <strong>' + d.expectedRange + '</strong></div>' +
+    '<div>Key Support Level: <strong style="color:#f59e0b">' + d.keyLevel + '</strong></div>' +
+    '<div class="asum" style="border-left-color:' + t.c + '">🤖 <strong>AI Target Direction:</strong> <span style="color:' + t.c + ';font-weight:700;">' + d.trend + ' (' + d.confidence + '%)</span><br><br>' + d.summary + '</div></div>';
 }
 
-// ── HORIZON STRATEGY STRATEGY OUTLOOK ENGINE ──
-document.querySelectorAll(".tfb").forEach(function(b){ b.addEventListener("click", function(){ document.querySelectorAll(".tfb").forEach(function(x){ x.classList.remove("active"); }); b.classList.add("active"); activeTF = b.getAttribute("data-tf"); }); });
+// ── LONG/SHORT TERM STRATEGY HORIZONS ──
+document.querySelectorAll(".tfb").forEach(function(b){ b.addEventListener("click", function(){ document.querySelectorAll(".tfb").forEach(function(x){ x.classList.remove("active"); }); b.classList.add("active"); activeTF = b.getAttribute("data-tf"); if(window.activeTickerNode) runOutlook(window.activeTickerNode); }); });
 document.getElementById("tmBtn").addEventListener("click", function(){ var q = document.getElementById("tmIn").value.trim(); if(q) runOutlook(q); });
 async function runOutlook(ticker){
-  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("tmBody"); var k = ticker + "_" + activeTF;
-  if(window.CACHE.outlook[k] && fresh(window.CACHE.outlook[k].ts, window.TTL.m)) { body.innerHTML = window.CACHE.outlook[k].h; return; }
-  body.innerHTML = ldng("Synthesizing algorithmic long term macro models for " + ticker + "...");
-  
+  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("tmBody"); body.innerHTML = ldng("Assembling horizon investment thesis models for " + ticker + "...");
   var p = await yfQuote(ticker);
-  var prompt = "You are an equities analyst. Generate a long-term investment matrix outlook for " + ticker + " NSE. Current price is " + (p ? p.price : "N/A") + ". Target perspective window scale: " + activeTF + ". Return strictly a clean JSON dictionary (no code block wrappers): {\"trend\":\"Bullish/Neutral/Bearish\",\"confidence\":68,\"target\":\"₹Target\",\"risk\":\"Low/Medium/High\",\"summary\":\"Provide a full investment thesis details overview here.\"}";
+  var prompt = "Generate a short/long investment strategy outlook thesis for " + ticker + " NSE counters. Close price is " + (p ? p.price : "N/A") + ". Scope: " + activeTF + ". Return strictly a clean JSON block: {\"trend\":\"Bullish/Neutral\",\"confidence\":70,\"target\":\"₹Objective Target\",\"risk\":\"Low/Medium/High\",\"summary\":\"Provide full detailed investment strategy statements.\"}";
   var aiTxt = await freeAI(prompt); var d = pj(aiTxt);
   
-  if(!d) { body.innerHTML = '<div class="errbox">Failed to compile macro configuration frames. Please try again.</div>'; return; }
+  if(!d) {
+    d = { trend: "Strategic View", confidence: 75, target: "Technical Target Levels", risk: "Calculated Profile", summary: aiTxt.replace(/\n/g, "<br>") };
+  }
+  
+  var targetVal = d.target || d.target1 || "—";
+  var riskVal = d.risk || d.riskLevel || "Medium";
   var t = tSty(d.trend);
-  var html = '<div class="sec"><h3>Macro Strategy Horizon Outlook Model: ' + ticker + '</h3><br>' +
+  
+  body.innerHTML = '<div class="sec"><h3>Macro Strategy Horizon Outlook Model: ' + ticker + '</h3><br>' +
     '<div>Trajectory Map Consensus: <strong style="color:' + t.c + '">' + d.trend + ' (' + d.confidence + '% Weighting)</strong></div>' +
-    '<div>Structural Valuation Target Objective: <strong>' + d.target + '</strong></div>' +
-    '<div>Inherent Risk Parameters: <strong>' + d.risk + '</strong></div>' +
+    '<div>Structural Valuation Target Objective: <strong>' + targetVal + '</strong></div>' +
+    '<div>Inherent Risk Parameters: <strong>' + riskVal + '</strong></div>' +
     '<div class="asum">💡 <strong>Investment Framework Thesis:</strong> ' + d.summary + '</div></div>';
-    
-  window.CACHE.outlook[k] = { h: html, ts: Date.now() }; body.innerHTML = html;
 }
 
-// ── GLOBAL TERMINAL STREAMS ──
 async function loadGlobal(force){
   if(!force && window.CACHE.global && fresh(window.CACHE.gTs, window.TTL.s)) { renderGlobal(window.CACHE.global); return; }
   document.getElementById("gBody").innerHTML = skels(80, 2);
   try {
     var symbols = ["^NSEI", "^BSESN", "^GSPC", "^IXIC", "USDINR=X", "CL=F"];
-    var results = await Promise.all(symbols.map(s => yfQuote(s)));
-    window.CACHE.global = results; window.CACHE.gTs = Date.now(); renderGlobal(results);
-  } catch(e) { document.getElementById("gBody").innerHTML = '<div class="errbox">Global market matrix pipeline timed out.</div>'; }
+    var results = await Promise.all(symbols.map(s => yfQuote(s))); window.CACHE.global = results; window.CACHE.gTs = Date.now(); renderGlobal(results);
+  } catch(e) { document.getElementById("gBody").innerHTML = '<div class="errbox">Global market terminal connection timeout.</div>'; }
 }
 function renderGlobal(arr){
   var h = '<div class="ggrid">';
@@ -284,69 +256,45 @@ function renderGlobal(arr){
 }
 document.getElementById("btnGlobal").addEventListener("click", function(){ loadGlobal(true); });
 
-// ── EVENTS CALENDAR ──
 async function loadCal(force){
   if(!force && window.CACHE.cal && fresh(window.CACHE.cTs, window.TTL.l)) { renderCal(window.CACHE.cal); return; }
   document.getElementById("calBody").innerHTML = skels(56, 3);
   try {
-    var aiTxt = await freeAI("List 4 real or highly probable upcoming major corporate action events (earnings/dividends) for liquid Indian companies (e.g. Reliance, TCS, Infosys). Return strictly a clean JSON array list (no backticks markdown blocks): [{\"date\":\"DD MMM\",\"company\":\"Company Name\",\"type\":\"Earnings/Dividend\",\"detail\":\"Brief text descriptions\"}]");
-    var arr = pja(aiTxt) || [];
-    window.CACHE.cal = arr; window.CACHE.cTs = Date.now(); renderCal(arr);
-  } catch(e) { document.getElementById("calBody").innerHTML = '<div class="errbox">Events database system channel offline.</div>'; }
+    var aiTxt = await freeAI("List 4 corporate action action dates this week for popular Indian stocks. Return strictly a JSON list array layout: [{\"date\":\"DD MMM\",\"company\":\"Name\",\"type\":\"Dividend/Earnings\",\"detail\":\"Brief details\"}]");
+    var arr = pja(aiTxt) || []; window.CACHE.cal = arr; window.CACHE.cTs = Date.now(); renderCal(arr);
+  } catch(e) { document.getElementById("calBody").innerHTML = '<div class="errbox">Events tracker node offline.</div>'; }
 }
 function renderCal(arr){
   var h = '<div class="clst">';
-  arr.forEach(function(e){
-    h += '<div class="citem"><div class="cdt">' + e.date + '</div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">' + e.company + '</div><div style="font-size:11px;color:#64748b;margin-top:2px;">' + e.detail + '</div></div><span class="ctag ct-e">' + e.type + '</span></div>';
-  });
+  arr.forEach(function(e){ h += '<div class="citem"><div class="cdt">' + e.date + '</div><div style="flex:1;"><div style="font-size:13px;font-weight:700;">' + e.company + '</div><div style="font-size:11px;color:#64748b;margin-top:2px;">' + e.detail + '</div></div><span class="ctag ct-e">' + e.type + '</span></div>'; });
   document.getElementById("calBody").innerHTML = h + '</div>';
 }
 document.getElementById("btnCal").addEventListener("click", function(){ loadCal(true); });
 
-// ── ENHANCEMENT: "GIVE-EVERYTHING" CONTEXTUALIZED AI COPIOT CO-PILOT ──
+// ── CONTEXT-AWARE CHAT CO-PILOT ──
 document.getElementById("chatSend").addEventListener("click", sendChat);
 document.getElementById("chatIn").addEventListener("keydown", function(e){ if(e.key === "Enter") sendChat(); });
 async function sendChat(){
   var inp = document.getElementById("chatIn"); var q = inp.value.trim(); if(!q) return;
-  inp.value = ""; var msgs = document.getElementById("chatMsgs");
-  msgs.innerHTML += '<div class="cm cmu">' + q + '</div>';
-  var tid = "m" + Date.now();
-  msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Pulling market telemetry and cross-referencing indicators...</div>';
+  inp.value = ""; var msgs = document.getElementById("chatMsgs"); msgs.innerHTML += '<div class="cm cmu">' + q + '</div>';
+  var tid = "m" + Date.now(); msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Cross-referencing indicator arrays and pulling real-time metrics...</div>';
   msgs.scrollTop = msgs.scrollHeight;
   
-  // Intelligent State Resolution fallback checks user tracking tokens
   var tokenMatch = q.toUpperCase().match(/\b([A-Z]{2,10})\b/g) || [];
   var targetLookupSymbol = tokenMatch.length > 0 ? tokenMatch[0] : window.activeTickerNode;
-  
   var tickerContext = "";
   if(targetLookupSymbol) {
     var liveQuote = await yfQuote(targetLookupSymbol);
     if(liveQuote) {
-      var localRSI = calcRSI(liveQuote.closes, 14);
-      tickerContext = "Active Telemetry Frame Context for " + targetLookupSymbol + ": Current Price is " + liveQuote.price + ", Session Change is " + liveQuote.changePct + ", High/Low is " + liveQuote.high + "/" + liveQuote.low + ", Calculated RSI(14) is " + localRSI + ". ";
+      tickerContext = "Active Context for " + targetLookupSymbol + ": Current Price: " + liveQuote.price + ", Session Change: " + liveQuote.changePct + ", Session High/Low: " + liveQuote.high + "/" + liveQuote.low + ". ";
     }
   }
 
-  var prompt = "You are NanduChandu Markets AI expert terminal assistant. " + tickerContext + "Analyze the user's inquiry regarding economic parameters. Provide a realistic financial analysis response. Give everything relevant (support lines, resistance bands, target trends, chart shapes) neatly sorted in easy-to-read bullet points. Question: " + q;
+  var prompt = "You are NanduChandu Markets AI expert conversational system. " + tickerContext + "Give everything relevant to this inquiry (trends, entry/exit points, patterns, chart observations, support metrics) in an exhaustive, fully thorough, bulleted list. Inquiry: " + q;
   var txt = await freeAI(prompt);
-  
-  // High fidelity presentation processing replacements for basic readability formatting
-  var stylizedText = txt ? txt.replace(/\n/g, "<br>").replace(/\* \*\*(.*?)\*\*/g, "• <strong>$1</strong>").replace(/\* /g, "• ") : "Transmission fault encountered.";
-  document.getElementById(tid).innerHTML = stylizedText;
-  msgs.scrollTop = msgs.scrollHeight;
+  var stylizedText = txt ? txt.replace(/\n/g, "<br>").replace(/\* \*\*(.*?)\*\"/g, "• <strong>$1</strong>").replace(/\* /g, "• ") : "Transmission timeout encountered.";
+  document.getElementById(tid).innerHTML = stylizedText; msgs.scrollTop = msgs.scrollHeight;
 }
 
-// ── SETUP REFRESH LOOPS ──
 Promise.all([loadNews(), loadTrend(), loadIdx()]);
-
-setInterval(function() {
-  loadIdx();
-  if(document.getElementById("pg-home").classList.contains("show")) {
-    var timeElapsedSinceNews = Date.now() - window.CACHE.nTs;
-    if(timeElapsedSinceNews >= window.TTL.m) {
-      loadNews(true); loadTrend(true);
-    } else {
-      loadTrend(false);
-    }
-  }
-}, 30000);
+setInterval(function() { loadIdx(); if(document.getElementById("pg-home").classList.contains("show")) { if(Date.now() - window.CACHE.nTs >= window.TTL.m) { loadNews(true); loadTrend(true); } else { loadTrend(false); } } }, 30000);
