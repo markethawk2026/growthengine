@@ -1,13 +1,14 @@
 /**
- * nanduchandu-markets - Core UI & App Controller
+ * nanduchandu-markets - Core UI & App Controller (Enhanced UX Version)
  */
 
-// Application State
+// Application State with LocalStorage Persistence
 const AppState = {
   theme: 'dark',
   activeTab: 'dashboard',
-  selectedAsset: '^NSEI', // Default to Nifty 50
-  watchlist: ['^NSEI', '^BSESN', 'AAPL', 'MSFT', 'BTC-USD']
+  selectedAsset: '^NSEI',
+  // Load saved watchlist or fall back to defaults
+  watchlist: JSON.parse(localStorage.getItem('mh-watchlist')) || ['^NSEI', '^BSESN', 'AAPL', 'MSFT', 'BTC-USD']
 };
 
 // DOM Elements Cache
@@ -39,10 +40,8 @@ function initApp() {
  * Event Listeners Registration
  */
 function setupEventListeners() {
-  // Theme Toggle
   DOM.themeBtn?.addEventListener('click', toggleTheme);
 
-  // Tab Switching
   DOM.tabs.forEach(tab => {
     tab.addEventListener('click', (e) => {
       const targetPage = e.target.getAttribute('data-page');
@@ -50,17 +49,14 @@ function setupEventListeners() {
     });
   });
 
-  // Search Auto-suggest Logic
   DOM.searchInput?.addEventListener('input', handleSearchInput);
   
-  // Close search dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (!DOM.sw?.contains(e.target)) {
       DOM.searchDropdown?.classList.remove('open');
     }
   });
 
-  // Chat Interface Trigger
   DOM.sendChatBtn?.addEventListener('click', handleChatSubmission);
   DOM.chatInput?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleChatSubmission();
@@ -68,7 +64,7 @@ function setupEventListeners() {
 }
 
 /**
- * Toggle Interface Themes (Dark / Light)
+ * Toggle Interface Themes
  */
 function toggleTheme() {
   AppState.theme = AppState.theme === 'dark' ? 'light' : 'dark';
@@ -82,7 +78,7 @@ function toggleTheme() {
 }
 
 /**
- * Tab Page Navigation UI Engine
+ * Tab Page Navigation
  */
 function switchTab(pageId) {
   AppState.activeTab = pageId;
@@ -95,8 +91,8 @@ function switchTab(pageId) {
     page.classList.toggle('show', page.id === `${pageId}-page`);
   });
 
-  // Contextual actions depending on active view
   if (pageId === 'news') loadNewsData();
+  if (pageId === 'dashboard') loadDashboardData(); // Refresh data when going home
 }
 
 /**
@@ -105,17 +101,13 @@ function switchTab(pageId) {
 async function handleSearchInput(e) {
   const query = e.target.value.trim();
   
-  // Wait until the user types at least 2 characters to avoid spamming the API
   if (!query || query.length < 2) {
     DOM.searchDropdown?.classList.remove('open');
     return;
   }
 
   try {
-    // Fetch live matching companies from Yahoo Finance via our proxy layer
     const liveQuotes = await fetchSymbolSuggestions(query);
-
-    // Map Yahoo's response keys (longname/shortname) to match our dropdown renderer
     const filtered = liveQuotes.map(item => ({
       symbol: item.symbol,
       name: item.longname || item.shortname || item.exchange || "Financial Asset"
@@ -144,16 +136,30 @@ function renderSearchDropdown(items) {
   DOM.searchDropdown.classList.add('open');
 }
 
-/**
- * Global function attached to window scope for select clicks
- */
 window.selectAsset = function(symbol) {
   AppState.selectedAsset = symbol;
   if (DOM.searchInput) DOM.searchInput.value = symbol;
   DOM.searchDropdown?.classList.remove('open');
   
-  // Pivot UI focus to details or recalculate variables
   switchTab('analysis');
+  loadAssetAnalysis(symbol);
+};
+
+/**
+ * Watchlist Management Engine (Add/Remove Assets)
+ */
+window.toggleWatchlist = function(symbol) {
+  const index = AppState.watchlist.indexOf(symbol);
+  if (index > -1) {
+    AppState.watchlist.splice(index, 1); // Remove if exists
+  } else {
+    AppState.watchlist.push(symbol); // Add if new
+  }
+  
+  // Save configuration locally
+  localStorage.setItem('mh-watchlist', JSON.stringify(AppState.watchlist));
+  
+  // Re-render the asset profile header to update button state instantly
   loadAssetAnalysis(symbol);
 };
 
@@ -163,6 +169,14 @@ window.selectAsset = function(symbol) {
 async function loadDashboardData() {
   const gridContainer = document.getElementById('watchlist-grid');
   if (!gridContainer) return;
+
+  if (AppState.watchlist.length === 0) {
+    gridContainer.innerHTML = `
+      <div style="text-align:center; padding: 30px; color:#64748b; font-size:13px;">
+        Your watchlist is empty. Search for an asset and click "Add to Watchlist"!
+      </div>`;
+    return;
+  }
 
   gridContainer.innerHTML = '<div class="spnr"></div>';
 
@@ -178,7 +192,7 @@ async function loadDashboardData() {
           <div class="tcard" onclick="selectAsset('${symbol}')">
             <div>
               <div style="font-weight:700; font-size:13px;">${symbol}</div>
-              <div style="font-size:10px; color:#64748b;">${data.shortName || ''}</div>
+              <div style="font-size:10px; color:#64748b; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${data.shortName || ''}</div>
             </div>
             <div style="margin-left:auto; text-align:right;">
               <div style="font-size:13px; font-weight:700;">${data.regularMarketPrice?.toFixed(2)}</div>
@@ -187,11 +201,10 @@ async function loadDashboardData() {
           </div>
         `;
       } catch (err) {
-        // Fallback placeholder card on extraction fault
         html += `
-          <div class="tcard">
+          <div class="tcard" onclick="selectAsset('${symbol}')">
             <div><strong>${symbol}</strong></div>
-            <div style="color:#ef4444; font-size:10px;">Data Unavailable</div>
+            <div style="color:#ef4444; font-size:10px;">Network Timeout</div>
           </div>
         `;
       }
@@ -230,43 +243,51 @@ async function loadNewsData() {
 }
 
 /**
- * Populate Deep Analytical Structures and Metrics for Target Tickers
+ * Populate Deep Analytical Structures and Metrics
  */
 async function loadAssetAnalysis(symbol) {
   const container = document.getElementById('analysis-page');
   if (!container) return;
 
-  // Insert targeted skeletons or animations while async processes yield data
+  container.innerHTML = '<div class="spnr" style="margin-top: 40px;"></div>';
+
   try {
     const quote = await fetchYfQuote(symbol);
     const aiInsight = await fetchAISummary(symbol, quote);
 
-    // Update active analytical node UI blocks
-    const detailsContainer = document.getElementById('ticker-details-box');
-    if (detailsContainer) {
-      const changeSign = quote.regularMarketChangePercent >= 0 ? '+' : '';
-      const changeColor = quote.regularMarketChangePercent >= 0 ? '#22c55e' : '#ef4444';
-      
-      detailsContainer.innerHTML = `
+    const isSaved = AppState.watchlist.includes(symbol);
+    const btnText = isSaved ? '⭐ Remove Watchlist' : '➕ Add to Watchlist';
+    const btnStyle = isSaved ? 'background: #1a1400; border-color: #f59e0b; color: #f59e0b;' : '';
+
+    const changeSign = quote.regularMarketChangePercent >= 0 ? '+' : '';
+    const changeColor = quote.regularMarketChangePercent >= 0 ? '#22c55e' : '#ef4444';
+    
+    container.innerHTML = `
+      <div id="ticker-details-box">
         <div class="acrd">
           <div class="ahdr">
             <div>
               <div class="anm">${quote.symbol}</div>
               <div class="asb">${quote.longName || quote.shortName || ''} • ${quote.exchange}</div>
             </div>
-            <div class="apr">
+            <div class="apr" style="margin-left: auto;">
               <div class="bprc">${quote.regularMarketPrice?.toFixed(2)}</div>
               <div class="bchg" style="color:${changeColor}">${changeSign}${quote.regularMarketChangePercent?.toFixed(2)}%</div>
             </div>
           </div>
+          
+          <div style="margin-top: 15px;">
+            <button class="abtn" style="${btnStyle}" onclick="toggleWatchlist('${symbol}')">${btnText}</button>
+          </div>
+
           <div class="asum">
             <strong>AI Operational Pulse:</strong> ${aiInsight}
           </div>
         </div>
-      `;
-    }
+      </div>
+    `;
   } catch (err) {
-    console.error("Asset initialization UI sequence broken:", err);
+    container.innerHTML = `<div class="errbox">Failed to generate profiling view for ${symbol}.</div>`;
   }
 }
 
@@ -277,21 +298,16 @@ async function handleChatSubmission() {
   const text = DOM.chatInput?.value.trim();
   if (!text || !DOM.chatMessages) return;
 
-  // Render User Command Balloon
-  DOM.chatMessages.innerHTML += `
-    <div class="cm cmu">${text}</div>
-  `;
+  DOM.chatMessages.innerHTML += `<div class="cm cmu">${text}</div>`;
   DOM.chatInput.value = '';
   DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
 
-  // Artificial AI Response Loading State
   const aiTokenId = 'ai-typing-' + Date.now();
   DOM.chatMessages.innerHTML += `
     <div class="cm cmai" id="${aiTokenId}"><span class="mspn"></span> Thinking...</div>
   `;
   DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
 
-  // Mock processing step linking current active telemetry
   setTimeout(() => {
     const targetElement = document.getElementById(aiTokenId);
     if (targetElement) {
