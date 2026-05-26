@@ -100,30 +100,32 @@ function switchTab(pageId) {
 }
 
 /**
- * Dynamic Local Filtering for the Search Dropdown
+ * Dynamic Real-Time Filtering from Live Yahoo Finance Search API
  */
 async function handleSearchInput(e) {
-  const query = e.target.value.trim().toUpperCase();
-  if (!query) {
+  const query = e.target.value.trim();
+  
+  // Wait until the user types at least 2 characters to avoid spamming the API
+  if (!query || query.length < 2) {
     DOM.searchDropdown?.classList.remove('open');
     return;
   }
 
-  // Simulated static symbol definitions for dropdown generation 
-  // You can extend this or fetch dynamically from symbols.json
-  const sampleSymbols = [
-    { symbol: '^NSEI', name: 'Nifty 50 Index' },
-    { symbol: '^BSESN', name: 'S&P BSE SENSEX' },
-    { symbol: 'AAPL', name: 'Apple Inc.' },
-    { symbol: 'MSFT', name: 'Microsoft Corp' },
-    { symbol: 'BTC-USD', name: 'Bitcoin USD' }
-  ];
+  try {
+    // Fetch live matching companies from Yahoo Finance via our proxy layer
+    const liveQuotes = await fetchSymbolSuggestions(query);
 
-  const filtered = sampleSymbols.filter(s => 
-    s.symbol.includes(query) || s.name.toUpperCase().includes(query)
-  );
+    // Map Yahoo's response keys (longname/shortname) to match our dropdown renderer
+    const filtered = liveQuotes.map(item => ({
+      symbol: item.symbol,
+      name: item.longname || item.shortname || item.exchange || "Financial Asset"
+    }));
 
-  renderSearchDropdown(filtered);
+    renderSearchDropdown(filtered);
+  } catch (err) {
+    console.error("Live search auto-suggest dropdown error:", err);
+    renderSearchDropdown([]);
+  }
 }
 
 function renderSearchDropdown(items) {
