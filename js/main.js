@@ -286,5 +286,38 @@ async function sendChat(){
   document.getElementById(tid).innerHTML = stylizedText; msgs.scrollTop = msgs.scrollHeight;
 }
 
-Promise.all([loadNews(), loadTrend(), loadIdx()]);
-setInterval(function() { loadIdx(); if(document.getElementById("pg-home").classList.contains("show")) { if(Date.now() - window.CACHE.nTs >= window.TTL.m) { loadNews(true); loadTrend(true); } else { loadTrend(false); } } }, 30000);
+async function bootDashboard() {
+  // Staggered initialization to avoid simultaneous proxy requests
+  await loadIdx(); 
+  await sleep(500);
+  await loadTrend();
+  await sleep(500);
+  await loadNews();
+}
+
+// Updated Switch Tab with immediate contextual triggering
+function switchTab(name){
+  document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-tab") === name); });
+  document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
+  
+  if(name === "global") loadGlobal(); 
+  if(name === "calendar") loadCal();
+  
+  if(name === "nextday" && window.activeTickerNode) {
+    var ndInput = document.getElementById("ndIn");
+    if(ndInput) { ndInput.value = window.activeTickerNode; runNextDay(window.activeTickerNode); }
+  }
+  if(name === "term" && window.activeTickerNode) {
+    var tmInput = document.getElementById("tmIn");
+    if(tmInput) { tmInput.value = window.activeTickerNode; runOutlook(window.activeTickerNode); }
+  }
+}
+
+// Boot sequence
+bootDashboard();
+setInterval(function() { 
+  loadIdx(); 
+  if(document.getElementById("pg-home").classList.contains("show")) {
+    if(Date.now() - window.CACHE.nTs >= window.TTL.m) loadNews(true);
+  }
+}, 60000);
