@@ -103,3 +103,20 @@ async function fetchAISummary(symbol, contextData = {}) {
     return "Unable to parse AI insights at this moment.";
   }
 }
+
+/**
+ * Fetches dynamic symbol search suggestions directly from Yahoo Finance
+ * @param {string} query - The user's search query input
+ * @returns {Promise<Array>} List of matching quote objects
+ */
+async function fetchSymbolSuggestions(query) {
+  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}`;
+  try {
+    const res = await proxyFetch(url);
+    const data = await res.json();
+    return data?.quotes || [];
+  } catch (error) {
+    console.error("Live symbol lookup failure:", error);
+    return [];
+  }
+}
