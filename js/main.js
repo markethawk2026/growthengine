@@ -202,48 +202,63 @@ function renderND(d) {
   var t = tSty(d.trend);
   var arrow = d.trend.toLowerCase().includes("bull") ? "▲" : "▼";
   
+  // Calculate dynamic colors matching exchange dashboard theme parameters
+  var accentColor = d.trend.toLowerCase().includes("bull") ? "#00b06a" : "#ff3b30";
+  var accentBg = d.trend.toLowerCase().includes("bull") ? "rgba(0,176,106,0.12)" : "rgba(255,59,48,0.12)";
+
   document.getElementById("ndBody").innerHTML = `
-    <div class="sec" style="background:#0b0f19; border-radius:16px; padding:20px; border:1px solid #1c2a45;">
-      <h3 style="margin:0 0 16px 0; color:#e2e8f4; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
-        📅 Tomorrow's Target Blueprint: <span style="color:#3b82f6">${d.ticker.replace("^", "")}</span>
-      </h3>
+    <div class="sec" style="background:#0b0f19; border-radius:12px; padding:24px; border:1px solid #1e293b; font-family:system-ui, -apple-system, sans-serif;">
       
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid #1e293b;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="height:8px; width:8px; background:${accentColor}; border-radius:50%; display:inline-block; box-shadow: 0 0 8px ${accentColor};"></span>
+          <h3 style="margin:0; color:#f8fafc; font-size:15px; font-weight:700; letter-spacing:0.3px;">
+            MARKET DERIVATIVE PREDICTION: <span style="color:#38bdf8; font-weight:800;">${d.ticker.replace("^", "")}</span>
+          </h3>
+        </div>
+        <span style="font-size:10px; font-weight:800; background:${accentBg}; color:${accentColor}; padding:4px 8px; border-radius:4px; border:1px solid ${accentColor}; uppercase;">
+          ${d.trend.toUpperCase()} DIRECTIONAL MATRIX
+        </span>
+      </div>
+      
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
         
-        <div style="background:#111625; padding:14px; border-radius:12px; text-align:center; border:1px solid #1c2a45;">
-          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">AI Direction Signal</div>
-          <div style="font-size:24px; font-weight:800; color:${t.c}; margin:8px 0;">${arrow} ${d.trend}</div>
-          <div style="font-size:11px; color:#475569;">Confidence Vector: ${d.confidence}%</div>
+        <div style="background:#111827; padding:16px; border-radius:8px; border-left:4px solid ${accentColor}; border-top:1px solid #1e293b; border-right:1px solid #1e293b; border-bottom:1px solid #1e293b;">
+          <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">AI Sentiment Anchor</div>
+          <div style="font-size:24px; font-weight:800; color:${accentColor}; margin:6px 0;">${arrow} ${d.trend}</div>
+          <div style="font-size:12px; color:#64748b;">Confidence Weighting: <strong style="color:#e2e8f4;">${d.confidence}%</strong></div>
         </div>
 
-        <div style="background:#111625; padding:14px; border-radius:12px; text-align:center; border:1px solid #1c2a45;">
-          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Model Open Indicator</div>
-          <div style="font-size:18px; font-weight:700; color:#3b82f6; margin:12px 0;">🌅 ${d.gapUpDown}</div>
-          <div style="font-size:11px; color:#475569;">Session Opening Bias</div>
+        <div style="background:#111827; padding:16px; border-radius:8px; border-left:4px solid #38bdf8; border-top:1px solid #1e293b; border-right:1px solid #1e293b; border-bottom:1px solid #1e293b;">
+          <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Pre-Open Market Indicator</div>
+          <div style="font-size:20px; font-weight:800; color:#38bdf8; margin:10px 0;">🌅 ${d.gapUpDown}</div>
+          <div style="font-size:12px; color:#64748b;">Opening Bias Sequence Mapping</div>
         </div>
 
-        <div style="background:#111625; padding:14px; border-radius:12px; text-align:center; border:1px solid #1c2a45;">
-          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Key Pivot Support</div>
-          <div style="font-size:20px; font-weight:700; color:#f59e0b; margin:10px 0;">${d.keyLevel}</div>
-          <div style="font-size:11px; color:#475569;">Base Close: ${d.price}</div>
+        <div style="background:#111827; padding:16px; border-radius:8px; border-left:4px solid #fbbf24; border-top:1px solid #1e293b; border-right:1px solid #1e293b; border-bottom:1px solid #1e293b;">
+          <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Key Pivot Line</div>
+          <div style="font-size:22px; font-weight:800; color:#fbbf24; margin:8px 0;">${d.keyLevel}</div>
+          <div style="font-size:12px; color:#64748b;">Underlying Base Close: <strong style="color:#e2e8f4;">${d.price}</strong></div>
         </div>
       </div>
 
-      <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45; margin-bottom:20px;">
-        <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Expected Range Variance Map</div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:#e2e8f4; margin-bottom:6px;">
-          <span>📉 Floor Target</span>
-          <span style="color:#94a3b8;">${d.expectedRange}</span>
-          <span>📈 Ceiling Target</span>
+      <div style="background:#111827; padding:18px; border-radius:8px; border:1px solid #1e293b; margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Session Variance Band Tracker</span>
+          <span style="font-size:13px; font-weight:800; color:#f1f5f9; background:#1e293b; padding:2px 8px; border-radius:4px;">${d.expectedRange}</span>
         </div>
-        <div style="height:6px; width:100%; background:#1c2a45; border-radius:3px; position:relative;">
-          <div style="position:absolute; top:0; left:25%; right:25%; height:100%; background:linear-gradient(90deg, #ef4444, #f59e0b, #22c55e); border-radius:3px;"></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px;">
+          <span style="color:#ff3b30;">📉 Est. Target Floor</span>
+          <span style="color:#00b06a;">Est. Target Ceiling 📈</span>
+        </div>
+        <div style="height:8px; width:100%; background:#1e293b; border-radius:4px; overflow:hidden; position:relative;">
+          <div style="position:absolute; left:20%; right:20%; height:100%; background:linear-gradient(90deg, #ff3b30 0%, #fbbf24 50%, #00b06a 100%); border-radius:4px;"></div>
         </div>
       </div>
 
-      <div class="asum" style="border-left-color:${t.c}; margin:0; background:#111625; border-left-width:4px; padding:12px; border-radius: 0 8px 8px 0;">
-        <strong>🤖 Alchemical Synthesis Matrix:</strong><br><br>
-        ${d.summary}
+      <div class="asum" style="margin:0; background:#111827; border-left:4px solid #38bdf8; padding:16px; border-radius: 0 8px 8px 0; border-top:1px solid #1e293b; border-right:1px solid #1e293b; border-bottom:1px solid #1e293b;">
+        <strong style="color:#f8fafc; font-size:13px; display:flex; align-items:center; gap:6px;">🤖 SYSTEM ANALYSIS COMPILATION:</strong>
+        <p style="margin:8px 0 0 0; color:#cbd5e1; font-size:12.5px; line-height:1.6; letter-spacing:0.1px;">${d.summary}</p>
       </div>
     </div>
   `;
@@ -271,46 +286,54 @@ async function runOutlook(ticker){
   var riskVal = d.risk || d.riskLevel || "Medium"; 
   var t = tSty(d.trend);
   
-  var riskColor = riskVal.toLowerCase().includes("high") ? "#ef4444" : riskVal.toLowerCase().includes("low") ? "#22c55e" : "#f59e0b";
-  var riskBg = riskVal.toLowerCase().includes("high") ? "#1a0505" : riskVal.toLowerCase().includes("low") ? "#052016" : "#1a1400";
+  // Custom high-contrast colorful tokens for risk valuation tiers
+  var riskColor = riskVal.toLowerCase().includes("high") ? "#ff3b30" : riskVal.toLowerCase().includes("low") ? "#00b06a" : "#fbbf24";
+  var riskBg = riskVal.toLowerCase().includes("high") ? "rgba(255,59,48,0.12)" : riskVal.toLowerCase().includes("low") ? "rgba(0,176,106,0.12)" : "rgba(251,191,36,0.12)";
 
   body.innerHTML = `
-    <div class="sec" style="background:#0b0f19; border-radius:16px; padding:20px; border:1px solid #1c2a45;">
-      <h3 style="margin:0 0 16px 0; color:#e2e8f4; font-size:16px; font-weight:700;">
-        📈 Horizon Strategy Matrix: <span style="color:#22c55e">${ticker.replace("^", "")}</span>
-      </h3>
+    <div class="sec" style="background:#0b0f19; border-radius:12px; padding:24px; border:1px solid #1e293b; font-family:system-ui, -apple-system, sans-serif;">
       
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid #1e293b;">
+        <h3 style="margin:0; color:#f8fafc; font-size:15px; font-weight:700; letter-spacing:0.3px;">
+          📈 MACRO HORIZON STRATEGY TARGET: <span style="color:#00b06a; font-weight:800;">${ticker.replace("^", "")}</span>
+        </h3>
+        <span style="font-size:10px; font-weight:800; background:rgba(56,189,248,0.12); color:#38bdf8; padding:4px 8px; border-radius:4px; border:1px solid #38bdf8; text-transform:uppercase;">
+          PERSPECTIVE: ${activeTF.toUpperCase()}
+        </span>
+      </div>
+      
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:24px;">
         
-        <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45;">
-          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Consensus Trajectory</div>
-          <div style="font-size:20px; font-weight:800; color:${t.c}; margin:6px 0 10px 0;">${d.trend}</div>
-          <div style="height:5px; background:#1c2a45; border-radius:3px; overflow:hidden;">
-            <div style="height:100%; width:${d.confidence}%; background:${t.c}"></div>
+        <div style="background:#111827; padding:16px; border-radius:8px; border:1px solid #1e293b;">
+          <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Consensus Trajectory Map</div>
+          <div style="font-size:22px; font-weight:800; color:${t.c}; margin:8px 0 12px 0;">${d.trend}</div>
+          
+          <div style="height:6px; background:#1e293b; border-radius:3px; overflow:hidden;">
+            <div style="height:100%; width:${d.confidence}%; background:${t.c}; border-radius:3px; box-shadow: 0 0 6px ${t.c};"></div>
           </div>
-          <div style="font-size:10px; color:#475569; margin-top:4px; text-align:right;">Weight: ${d.confidence}%</div>
+          <div style="font-size:10px; color:#64748b; margin-top:6px; text-align:right; font-weight:600;">Mathematical Weight: ${d.confidence}%</div>
         </div>
 
-        <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45; display:flex; flex-direction:column; justify-content:space-between;">
+        <div style="background:#111827; padding:16px; border-radius:8px; border:1px solid #1e293b; display:flex; flex-direction:column; justify-content:space-between;">
           <div>
-            <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Valuation Objective</div>
-            <div style="font-size:22px; font-weight:800; color:#22c55e; margin:6px 0;">${targetVal}</div>
+            <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Valuation Target Objective</div>
+            <div style="font-size:26px; font-weight:900; color:#00b06a; margin:6px 0;">${targetVal}</div>
           </div>
-          <div style="font-size:10px; color:#475569; text-transform:uppercase;">Horizon Class: ${activeTF}</div>
+          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Tracking Allocation Class</div>
         </div>
 
-        <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45; text-align:center;">
-          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Risk Parameter Band</div>
-          <div style="display:inline-block; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:800; color:${riskColor}; background:${riskBg}; border:1px solid ${riskColor}; margin-top:4px;">
-            ${riskVal.toUpperCase()}
+        <div style="background:#111827; padding:16px; border-radius:8px; border:1px solid #1e293b; text-align:center; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+          <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Inherent System Volatility Risk</div>
+          <div style="display:inline-block; padding:6px 20px; border-radius:4px; font-size:12px; font-weight:800; color:${riskColor}; background:${riskBg}; border:1px solid ${riskColor}; letter-spacing:0.5px;">
+            ${riskVal.toUpperCase()} TIER
           </div>
-          <div style="font-size:10px; color:#475569; margin-top:8px;">Inherent Volatility Tier</div>
+          <div style="font-size:10px; color:#64748b; margin-top:10px; font-weight:600;">Calculated Deviation Spectrum</div>
         </div>
       </div>
 
-      <div class="asum" style="margin:0; background:#111625; border-left-width:4px; padding:12px; border-radius: 0 8px 8px 0;">
-        <strong>💡 Strategic Architecture Core Thesis:</strong><br><br>
-        ${d.summary}
+      <div class="asum" style="margin:0; background:#111827; border-left:4px solid #00b06a; padding:16px; border-radius: 0 8px 8px 0; border-top:1px solid #1e293b; border-right:1px solid #1e293b; border-bottom:1px solid #1e293b;">
+        <strong style="color:#f8fafc; font-size:13px; display:flex; align-items:center; gap:6px;">💡 CORE STRATEGIC ARCHITECTURE THESIS:</strong>
+        <p style="margin:8px 0 0 0; color:#cbd5e1; font-size:12.5px; line-height:1.6; letter-spacing:0.1px;">${d.summary}</p>
       </div>
     </div>
   `;
