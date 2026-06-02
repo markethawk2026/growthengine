@@ -200,33 +200,120 @@ async function runNextDay(ticker){
 }
 function renderND(d) {
   var t = tSty(d.trend);
-  document.getElementById("ndBody").innerHTML = '<div class="sec"><h3>Tomorrow\'s Forecast Target: ' + d.ticker.replace("^", "") + '</h3><br>' +
-    '<div>Current Base Close: <strong>' + d.price + '</strong></div>' +
-    '<div>Model Open Indicator: <strong style="color:#3b82f6">' + d.gapUpDown + '</strong></div>' +
-    '<div>Expected Range Variance: <strong>' + d.expectedRange + '</strong></div>' +
-    '<div>Key Support Pivot: <strong style="color:#f59e0b">' + d.keyLevel + '</strong></div>' +
-    '<div class="asum" style="border-left-color:' + t.c + '">🤖 <strong>AI Target Direction:</strong> <span style="color:' + t.c + ';font-weight:700;">' + d.trend + ' (' + d.confidence + '%)</span><br><br>' + d.summary + '</div></div>';
+  var arrow = d.trend.toLowerCase().includes("bull") ? "▲" : "▼";
+  
+  document.getElementById("ndBody").innerHTML = `
+    <div class="sec" style="background:#0b0f19; border-radius:16px; padding:20px; border:1px solid #1c2a45;">
+      <h3 style="margin:0 0 16px 0; color:#e2e8f4; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+        📅 Tomorrow's Target Blueprint: <span style="color:#3b82f6">${d.ticker.replace("^", "")}</span>
+      </h3>
+      
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:20px;">
+        
+        <div style="background:#111625; padding:14px; border-radius:12px; text-align:center; border:1px solid #1c2a45;">
+          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">AI Direction Signal</div>
+          <div style="font-size:24px; font-weight:800; color:${t.c}; margin:8px 0;">${arrow} ${d.trend}</div>
+          <div style="font-size:11px; color:#475569;">Confidence Vector: ${d.confidence}%</div>
+        </div>
+
+        <div style="background:#111625; padding:14px; border-radius:12px; text-align:center; border:1px solid #1c2a45;">
+          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Model Open Indicator</div>
+          <div style="font-size:18px; font-weight:700; color:#3b82f6; margin:12px 0;">🌅 ${d.gapUpDown}</div>
+          <div style="font-size:11px; color:#475569;">Session Opening Bias</div>
+        </div>
+
+        <div style="background:#111625; padding:14px; border-radius:12px; text-align:center; border:1px solid #1c2a45;">
+          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Key Pivot Support</div>
+          <div style="font-size:20px; font-weight:700; color:#f59e0b; margin:10px 0;">${d.keyLevel}</div>
+          <div style="font-size:11px; color:#475569;">Base Close: ${d.price}</div>
+        </div>
+      </div>
+
+      <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45; margin-bottom:20px;">
+        <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Expected Range Variance Map</div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:#e2e8f4; margin-bottom:6px;">
+          <span>📉 Floor Target</span>
+          <span style="color:#94a3b8;">${d.expectedRange}</span>
+          <span>📈 Ceiling Target</span>
+        </div>
+        <div style="height:6px; width:100%; background:#1c2a45; border-radius:3px; position:relative;">
+          <div style="position:absolute; top:0; left:25%; right:25%; height:100%; background:linear-gradient(90deg, #ef4444, #f59e0b, #22c55e); border-radius:3px;"></div>
+        </div>
+      </div>
+
+      <div class="asum" style="border-left-color:${t.c}; margin:0; background:#111625; border-left-width:4px; padding:12px; border-radius: 0 8px 8px 0;">
+        <strong>🤖 Alchemical Synthesis Matrix:</strong><br><br>
+        ${d.summary}
+      </div>
+    </div>
+  `;
 }
 
 document.querySelectorAll(".tfb").forEach(function(b){ b.addEventListener("click", function(){ document.querySelectorAll(".tfb").forEach(function(x){ x.classList.remove("active"); }); b.classList.add("active"); activeTF = b.getAttribute("data-tf"); if(window.activeTickerNode) runOutlook(window.activeTickerNode); }); });
 document.getElementById("tmBtn").addEventListener("click", function(){ var q = document.getElementById("tmIn").value.trim(); if(q) runOutlook(q); });
 async function runOutlook(ticker){
-  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("tmBody"); body.innerHTML = ldng("Synthesizing algorithmic long-term macro configuration targets for " + ticker + "...");
-  var p = await yfQuote(ticker); if(!p) { body.innerHTML = '<div class="errbox">Data stream disconnected.</div>'; return; }
+  ticker = ticker.toUpperCase().trim(); 
+  var body = document.getElementById("tmBody"); 
+  body.innerHTML = ldng("Synthesizing algorithmic long-term macro configuration targets for " + ticker + "...");
+  
+  var p = await yfQuote(ticker); 
+  if(!p) { body.innerHTML = '<div class="errbox">Data stream disconnected.</div>'; return; }
   
   var prompt = "Generate an investment strategy outlook matrix for " + ticker + " NSE. Close is " + p.price + ". Perspective target horizon: " + activeTF + ". Return strictly a single JSON string block: {\"trend\":\"Bullish/Neutral\",\"confidence\":70,\"target\":\"₹Objective Target\",\"risk\":\"Low/Medium/High\",\"summary\":\"Provide structural valuation investment thesis description highlights.\"}";
-  var aiTxt = await freeAI(prompt); var d = pj(aiTxt);
+  var aiTxt = await freeAI(prompt); 
+  var d = pj(aiTxt);
   
   if(!d) {
     d = { trend: p.up ? "Bullish" : "Neutral Consolidation", confidence: 65, target: "₹" + (p.raw * 1.15).toFixed(2), risk: "Medium Risk Band", summary: aiTxt ? aiTxt.replace(/\n/g, "<br>") : "Calculated investment parameters using underlying chart distributions framework metrics." };
   }
   
-  var targetVal = d.target || d.target1 || "—"; var riskVal = d.risk || d.riskLevel || "Medium"; var t = tSty(d.trend);
-  body.innerHTML = '<div class="sec"><h3>Macro Strategy Horizon Outlook Model: ' + ticker.replace("^", "") + '</h3><br>' +
-    '<div>Trajectory Map Consensus: <strong style="color:' + t.c + '">' + d.trend + ' (' + d.confidence + '% Weighting)</strong></div>' +
-    '<div>Structural Valuation Target Objective: <strong>' + targetVal + '</strong></div>' +
-    '<div>Inherent Risk Parameters: <strong>' + riskVal + '</strong></div>' +
-    '<div class="asum">💡 <strong>Investment Framework Thesis:</strong> ' + d.summary + '</div></div>';
+  var targetVal = d.target || d.target1 || "—"; 
+  var riskVal = d.risk || d.riskLevel || "Medium"; 
+  var t = tSty(d.trend);
+  
+  var riskColor = riskVal.toLowerCase().includes("high") ? "#ef4444" : riskVal.toLowerCase().includes("low") ? "#22c55e" : "#f59e0b";
+  var riskBg = riskVal.toLowerCase().includes("high") ? "#1a0505" : riskVal.toLowerCase().includes("low") ? "#052016" : "#1a1400";
+
+  body.innerHTML = `
+    <div class="sec" style="background:#0b0f19; border-radius:16px; padding:20px; border:1px solid #1c2a45;">
+      <h3 style="margin:0 0 16px 0; color:#e2e8f4; font-size:16px; font-weight:700;">
+        📈 Horizon Strategy Matrix: <span style="color:#22c55e">${ticker.replace("^", "")}</span>
+      </h3>
+      
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:20px;">
+        
+        <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45;">
+          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Consensus Trajectory</div>
+          <div style="font-size:20px; font-weight:800; color:${t.c}; margin:6px 0 10px 0;">${d.trend}</div>
+          <div style="height:5px; background:#1c2a45; border-radius:3px; overflow:hidden;">
+            <div style="height:100%; width:${d.confidence}%; background:${t.c}"></div>
+          </div>
+          <div style="font-size:10px; color:#475569; margin-top:4px; text-align:right;">Weight: ${d.confidence}%</div>
+        </div>
+
+        <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Valuation Objective</div>
+            <div style="font-size:22px; font-weight:800; color:#22c55e; margin:6px 0;">${targetVal}</div>
+          </div>
+          <div style="font-size:10px; color:#475569; text-transform:uppercase;">Horizon Class: ${activeTF}</div>
+        </div>
+
+        <div style="background:#111625; padding:14px; border-radius:12px; border:1px solid #1c2a45; text-align:center;">
+          <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Risk Parameter Band</div>
+          <div style="display:inline-block; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:800; color:${riskColor}; background:${riskBg}; border:1px solid ${riskColor}; margin-top:4px;">
+            ${riskVal.toUpperCase()}
+          </div>
+          <div style="font-size:10px; color:#475569; margin-top:8px;">Inherent Volatility Tier</div>
+        </div>
+      </div>
+
+      <div class="asum" style="margin:0; background:#111625; border-left-width:4px; padding:12px; border-radius: 0 8px 8px 0;">
+        <strong>💡 Strategic Architecture Core Thesis:</strong><br><br>
+        ${d.summary}
+      </div>
+    </div>
+  `;
 }
 
 async function loadGlobal(force){
