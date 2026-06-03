@@ -11,8 +11,8 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
-  "https://api.allorigins.win/raw?url=",
   "https://corsproxy.io/?",
+  "https://api.allorigins.win/raw?url=",
   "https://thingproxy.freeboard.io/fetch/"
 ];
 
@@ -23,8 +23,12 @@ async function proxyFetch(url) {
   let lastError = null;
   for (var i = 0; i < PROXIES.length; i++) {
     try {
-      // CRITICAL FIX: Explicitly encode components to prevent special character stripping (^, =, &)
-      var targetUrl = PROXIES[i] + encodeURIComponent(url);
+      var currentProxy = PROXIES[i];
+      // FIX: Apply encodeURIComponent ONLY to AllOrigins proxy pathway
+      var targetUrl = currentProxy.includes("allorigins") 
+        ? currentProxy + encodeURIComponent(url) 
+        : currentProxy + url;
+
       var r = await fetch(targetUrl);
       if (r.ok) {
         var text = await r.text();
@@ -70,6 +74,10 @@ async function yfQuote(ticker) {
 
     if(!cleanCloses.length) cleanCloses = [price, price];
 
+    // Safe inline wrappers in case definition hoisting lags in main.js
+    var vFmt = typeof fmtVol === "function" ? fmtVol : String;
+    var cFmt = typeof fmtCap === "function" ? fmtCap : String;
+
     var d = {
       price:    "₹" + price.toFixed(2),
       raw:      price,
@@ -77,8 +85,8 @@ async function yfQuote(ticker) {
       changePct:(chg >= 0 ? "+" : "") + chgPct.toFixed(2) + "%",
       high:     "₹" + (m.regularMarketDayHigh || price).toFixed(2),
       low:      "₹" + (m.regularMarketDayLow || price).toFixed(2),
-      volume:   fmtVol(m.regularMarketVolume || 0),
-      mktCap:   fmtCap(m.marketCap || 0),
+      volume:   vFmt(m.regularMarketVolume || 0),
+      mktCap:   cFmt(m.marketCap || 0),
       up:       chg >= 0,
       name:     m.longName || m.shortName || ticker,
       closes:   cleanCloses,
@@ -109,7 +117,7 @@ async function yfNews(q) {
     var url = YF_NEWS + encodeURIComponent(cleanQ) + "&newsCount=5&quotesCount=0";
     var j = await proxyFetch(url);
     var news = (j.news || []).map(function(n){
-      return { headline: n.title, source: n.publisher, time: timeAgo(n.providerPublishTime * 1000) };
+      return { headline: n.title, source: n.publisher, time: typeof timeAgo === "function" ? timeAgo(n.providerPublishTime * 1000) : "Just now" };
     });
     if (news.length > 0) return news;
   } catch(e) {}
@@ -138,14 +146,19 @@ async function yfMovers() {
       return !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-") && sym.length <= 10;
     }).slice(0, 7);
 
-    // Dynamic absolute default if regional lookup fails or throttle triggers
+    // DYNAMIC REPLACEMENT: No hardcoded assets. Polls AI generation array if Yahoo drops out.
     if (!dynamicPool.length) {
-      dynamicPool = ["NIFTY", "SENSEX"];
+      try {
+        var aiStocks = await freeAI("Provide 7 highly active or trending large-cap NSE Indian stock ticker symbols. Return strictly a valid clean JSON array of strings, for example: [\"RELIANCE\",\"TCS\"], with no extra commentary or markdown code blocks.");
+        dynamicPool = pja(aiStocks) || [];
+      } catch (aiErr) {
+        console.error("Dynamic AI pool fallback failed:", aiErr);
+      }
     }
 
     var formatted = [];
     for (var i = 0; i < dynamicPool.length; i++) {
-      var sym = dynamicPool[i];
+      var sym = dynamicPool[i].toUpperCase().trim();
       var q = await yfQuote(sym);
       if (q) {
         formatted.push({
