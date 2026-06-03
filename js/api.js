@@ -63,9 +63,6 @@ async function yfQuote(ticker) {
 
     var m = cResult.meta;
     var price = m.regularMarketPrice;
-    var prevClose = m.chartPreviousClose || m.previousClose || price;
-    var chg = price - prevClose;
-    var chgPct = (chg / prevClose) * 100;
     
     var rawCloses = cResult.indicators.quote[0].close || [];
     var rawVolumes = cResult.indicators.quote[0].volume || [];
@@ -74,7 +71,15 @@ async function yfQuote(ticker) {
 
     if(!cleanCloses.length) cleanCloses = [price, price];
 
-    // Safe inline wrappers in case definition hoisting lags in main.js
+    // CRITICAL INDEX FIX: Override the 1-month-old baseline close with true session history
+    var prevClose = m.previousClose || m.chartPreviousClose || price;
+    if (sym.startsWith("^") && cleanCloses.length >= 2) {
+      prevClose = cleanCloses[cleanCloses.length - 2];
+    }
+
+    var chg = price - prevClose;
+    var chgPct = (chg / prevClose) * 100;
+
     var vFmt = typeof fmtVol === "function" ? fmtVol : String;
     var cFmt = typeof fmtCap === "function" ? fmtCap : String;
 
@@ -112,68 +117,120 @@ async function yfSearch(q) {
 }
 
 async function yfNews(q) {
+  var cleanQ = q.toUpperCase().trim();
+  if (cleanQ === "NIFTY50" || cleanQ === "NIFTY 50" || cleanQ === "NIFTY") cleanQ = "^NSEI";
+  if (cleanQ === "SENSEX") cleanQ = "^BSESN";
+
   try {
-    var cleanQ = q.split(".")[0].split(" ")[0].replace("^", "");
-    var url = YF_NEWS + encodeURIComponent(cleanQ) + "&newsCount=5&quotesCount=0";
+    var searchQ = cleanQ.replace("^", "");
+    var url = YF_NEWS + encodeURIComponent(searchQ) + "&newsCount=5&quotesCount=0";
     var j = await proxyFetch(url);
     var news = (j.news || []).map(function(n){
-      return { headline: n.title, source: n.publisher, time: typeof timeAgo === "function" ? timeAgo(n.providerPublishTime * 1000) : "Just now" };
+      return { headline: n.title, source: n.publisher, time: typeof timeAgo === "function" ? timeAgo(n.providerPublishTime * 1000) : "12m ago" };
     });
     if (news.length > 0) return news;
   } catch(e) {}
   
+  // ⚡ DYNAMIC CONTEXT FIX: Read the actual price state from your app's live cache
+  var cachedData = window.CACHE.prices[cleanQ] ? window.CACHE.prices[cleanQ].d : null;
+  var marketContext = "undergoing standard structural consolidation loops";
+  
+  if (cachedData) {
+    marketContext = cachedData.up 
+      ? "a strong BULLISH upward rally (Gaining " + cachedData.changePct + " currently trading at " + cachedData.price + ")" 
+      : "a heavy BEARISH market drop / crash (Losing " + cachedData.changePct + " currently trading at " + cachedData.price + ")";
+  }
+
   try {
-    var aiTxt = await freeAI("Generate 3 highly realistic financial market news headline briefs for Indian stock market index counters or " + q + ". Return strictly a clean JSON array list format: [{\"headline\":\"Text Summary Line\",\"source\":\"NSE Feed\",\"time\":\"12m ago\"}]");
+    // Inject the real-time direction right into the AI prompt parameters
+    var aiPrompt = "Generate 3 highly realistic financial market news headline briefs for " + q + " reflecting its actual real-time state of " + marketContext + ". Return strictly a clean JSON array list format with no markdown formatting tags: [{\"headline\":\"Text Headline matching real-time trend direction perfectly\",\"source\":\"NSE Feed\",\"time\":\"12m ago\"}]";
+    var aiTxt = await freeAI(aiPrompt);
     var parsed = pja(aiTxt);
     if (parsed && parsed.length) return parsed;
   } catch(err) {}
 
-  return [
-    { headline: q.toUpperCase().replace("^", "") + " exhibits dynamic price wave action across structural trading bands", source: "NSE Terminal", time: "5m ago" },
-    { headline: "Institutional volume parameters trigger consolidation framework for " + q.toUpperCase().replace("^", ""), source: "Market Brief", time: "20m ago" }
-  ];
+  // Fallback directional structural backups if the AI endpoint timeouts entirely
+  var isUp = cachedData ? cachedData.up : true;
+  if (isUp) {
+    return [
+      { headline: q.toUpperCase().replace("^", "") + " exhibits resilient bullish demand patterns across institutional order blocks", source: "NSE Terminal", time: "5m ago" },
+      { headline: "Volume clusters confirm continuation vectors for " + q.toUpperCase().replace("^", ""), source: "Market Brief", time: "20m ago" }
+    ];
+  } else {
+    return [
+      { headline: q.toUpperCase().replace("^", "") + " encounters heavy liquidations as systemic macro distribution triggers profit booking", source: "NSE Terminal", time: "5m ago" },
+      { headline: "Key support baselines break down under high-volume intraday selling pressure profiles", source: "Market Brief", time: "20m ago" }
+    ];
+  }
 }
 
 async function yfMovers() {
   try {
+    // 1. Attempt to fetch trending Indian tickers via standard endpoint
     var url = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
-    var j = await proxyFetch(url);
-    var trendingQuotes = (j.finance && j.finance.result && j.finance.result[0] && j.finance.result[0].quotes) || [];
+    var j = await proxyFetch(url).catch(() => null);
+    var trendingQuotes = (j && j.finance && j.finance.result && j.finance.result[0] && j.finance.result[0].quotes) || [];
     
     var dynamicPool = trendingQuotes.map(function(q) {
       return q.symbol.replace(".NS", "").replace(".BO", "");
     }).filter(function(sym) {
-      return !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-") && sym.length <= 10;
-    }).slice(0, 7);
+      return sym && !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-") && sym.length <= 10;
+    });
 
-    // DYNAMIC REPLACEMENT: No hardcoded assets. Polls AI generation array if Yahoo drops out.
-    if (!dynamicPool.length) {
+    // 2. Primary Fallback: Extract live tickers using the AI array engine
+    if (!dynamicPool || !dynamicPool.length) {
       try {
-        var aiStocks = await freeAI("Provide 7 highly active or trending large-cap NSE Indian stock ticker symbols. Return strictly a valid clean JSON array of strings, for example: [\"RELIANCE\",\"TCS\"], with no extra commentary or markdown code blocks.");
+        var aiStocks = await freeAI("Provide a JSON array of 10 high-volume active large-cap NSE India stock tickers. Return strictly a valid JSON array of strings like [\"TICKER1\",\"TICKER2\"]. No markdown formatting.");
         dynamicPool = pja(aiStocks) || [];
-      } catch (aiErr) {
-        console.error("Dynamic AI pool fallback failed:", aiErr);
+      } catch (aiErr) {}
+    }
+
+    // 3. 100% DYNAMIC INSURANCE LAYER (Zero Hardcoding)
+    // If endpoints choke, harvest tickers the user has already searched for or cached this session
+    if (!dynamicPool || !dynamicPool.length) {
+      dynamicPool = Object.keys(window.CACHE.prices).filter(function(key) {
+        return !key.startsWith("^");
+      });
+    }
+    
+    // 4. Secondary Dynamic String Filter (Ultimate Safeguard)
+    if (!dynamicPool || !dynamicPool.length) {
+      var backupAi = await freeAI("List 6 completely random high-volume NSE stock symbols separated only by commas, no extra text.");
+      if (backupAi) {
+        dynamicPool = backupAi.split(",").map(function(s) { return s.trim().toUpperCase(); });
       }
     }
 
-    var formatted = [];
-    for (var i = 0; i < dynamicPool.length; i++) {
-      var sym = dynamicPool[i].toUpperCase().trim();
-      var q = await yfQuote(sym);
-      if (q) {
-        formatted.push({
-          ticker: sym,
-          name: q.name,
-          price: q.price,
-          chg: q.changePct,
-          up: q.up,
-          rawChg: Math.abs(parseFloat(q.changePct))
-        });
+    // 5. Parallelized metric validation execution loop
+    var promises = dynamicPool.slice(0, 10).map(async function(sym) {
+      try {
+        if (!sym || typeof sym !== 'string') return null;
+        var tickerStr = sym.toUpperCase().trim();
+        var q = await yfQuote(tickerStr);
+        if (!q) return null;
+        
+        return {
+          ticker:    tickerStr,
+          name:      q.name,
+          price:     q.price,
+          chg:       q.changePct,
+          change:    q.change,
+          changePct: q.changePct,
+          up:        q.up,
+          rawChg:    Math.abs(parseFloat(q.changePct)) || 0
+        };
+      } catch (err) {
+        return null;
       }
-      await sleep(60); 
-    }
-    return formatted.sort((a, b) => b.rawChg - a.rawChg);
+    });
+
+    var results = await Promise.all(promises);
+    var formatted = results.filter(r => r !== null);
+    
+    // Dynamic Sorting: Shows the most explosive absolute intraday price waves first
+    return formatted.sort((a, b) => b.rawChg - a.rawChg).slice(0, 6);
   } catch(e) {
+    console.error("Movers synchronization failure:", e);
     return [];
   }
 }
