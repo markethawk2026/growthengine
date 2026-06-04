@@ -19,6 +19,14 @@ var PROXIES = [
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
+
+// 1. DYNAMIC TIME UTILITY: Calculates organic, relative times for fallback states
+function generateDynamicTime(index) {
+  var baseMinutes = (index * 15) + Math.floor(Math.random() * 8) + 2;
+  return baseMinutes + "m ago";
+}
+
+
 async function proxyFetch(url, timeoutMs = 2500) {
   let lastError = null;
   
@@ -123,12 +131,6 @@ async function yfSearch(q) {
       return r.quoteType === "EQUITY" && (r.exchange === "NSI" || r.exchange === "BOM" || r.symbol.endsWith(".NS") || r.symbol.endsWith(".BO"));
     }).slice(0, 8);
   } catch(e) { return []; }
-}
-
-// 1. DYNAMIC TIME UTILITY: Calculates organic, relative times for fallback states
-function generateDynamicTime(index) {
-  var baseMinutes = (index * 15) + Math.floor(Math.random() * 8) + 2;
-  return baseMinutes + "m ago";
 }
 
 // 2. UPDATED NEWS FETCH ENGINE WITH DE-DUPLICATION
