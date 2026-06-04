@@ -77,10 +77,135 @@ async function doSearch(q) {
 ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
 document.addEventListener("click", function(e){ if(!e.target.closest(".sw")) ddEl.classList.remove("open"); });
 
-async function loadNews(force){
-  if(!force && window.CACHE.news && fresh(window.CACHE.nTs, window.TTL.s)) { renderNews(window.CACHE.news); return; }
-  document.getElementById("newsBody").innerHTML = skels(56, 3);
-  var news = await yfNews("NIFTY"); window.CACHE.news = news; window.CACHE.nTs = Date.now(); renderNews(news);
+// Global workspace memory tracking active tickers for selection queries
+window.ACTIVE_NEWS_POOL = [];
+
+async function loadNews(targetTicker) {
+  var container = document.getElementById("newsBody");
+  if (!container) return;
+
+  // REQUIREMENT: Render animated loading layout state while data fetches
+  container.innerHTML = `
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px; gap:12px; width:100%;">
+      <div style="width:26px; height:26px; border:3px solid rgba(56,189,248,0.1); border-top-color:#38bdf8; border-radius:50%; animation:newsSpin 0.7s linear infinite;"></div>
+      <span style="color:#64748b; font-size:11px; font-weight:600; letter-spacing:0.8px; text-transform:uppercase;">Refreshing News Matrix...</span>
+    </div>
+    <style>@keyframes newsSpin { to { transform: rotate(360deg); } }</style>
+  `;
+
+  var ticker = targetTicker || "";
+  if(!ticker) {
+    var searchBox = document.getElementById("searchBox");
+    if(searchBox && searchBox.value) ticker = searchBox.value;
+  }
+
+  var articles = await yfNews(ticker);
+  window.ACTIVE_NEWS_POOL = articles;
+
+  if (!articles || articles.length === 0) {
+    container.innerHTML = '<div style="color:#64748b; padding:32px; text-align:center; font-size:13px;">No news profiles matched this session parameter.</div>';
+    return;
+  }
+
+  // REQUIREMENT: Dark-mode safe, responsive layout framework (Stacks on mobile, row split on desktop)
+  var layoutHtml = `
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; background: #0b0f19; border-radius: 12px; padding: 2px;">
+      
+      <div id="newsSidebar" style="flex: 1 1 340px; max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; border-right: 1px solid #1e293b;">
+  `;
+
+  // REQUIREMENT: Clickable sidebar elements
+  articles.forEach(function(article) {
+    layoutHtml += `
+      <div id="card_${article.id}" 
+           onclick="viewArticleDetail('${article.id}')"
+           style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;">
+          <span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${article.source}</span>
+          <span style="color: #64748b; font-size: 10px; font-weight: 500;">${article.time}</span>
+        </div>
+        <p style="color: #f1f5f9; font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+          ${article.headline}
+        </p>
+      </div>
+    `;
+  });
+
+  // REQUIREMENT: Interactive Detail Panel View Column Deck
+  layoutHtml += `
+      </div>
+      
+      <div id="newsDetailPanel" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center; background: #111827; border-radius: 8px; border: 1px solid #1e293b; min-height: 220px;">
+        <div style="text-align: center; color: #64748b;">
+          <p style="font-size: 13px; font-weight: 500; margin: 0;">Select an article headline from the feed panel to inspect the live executive summary.</p>
+        </div>
+      </div>
+
+    </div>
+    
+    <style>
+      #newsSidebar::-webkit-scrollbar { width: 4px; }
+      #newsSidebar::-webkit-scrollbar-track { background: #0b0f19; }
+      #newsSidebar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+      #newsSidebar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+    </style>
+  `;
+
+  container.innerHTML = layoutHtml;
+
+  // Auto-focus the first item in the list immediately to keep the workspace populated
+  if (articles.length > 0) {
+    viewArticleDetail(articles[0].id);
+  }
+}
+
+// REQUIREMENT: Handle selection toggle updates, inject headline, source, time, and full descriptive text summaries
+function viewArticleDetail(id) {
+  var target = window.ACTIVE_NEWS_POOL.find(a => a.id === id);
+  var detailPane = document.getElementById("newsDetailPanel");
+  if (!target || !detailPane) return;
+
+  // Reset passive tracking borders across sibling cards
+  window.ACTIVE_NEWS_POOL.forEach(function(art) {
+    var el = document.getElementById("card_" + art.id);
+    if (el) {
+      el.style.borderColor = "#1e293b";
+      el.style.background = "#111827";
+    }
+  });
+
+  // Apply highlight styles onto the selected item card
+  var activeCard = document.getElementById("card_" + id);
+  if (activeCard) {
+    activeCard.style.borderColor = "#38bdf8";
+    activeCard.style.background = "rgba(56, 189, 248, 0.03)";
+  }
+
+  // Populate reading viewer with full article profiles
+  detailPane.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; animation: newsFade 0.2s ease-out;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+        <span style="background: rgba(56,189,248,0.08); color: #38bdf8; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.15); text-transform: uppercase;">
+          ${target.source}
+        </span>
+        <span style="color: #64748b; font-size: 11px; font-weight: 500;">
+          ${target.time}
+        </span>
+      </div>
+
+      <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; line-height: 1.4; margin: 0;">
+        ${target.headline}
+      </h4>
+
+      <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; margin-top: 4px;">
+        <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Executive Summary</span>
+        <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0; font-weight: 400;">
+          ${target.summary}
+        </p>
+      </div>
+    </div>
+    <style>@keyframes newsFade { from { opacity: 0; } to { opacity: 1; } }</style>
+  `;
 }
 function renderNews(arr){
   if(!arr.length) { document.getElementById("newsBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">No active market briefings.</div>'; return; }
