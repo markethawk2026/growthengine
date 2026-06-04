@@ -80,11 +80,12 @@ document.addEventListener("click", function(e){ if(!e.target.closest(".sw")) ddE
 // Global workspace memory tracking active tickers for selection queries
 window.ACTIVE_NEWS_POOL = [];
 
+window.ACTIVE_NEWS_POOL = [];
+
 async function loadNews(targetTicker) {
   var container = document.getElementById("newsBody");
   if (!container) return;
 
-  // 1. Render animated loading layout state while data fetches
   container.innerHTML = `
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px; gap:12px; width:100%;">
       <div style="width:26px; height:26px; border:3px solid rgba(56,189,248,0.1); border-top-color:#38bdf8; border-radius:50%; animation:newsSpin 0.7s linear infinite;"></div>
@@ -93,7 +94,6 @@ async function loadNews(targetTicker) {
     <style>@keyframes newsSpin { to { transform: rotate(360deg); } }</style>
   `;
 
-  // 2. ENCASE PIPELINE IN AN EXCEPTION-SHIELD TO PREVENT INFINITE LOADING LATCHES
   try {
     var ticker = targetTicker || "";
     if(!ticker) {
@@ -101,33 +101,30 @@ async function loadNews(targetTicker) {
       if(searchBox && searchBox.value) ticker = searchBox.value;
     }
 
-    // Attempt retrieval from data streams
     var articles = await yfNews(ticker);
-    window.ACTIVE_NEWS_POOL = articles || [];
+    window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
 
-    if (!articles || articles.length === 0) {
+    if (window.ACTIVE_NEWS_POOL.length === 0) {
       container.innerHTML = '<div style="color:#64748b; padding:32px; text-align:center; font-size:13px;">No news profiles matched this session parameter.</div>';
       return;
     }
 
-    // Dark-mode safe, responsive split layout framework
     var layoutHtml = `
       <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; background: #0b0f19; border-radius: 12px; padding: 2px;">
-        
         <div id="newsSidebar" style="flex: 1 1 340px; max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; border-right: 1px solid #1e293b;">
     `;
 
-    articles.forEach(function(article) {
+    window.ACTIVE_NEWS_POOL.forEach(function(article) {
       layoutHtml += `
         <div id="card_${article.id}" 
              onclick="viewArticleDetail('${article.id}')"
-             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
+             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: left;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;">
-            <span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${article.source}</span>
-            <span style="color: #64748b; font-size: 10px; font-weight: 500;">${article.time}</span>
+            <span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${article.source || 'FEED'}</span>
+            <span style="color: #64748b; font-size: 10px; font-weight: 500;">${article.time || 'Just now'}</span>
           </div>
           <p style="color: #f1f5f9; font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-            ${article.headline}
+            ${article.headline || 'Market Update'}
           </p>
         </div>
       `;
@@ -135,15 +132,12 @@ async function loadNews(targetTicker) {
 
     layoutHtml += `
         </div>
-        
         <div id="newsDetailPanel" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center; background: #111827; border-radius: 8px; border: 1px solid #1e293b; min-height: 220px;">
           <div style="text-align: center; color: #64748b;">
             <p style="font-size: 13px; font-weight: 500; margin: 0;">Select an article headline from the feed panel to inspect the live executive summary.</p>
           </div>
         </div>
-
       </div>
-      
       <style>
         #newsSidebar::-webkit-scrollbar { width: 4px; }
         #newsSidebar::-webkit-scrollbar-track { background: #0b0f19; }
@@ -154,17 +148,14 @@ async function loadNews(targetTicker) {
 
     container.innerHTML = layoutHtml;
 
-    // Auto-focus the first item in the list immediately to keep workspace populated
-    if (articles.length > 0) {
-      viewArticleDetail(articles[0].id);
+    if (window.ACTIVE_NEWS_POOL.length > 0) {
+      viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
     }
 
   } catch (renderError) {
     console.error("News interface compilation halted:", renderError);
-    
-    // HARD CRASH PROTECTION: Instantly clears the infinite loader loop if anything breaks
     container.innerHTML = `
-      <div style="background: #111827; border: 1px solid #1e293b; padding: 24px; border-radius: 8px; text-align: center;">
+      <div style="background: #111827; border: 1px solid #1e293b; padding: 24px; border-radius: 8px; text-align: center; width: 100%;">
         <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">Local data alignment processing error encountered.</p>
         <button onclick="loadNews()" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
           Force Pipeline Sync
@@ -173,7 +164,6 @@ async function loadNews(targetTicker) {
     `;
   }
 }
-
 // REQUIREMENT: Handle selection toggle updates, inject headline, source, time, and full descriptive text summaries
 function viewArticleDetail(id) {
   var target = window.ACTIVE_NEWS_POOL.find(a => a.id === id);
@@ -230,52 +220,110 @@ function renderNews(arr){
 }
 document.getElementById("btnNews").addEventListener("click", function(){ loadNews(true); });
 
+// Retain filter state properties consistently during session panel navigation loops
+if (!window.CURRENT_MOVERS_SECTOR) window.CURRENT_MOVERS_SECTOR = "ALL";
+if (!window.CURRENT_MOVERS_TAB) window.CURRENT_MOVERS_TAB = "GAINERS";
+
 async function loadTrend() {
-  // Target the container housing the locking message text string
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
 
-  try {
-    var data = await yfMovers();
-    if (!data || data.length === 0) {
-      container.innerHTML = '<div style="color:#64748b; padding:16px; text-align:center; font-size:12px;">No active volatility waves identified in this session.</div>';
-      return;
-    }
+  var rawData = await yfMovers();
+  if (!rawData || rawData.length === 0) {
+    container.innerHTML = '<div style="color:#64748b; padding:20px; text-align:center; font-size:12px;">Syncing trading desk sectors...</div>';
+    return;
+  }
 
-    // Generate a sleek high-visibility interactive list grid layout inspired by NSE data feeds
-    var html = '<div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">';
-    data.forEach(function(item) {
-      var badgeColor = item.up ? "#00b06a" : "#ff3b30";
-      var badgeBg = item.up ? "rgba(0,176,106,0.1)" : "rgba(255,59,48,0.1)";
-      var cleanTicker = item.ticker.replace(".NS", "").replace(".BO", "");
+  // 1. DYNAMIC CATEGORICAL SECTOR FILTERS
+  var filteredData = rawData.filter(function(item) {
+    if (window.CURRENT_MOVERS_SECTOR === "ALL") return true;
+    return item.sector === window.CURRENT_MOVERS_SECTOR;
+  });
+
+  // 2. TRADING DESK METRIC TAB SORTING
+  if (window.CURRENT_MOVERS_TAB === "GAINERS") {
+    filteredData = filteredData.filter(i => i.rawChangePct > 0).sort((a, b) => b.rawChangePct - a.rawChangePct);
+  } else if (window.CURRENT_MOVERS_TAB === "LOSERS") {
+    filteredData = filteredData.filter(i => i.rawChangePct < 0).sort((a, b) => a.rawChangePct - b.rawChangePct);
+  } else if (window.CURRENT_MOVERS_TAB === "ACTIVE") {
+    filteredData = filteredData.sort((a, b) => b.rawVolume - a.rawVolume);
+  }
+
+  // 3. GENERATE ADVANCED TRADING LAYOUT PANEL
+  var html = `
+    <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+      
+      <div style="display: flex; gap: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+        ${["GAINERS", "LOSERS", "ACTIVE"].map(function(tab) {
+          var label = tab === "ACTIVE" ? "Most Active" : "Top " + tab.charAt(0) + tab.slice(1).toLowerCase();
+          var isActive = window.CURRENT_MOVERS_TAB === tab;
+          var btnStyle = isActive 
+            ? "background: #1e293b; color: #38bdf8; border-color: #38bdf8;" 
+            : "background: transparent; color: #64748b; border-color: transparent;";
+          return `<button onclick="window.CURRENT_MOVERS_TAB='${tab}'; loadTrend();" style="padding: 6px 12px; border-radius: 6px; border: 1px solid; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s; ${btnStyle}">${label}</button>`;
+        }).join("")}
+      </div>
+
+      <div id="sectorScrollStrip" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; width: 100%;">
+        ${["ALL", "IT", "BANKING", "PHARMA", "AUTO", "FMCG", "ENERGY", "METAL", "REALTY", "TELECOM", "FINANCIAL SERVICES"].map(function(sec) {
+          var isActive = window.CURRENT_MOVERS_SECTOR === sec;
+          var btnStyle = isActive 
+            ? "background: #38bdf8; color: #0b0f19; font-weight: 800; border-color: #38bdf8;" 
+            : "background: #111827; color: #94a3b8; font-weight: 600; border-color: #1e293b;";
+          return `<button onclick="window.CURRENT_MOVERS_SECTOR='${sec}'; loadTrend();" style="padding: 5px 11px; border-radius: 20px; border: 1px solid; font-size: 10.5px; cursor: pointer; white-space: nowrap; transition: all 0.15s; ${btnStyle}">${sec}</button>`;
+        }).join("")}
+      </div>
+
+      <div style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px;">
+  `;
+
+  if (filteredData.length === 0) {
+    html += `<div style="color: #64748b; text-align: center; padding: 24px; font-size: 12px; background: #111827; border-radius: 8px; border: 1px solid #1e293b;">No companies reporting performance in this parameter.</div>`;
+  } else {
+    filteredData.forEach(function(item) {
+      var trendColor = item.up ? "#00b06a" : "#ff3b30";
+      var trendBg = item.up ? "rgba(0,176,106,0.05)" : "rgba(255,59,48,0.05)";
 
       html += `
-        <div onclick="window.location.hash='#analysis'; document.getElementById('searchBox').value='${cleanTicker}'; if(typeof doSearch==='function')doSearch('${cleanTicker}');" 
-             style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 12px 16px; border-radius: 8px; border: 1px solid #1e293b; cursor: pointer; transition: transform 0.2s; content-visibility: auto;"
-             onmouseover="this.style.transform='translateX(4px)'; this.style.borderColor='#38bdf8';" 
-             onmouseout="this.style.transform='none'; this.style.borderColor='#1e293b';">
+        <div onclick="window.location.hash='#analysis'; document.getElementById('searchBox').value='${item.ticker}'; if(typeof doSearch==='function')doSearch('${item.ticker}');"
+             style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 10px 14px; border-radius: 8px; border: 1px solid #1e293b; cursor: pointer; transition: all 0.15s;"
+             onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)';"
+             onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none';">
           
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <span style="color: #f1f5f9; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">${cleanTicker}</span>
-            <span style="color: #64748b; font-size: 11px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name || 'NSE Equity'}</span>
+          <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="color: #f1f5f9; font-weight: 700; font-size: 13px; letter-spacing: 0.2px;">${item.ticker}</span>
+              <span style="font-size: 8.5px; color: #64748b; background: #1e293b; padding: 1px 4px; border-radius: 3px; font-weight: 700; text-transform: uppercase;">${item.sector.split(" ")[0]}</span>
+            </div>
+            <span style="color: #64748b; font-size: 11px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
           </div>
 
           <div style="text-align: right; display: flex; align-items: center; gap: 12px;">
-            <span style="color: #f1f5f9; font-weight: 700; font-size: 13.5px;">${item.price}</span>
-            <span style="color: ${badgeColor}; background: ${badgeBg}; border: 1px solid ${badgeColor}; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 4px; min-width: 65px; text-align: center;">
-              ${item.changePct || item.chg}
+            <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;">
+              <span style="color: #f1f5f9; font-weight: 700; font-size: 13px;">${item.price}</span>
+              <span style="color: #475569; font-size: 9.5px; font-weight: 600;">Vol: ${item.volume}</span>
+            </div>
+            <span style="color: ${trendColor}; background: ${trendBg}; border: 1px solid ${trendColor}; font-size: 11px; font-weight: 800; padding: 4px 6px; border-radius: 4px; min-width: 62px; text-align: center;">
+              ${item.changePct}
             </span>
           </div>
 
         </div>
       `;
     });
-    html += '</div>';
-    container.innerHTML = html;
-  } catch (err) {
-    console.error("Top Movers layout generation halted:", err);
-    container.innerHTML = '<div style="color:#ff3b30; padding:12px; text-align:center; font-size:12px;">Pipeline mapping interruption.</div>';
   }
+
+  html += `
+      </div>
+    </div>
+    <style>
+      #sectorScrollStrip::-webkit-scrollbar { height: 3px; }
+      #sectorScrollStrip::-webkit-scrollbar-track { background: transparent; }
+      #sectorScrollStrip::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+    </style>
+  `;
+
+  container.innerHTML = html;
 }
 
 function renderTrend(arr){
