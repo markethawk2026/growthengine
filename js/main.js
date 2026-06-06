@@ -80,8 +80,57 @@ document.addEventListener("click", function(e){ if(!e.target.closest(".sw")) ddE
 // Global workspace memory tracking active tickers for selection queries
 window.ACTIVE_NEWS_POOL = [];
 
-window.ACTIVE_NEWS_POOL = [];
+// 1. SECURE PRE-REGISTRATION OF THE NEWS DETAIL VIEW CONTROLLER
+window.viewArticleDetail = function(id) {
+  if (!window.ACTIVE_NEWS_POOL || !window.ACTIVE_NEWS_POOL.length) return;
+  var target = window.ACTIVE_NEWS_POOL.find(a => a.id === id);
+  var detailPane = document.getElementById("newsDetailPanel");
+  if (!target || !detailPane) return;
 
+  // Reset passive tracking borders across sibling cards
+  window.ACTIVE_NEWS_POOL.forEach(function(art) {
+    var el = document.getElementById("card_" + art.id);
+    if (el) {
+      el.style.borderColor = "#1e293b";
+      el.style.background = "#111827";
+    }
+  });
+
+  // Apply real-time highlight styles onto the active selected card
+  var activeCard = document.getElementById("card_" + id);
+  if (activeCard) {
+    activeCard.style.borderColor = "#38bdf8";
+    activeCard.style.background = "rgba(56, 189, 248, 0.03)";
+  }
+
+  // Populate reading workspace viewer deck cleanly
+  detailPane.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left; animation: newsFade 0.2s ease-out;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 8px; width: 100%;">
+        <span style="background: rgba(56,189,248,0.08); color: #38bdf8; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.15); text-transform: uppercase;">
+          ${target.source || "FEED"}
+        </span>
+        <span style="color: #64748b; font-size: 11px; font-weight: 500;">
+          ${target.time || "Just now"}
+        </span>
+      </div>
+
+      <h4 style="color: #ffffff; font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">
+        ${target.headline || "Market Update Matrix"}
+      </h4>
+
+      <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; margin-top: 4px;">
+        <span style="color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Executive Summary</span>
+        <p style="color: #94a3b8; font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">
+          ${target.summary || "System metrics mapping real-time exposure matrices variations."}
+        </p>
+      </div>
+    </div>
+    <style>@keyframes newsFade { from { opacity: 0; } to { opacity: 1; } }</style>
+  `;
+};
+
+// 2. SELF-HEALING MARKET NEWS RENDER MATRIX
 async function loadNews(targetTicker) {
   var container = document.getElementById("newsBody");
   if (!container) return;
@@ -96,9 +145,9 @@ async function loadNews(targetTicker) {
 
   try {
     var ticker = targetTicker || "";
-    if(!ticker) {
-      var searchBox = document.getElementById("searchBox");
-      if(searchBox && searchBox.value) ticker = searchBox.value;
+    if (!ticker) {
+      var searchBox = document.getElementById("searchBox") || document.getElementById("si");
+      if (searchBox && searchBox.value) ticker = searchBox.value;
     }
 
     var articles = await yfNews(ticker);
@@ -117,7 +166,7 @@ async function loadNews(targetTicker) {
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
       layoutHtml += `
         <div id="card_${article.id}" 
-             onclick="viewArticleDetail('${article.id}')"
+             onclick="window.viewArticleDetail('${article.id}')"
              style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: left;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;">
             <span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${article.source || 'FEED'}</span>
@@ -148,8 +197,9 @@ async function loadNews(targetTicker) {
 
     container.innerHTML = layoutHtml;
 
+    // Trigger preview auto-load for the initial element in the pool context
     if (window.ACTIVE_NEWS_POOL.length > 0) {
-      viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
+      window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
     }
 
   } catch (renderError) {
@@ -164,66 +214,12 @@ async function loadNews(targetTicker) {
     `;
   }
 }
-// REQUIREMENT: Handle selection toggle updates, inject headline, source, time, and full descriptive text summaries
-function viewArticleDetail(id) {
-  var target = window.ACTIVE_NEWS_POOL.find(a => a.id === id);
-  var detailPane = document.getElementById("newsDetailPanel");
-  if (!target || !detailPane) return;
-
-  // Reset passive tracking borders across sibling cards
-  window.ACTIVE_NEWS_POOL.forEach(function(art) {
-    var el = document.getElementById("card_" + art.id);
-    if (el) {
-      el.style.borderColor = "#1e293b";
-      el.style.background = "#111827";
-    }
-  });
-
-  // Apply highlight styles onto the selected item card
-  var activeCard = document.getElementById("card_" + id);
-  if (activeCard) {
-    activeCard.style.borderColor = "#38bdf8";
-    activeCard.style.background = "rgba(56, 189, 248, 0.03)";
-  }
-
-  // Populate reading viewer with full article profiles
-  detailPane.innerHTML = `
-    <div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; animation: newsFade 0.2s ease-out;">
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
-        <span style="background: rgba(56,189,248,0.08); color: #38bdf8; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.15); text-transform: uppercase;">
-          ${target.source}
-        </span>
-        <span style="color: #64748b; font-size: 11px; font-weight: 500;">
-          ${target.time}
-        </span>
-      </div>
-
-      <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; line-height: 1.4; margin: 0;">
-        ${target.headline}
-      </h4>
-
-      <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; margin-top: 4px;">
-        <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Executive Summary</span>
-        <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0; font-weight: 400;">
-          ${target.summary}
-        </p>
-      </div>
-    </div>
-    <style>@keyframes newsFade { from { opacity: 0; } to { opacity: 1; } }</style>
-  `;
-}
-function renderNews(arr){
-  if(!arr.length) { document.getElementById("newsBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">No active market briefings.</div>'; return; }
-  document.getElementById("newsBody").innerHTML = arr.map(function(n){
-    return '<div class="nc"><div class="nc-head">' + n.headline + '</div><div class="nc-meta"><span>' + (n.source || "Market Feed") + '</span><span>·</span><span>' + n.time + '</span></div></div>';
-  }).join("");
-}
-document.getElementById("btnNews").addEventListener("click", function(){ loadNews(true); });
 
 // Retain filter state properties consistently during session panel navigation loops
 if (!window.CURRENT_MOVERS_SECTOR) window.CURRENT_MOVERS_SECTOR = "ALL";
 if (!window.CURRENT_MOVERS_TAB) window.CURRENT_MOVERS_TAB = "GAINERS";
 
+// 3. SECURE SECTOR CONTROLLER (CASE-INSENSITIVE INTEGRATION)
 async function loadTrend() {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
@@ -234,22 +230,21 @@ async function loadTrend() {
     return;
   }
 
-  // 1. DYNAMIC CATEGORICAL SECTOR FILTERS
+  // CASE-INSENSITIVE SECTOR FILTER MATCHER (Prevents case mismatched empty sorting fields)
   var filteredData = rawData.filter(function(item) {
     if (window.CURRENT_MOVERS_SECTOR === "ALL") return true;
-    return item.sector === window.CURRENT_MOVERS_SECTOR;
+    return String(item.sector).toUpperCase().trim() === String(window.CURRENT_MOVERS_SECTOR).toUpperCase().trim();
   });
 
-  // 2. TRADING DESK METRIC TAB SORTING
+  // METRIC TRADING VIEW TAB FILTER
   if (window.CURRENT_MOVERS_TAB === "GAINERS") {
-    filteredData = filteredData.filter(i => i.rawChangePct > 0).sort((a, b) => b.rawChangePct - a.rawChangePct);
+    filteredData = filteredData.filter(i => i.rawChangePct >= 0).sort((a, b) => b.rawChangePct - a.rawChangePct);
   } else if (window.CURRENT_MOVERS_TAB === "LOSERS") {
     filteredData = filteredData.filter(i => i.rawChangePct < 0).sort((a, b) => a.rawChangePct - b.rawChangePct);
   } else if (window.CURRENT_MOVERS_TAB === "ACTIVE") {
     filteredData = filteredData.sort((a, b) => b.rawVolume - a.rawVolume);
   }
 
-  // 3. GENERATE ADVANCED TRADING LAYOUT PANEL
   var html = `
     <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
       
@@ -278,7 +273,7 @@ async function loadTrend() {
   `;
 
   if (filteredData.length === 0) {
-    html += `<div style="color: #64748b; text-align: center; padding: 24px; font-size: 12px; background: #111827; border-radius: 8px; border: 1px solid #1e293b;">No companies reporting performance in this parameter.</div>`;
+    html += `<div style="color: #64748b; text-align: center; padding: 24px; font-size: 12px; background: #111827; border-radius: 8px; border: 1px solid #1e293b;">No dynamic assets matched this operational parameter.</div>`;
   } else {
     filteredData.forEach(function(item) {
       var trendColor = item.up ? "#00b06a" : "#ff3b30";
@@ -325,6 +320,7 @@ async function loadTrend() {
 
   container.innerHTML = html;
 }
+
 
 function renderTrend(arr){
   if(!arr.length) { document.getElementById("trendBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">Movers feed synchronization locking.</div>'; return; }
