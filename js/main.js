@@ -222,7 +222,7 @@ var btnNewsEl = document.getElementById("btnNews");
 if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ==========================================
-// 2. EXCHANGE MOVERS SECTOR PROFILE DESK
+// 2. EXCHANGE MOVERS & VOLUME SHOCKERS DESK
 // ==========================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
@@ -240,17 +240,21 @@ async function loadTrend(forceRefresh) {
       rawData = [];
       sectors.forEach(function(sector) {
         var prefix = sector.substring(0, 3).replace(" ", "");
-        for (var idx = 1; idx <= 4; idx++) {
+        for (var idx = 1; idx <= 5; idx++) {
           var sym = prefix + idx + "X";
           var variance = (0.40 + (idx * 0.50) + Math.random() * 0.6) * (idx % 2 === 0 ? 1 : -1);
           var basePrice = 160 + (sym.charCodeAt(0) * 3) + (idx * 70);
           var calcPrice = basePrice * (1 + variance / 100);
+          
+          // Generate a highly realistic institutional volume multiplier ratio (0.5x to 9.5x)
+          var volRatio = parseFloat((0.5 + Math.random() * 9.0).toFixed(1));
           
           rawData.push({
             ticker: sym, name: sym + " Corporate India",
             price: "₹" + calcPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
             rawPrice: calcPrice, changePct: (variance >= 0 ? "+" : "") + variance.toFixed(2) + "%",
             rawChangePct: variance, volume: ((Math.floor(1800000 + Math.random() * 6200000)) / 1000000).toFixed(2) + "M",
+            volumeRatio: volRatio,
             up: variance >= 0, sector: sector
           });
         }
@@ -265,34 +269,38 @@ function renderTrendUI() {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container || !window.MOVERS_DATA_POOL) return;
 
-  var filteredData = [];
-  if (["CALLS", "PUTS", "OI"].includes(window.CURRENT_MOVERS_TAB)) {
-    var optionsPool = [];
-    window.MOVERS_DATA_POOL.forEach(function(item) {
-      var basePrice = parseFloat(String(item.price).replace(/[^-0-9.]/g, '')) || 250;
-      var strikeBase = Math.round(basePrice / 50) * 50;
-      [-50, 0, 50].forEach(function(offset, idx) {
-        var strike = strikeBase + offset; if (strike <= 0) return;
-        optionsPool.push({
-          ticker: `${item.ticker} ${strike} CE`, underlying: item.ticker, name: `${item.ticker} Call Contract`,
-          price: "₹" + Math.max(1.20, (strikeBase - strike) + 12).toFixed(2), changePct: "+5.20%", rawChangePct: 5.2,
-          volume: "14.2K", rawVolume: 14200, oi: "25,000", rawOI: 25000, up: true, sector: item.sector, isCall: true
-        });
-      });
-    });
-    filteredData = optionsPool;
-  } else {
-    filteredData = window.MOVERS_DATA_POOL.filter(function(item) {
-      if (window.CURRENT_MOVERS_SECTOR === "ALL") return true;
-      return String(item.sector).toUpperCase().trim() === String(window.CURRENT_MOVERS_SECTOR).toUpperCase().trim();
-    });
+  // Fallback default switch in case tab states get mixed up
+  if (!["GAINERS", "LOSERS", "SHOCKERS"].includes(window.CURRENT_MOVERS_TAB)) {
+    window.CURRENT_MOVERS_TAB = "GAINERS";
+  }
+
+  var filteredData = window.MOVERS_DATA_POOL.filter(function(item) {
+    if (window.CURRENT_MOVERS_SECTOR === "ALL") return true;
+    return String(item.sector).toUpperCase().trim() === String(window.CURRENT_MOVERS_SECTOR).toUpperCase().trim();
+  });
+
+  // Apply sorting filters based on selected analyst mode
+  if (window.CURRENT_MOVERS_TAB === "GAINERS") {
+    filteredData = filteredData.filter(i => i.rawChangePct >= 0).sort((a, b) => b.rawChangePct - a.rawChangePct);
+  } else if (window.CURRENT_MOVERS_TAB === "LOSERS") {
+    filteredData = filteredData.filter(i => i.rawChangePct < 0).sort((a, b) => a.rawChangePct - b.rawChangePct);
+  } else if (window.CURRENT_MOVERS_TAB === "SHOCKERS") {
+    // Sort strictly by institutional volume breakout intensity
+    filteredData = filteredData.sort((a, b) => (b.volumeRatio || 0) - (a.volumeRatio || 0));
   }
 
   var html = `<div style="display: flex; flex-direction: column; gap: 12px; width: 100%;"><div style="display: flex; gap: 4px; border-bottom: 1px solid #1e293b; padding-bottom: 8px; overflow-x: auto; width: 100%;">`;
-  [{ id: "GAINERS", label: "Top Gainers" }, { id: "LOSERS", label: "Top Losers" }, { id: "ACTIVE", label: "Most Active" }].forEach(function(t) {
+  
+  // Custom styled action selector pills
+  [
+    { id: "GAINERS", label: "📈 Top Gainers" }, 
+    { id: "LOSERS", label: "📉 Top Losers" }, 
+    { id: "SHOCKERS", label: "⚡ Volume Shockers" }
+  ].forEach(function(t) {
     var btnStyle = window.CURRENT_MOVERS_TAB === t.id ? "background: #1e293b; color: #38bdf8; border-color: #38bdf8;" : "background: transparent; color: #64748b; border-color: transparent;";
-    html += `<button onclick="window.CURRENT_MOVERS_TAB='${t.id}'; renderTrendUI();" style="padding: 6px 12px; border-radius: 6px; border: 1px solid; font-size: 11px; font-weight: 700; cursor: pointer; ${btnStyle}">${t.label}</button>`;
+    html += `<button onclick="window.CURRENT_MOVERS_TAB='${t.id}'; renderTrendUI();" style="padding: 6px 12px; border-radius: 6px; border: 1px solid; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.15s; ${btnStyle}">${t.label}</button>`;
   });
+  
   html += `</div><div id="sectorScrollStrip" style="display:flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; width: 100%;">`;
   
   ["ALL", "IT", "BANKING", "PHARMA", "AUTO"].forEach(function(sec) {
@@ -303,10 +311,28 @@ function renderTrendUI() {
 
   filteredData.slice(0, 10).forEach(function(item) {
     var tc = item.up ? "#00b06a" : "#ff3b30";
+    var isShockerTab = window.CURRENT_MOVERS_TAB === "SHOCKERS";
+    
+    // Switch to an amber badge showing volume spikes if looking at the shocker tab
+    var metricBadgeHTML = isShockerTab 
+      ? `<span style="color: #fbbf24; background: rgba(251,191,36,0.06); border: 1px solid #fbbf24; font-size: 11px; font-weight: 800; padding: 4px 6px; border-radius: 4px; min-width: 68px; text-align: center;">${item.volumeRatio}x Spurt</span>`
+      : `<span style="color: ${tc}; background: ${item.up ? 'rgba(0,176,106,0.05)' : 'rgba(255,59,48,0.05)'}; border: 1px solid ${tc}; font-size: 11px; font-weight: 800; padding: 4px 6px; border-radius: 4px; min-width: 62px; text-align: center;">${item.changePct}</span>`;
+
     html += `
-      <div onclick="runAnalysis('${item.underlying || item.ticker}')" style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 10px 14px; border-radius: 8px; border: 1px solid #1e293b; cursor: pointer;">
-        <div><span style="color: #f1f5f9; font-weight: 700;">${item.ticker}</span><br><span style="color: #64748b; font-size: 11px;">${item.name}</span></div>
-        <div style="text-align: right;"><span style="color: #f1f5f9; font-weight: 700;">${item.price}</span><br><span style="color: ${tc}; font-size: 11px;">${item.changePct}</span></div>
+      <div onclick="runAnalysis('${item.underlying || item.ticker}')" style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 10px 14px; border-radius: 8px; border: 1px solid #1e293b; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)'" onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none'">
+        <div>
+          <span style="color: #f1f5f9; font-weight: 700;">${item.ticker}</span>
+          <br>
+          <span style="color: #64748b; font-size: 11px;">${item.name}</span>
+        </div>
+        <div style="text-align: right; display: flex; align-items: center; gap: 12px;">
+          <div style="text-align: right;">
+            <span style="color: #f1f5f9; font-weight: 700;">${item.price}</span>
+            <br>
+            <span style="color: #475569; font-size: 9.5px; font-weight: 600;">Vol: ${item.volume}</span>
+          </div>
+          ${metricBadgeHTML}
+        </div>
       </div>
     `;
   });
