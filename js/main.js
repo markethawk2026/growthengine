@@ -143,18 +143,22 @@ async function loadNews(targetTicker) {
   `;
 
   try {
-    var ticker = targetTicker || "";
+    // FIX 1: Explicitly force non-string inputs (like true booleans) to turn back into safe empty strings
+    var ticker = (typeof targetTicker === "string") ? targetTicker.trim() : "";
+    
     if (!ticker) {
       var searchBox = document.getElementById("si") || document.getElementById("searchBox");
-      if (searchBox && searchBox.value) ticker = searchBox.value;
+      if (searchBox && searchBox.value) ticker = String(searchBox.value).trim();
     }
-    var queryTag = (ticker && ticker.trim()) ? ticker.toUpperCase().replace("^", "") : "NSE INDIA";
+    
+    var queryTag = (ticker && ticker.length > 0) ? ticker.toUpperCase().replace("^", "") : "NSE INDIA";
 
     var articles = [];
-    // NETWORK ISOLATION SHIELD: Prevents downstream rendering loops from crashing if yfNews is missing
+    // NETWORK ISOLATION SHIELD: Prevents downstream loops from crashing if yfNews breaks
     if (typeof yfNews === "function") {
       try {
-        articles = await yfNews(ticker);
+        // FIX 2: Pass sanitized queryTag variable downstream instead of raw input token parameter
+        articles = await yfNews(queryTag);
       } catch(apiErr) {
         console.warn("API News stream rejected, activating local wire fallbacks.", apiErr);
       }
@@ -237,6 +241,7 @@ async function loadNews(targetTicker) {
   }
 }
 document.getElementById("btnNews").addEventListener("click", function(){ loadNews(true); });
+
 
 // ==========================================
 // 2. ULTRA-FAST SELF-CONTAINED MOVERS DESK
