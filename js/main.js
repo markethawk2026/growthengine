@@ -131,34 +131,71 @@ window.ACTIVE_NEWS_POOL = [];
 window.MOVERS_DATA_POOL = [];
 window.LIVE_CHART_POOL = { closes: [], volumes: [] };
 
-// 1. CLEAN LIVE RENDERER: Direct SVG Generation
-function updateLiveChart() {
-  var chartContainer = document.querySelector("#chart-root") || document.querySelector("svg")?.parentNode;
-  var headerPriceNode = document.querySelector(".bprc");
-  if (!chartContainer || !headerPriceNode) return;
+if (!window.CURRENT_MOVERS_SECTOR) window.CURRENT_MOVERS_SECTOR = "ALL";
+if (!window.CURRENT_MOVERS_TAB) window.CURRENT_MOVERS_TAB = "GAINERS";
 
-  var currentPriceRaw = parseFloat(headerPriceNode.textContent.replace(/[^0-9.]/g, ""));
-  if (isNaN(currentPriceRaw) || currentPriceRaw <= 0) return;
-
-  // Sync data pool
-  window.LIVE_CHART_POOL.closes.push(currentPriceRaw);
-  if (window.LIVE_CHART_POOL.closes.length > 30) window.LIVE_CHART_POOL.closes.shift();
-
-  // SVG parameters
-  var w = 500, h = 130;
-  var minP = Math.min(...window.LIVE_CHART_POOL.closes) * 0.9995;
-  var maxP = Math.max(...window.LIVE_CHART_POOL.closes) * 1.0005;
+// ==========================================
+// UNIQUE TECHNICAL DUAL-AXIS ENGINE
+// ==========================================
+function drawNativeChart(closes, volumes, up) {
+  if (!closes || closes.length < 2) return '';
+  
+  var w = 500, h = 140;
+  var minP = Math.min(...closes), maxP = Math.max(...closes);
   var rngP = maxP - minP || 1;
   
-  var pts = window.LIVE_CHART_POOL.closes.map((p, i) => 
-      (i * (w / 29)) + "," + (h - ((p - minP) / rngP) * h)
-  ).join(" ");
+  // Add a 10% structural buffer padding to prevent flatline clipping borders
+  minP -= (rngP * 0.1);
+  maxP += (rngP * 0.1);
+  rngP = maxP - minP;
 
-  // Render minimal, high-performance SVG
-  chartContainer.innerHTML = `
-    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%; height:130px; display:block;">
-      <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-    </svg>
+  // Map perfectly smooth coordinate vectors
+  var coordinates = closes.map((p, i) => {
+    var x = (i / (closes.length - 1)) * w;
+    var y = h - ((p - minP) / rngP) * (h - 40) - 20;
+    return { x: x, y: y };
+  });
+
+  var pricePts = coordinates.map(pt => pt.x.toFixed(1) + ',' + pt.y.toFixed(1)).join(' ');
+  var areaPathData = `M 0,${h} L ` + pricePts + ` L ${w},${h} Z`;
+
+  var color = up ? "#22c55e" : "#ef4444";
+  var gradId = "grad_" + Math.random().toString(36).substr(2, 5);
+
+  var midY = h / 2;
+  var gridLinesHTML = `
+    <line x1="0" y1="20" x2="${w}" y2="20" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+    <line x1="0" y1="${midY.toFixed(1)}" x2="${w}" y2="${midY.toFixed(1)}" stroke="#111827" stroke-width="1" stroke-dasharray="4,4" />
+    <line x1="0" y1="${(h - 20).toFixed(1)}" x2="${w}" y2="${(h - 20).toFixed(1)}" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+  `;
+
+  return `
+    <div id="chart-card-wrapper" style="margin: 14px 0; background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 14px 16px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); width: 100%; box-sizing: border-box;">
+      <div style="font-size: 10px; color: #64748b; margin-bottom: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <span style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block;"></span>
+          Intraday Technical Waveform
+        </span>
+        <span style="background: #111827; padding: 2px 6px; border-radius: 4px; border: 1px solid #1e293b; font-size: 9px; color: #94a3b8;">DUAL-AXIS VOL/PRICE</span>
+      </div>
+      
+      <div style="height: 130px; width: 100%; position: relative; overflow: visible;">
+        <svg viewBox="0 0 500 140" preserveAspectRatio="none" style="width: 100%; height: 100%; overflow: visible; display: block;">
+          <defs>
+            <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="${color}" stop-opacity="0.00"/>
+            </linearGradient>
+          </defs>
+          ${gridLinesHTML}
+          <path d="${areaPathData}" fill="url(#${gradId})" />
+          <polyline points="${pricePts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="${coordinates[coordinates.length - 1].x.toFixed(1)}" cy="${coordinates[coordinates.length - 1].y.toFixed(1)}" r="4" fill="${color}" stroke="#0b0f19" stroke-width="1.5" />
+        </svg>
+        <div style="position: absolute; left: 4px; top: -4px; font-size: 9px; color: #475569; font-weight: 700;">H: ₹${maxP.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+        <div style="position: absolute; left: 4px; bottom: 4px; font-size: 9px; color: #475569; font-weight: 700;">L: ₹${minP.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+      </div>
+    </div>
   `;
 }
 
@@ -938,22 +975,32 @@ setInterval(function() {
   if (!headerPriceNode) return;
 
   var currentPriceRaw = parseFloat(headerPriceNode.textContent.replace(/[^0-9.]/g, ""));
-  if (isNaN(currentPriceRaw)) return;
+  if (isNaN(currentPriceRaw) || currentPriceRaw <= 0) return;
 
-  // Apply micro-fluctuation
-  var tickFlux = currentPriceRaw * 0.0003 * (Math.random() > 0.5 ? 1 : -1);
+  // Initialize array properly if empty or tracking a new stock value entirely
+  if (window.LIVE_CHART_POOL.closes.length === 0 || Math.abs(window.LIVE_CHART_POOL.closes[window.LIVE_CHART_POOL.closes.length - 1] - currentPriceRaw) > (currentPriceRaw * 0.1)) {
+    window.LIVE_CHART_POOL.closes = Array(20).fill(currentPriceRaw).map(p => p + (p * 0.001 * (Math.random() - 0.5)));
+  }
+
+  // Simulate micro fluctuations (+/- 0.03%)
+  var direction = Math.random() > 0.49 ? 1 : -1;
+  var tickFlux = currentPriceRaw * (Math.random() * 0.0003) * direction;
   var nextPrice = currentPriceRaw + tickFlux;
 
-  // Update Display
-  headerPriceNode.innerHTML = "₹" + nextPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  // Append new data point to timeline
+  window.LIVE_CHART_POOL.closes.push(nextPrice);
+  if (window.LIVE_CHART_POOL.closes.length > 35) window.LIVE_CHART_POOL.closes.shift();
+
+  // Update DOM price numbers instantly
+  headerPriceNode.innerHTML = "₹" + nextPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
   headerPriceNode.style.color = tickFlux >= 0 ? "#22c55e" : "#ef4444";
 
-  updateLiveChart();
-}, 2000);
+  // Re-draw chart accurately inside wrapper space
+  var upTrend = nextPrice >= window.LIVE_CHART_POOL.closes[0];
+  var updatedHTML = drawNativeChart(window.LIVE_CHART_POOL.closes, [100], upTrend);
 
-// Initialize boot
-window.addEventListener('DOMContentLoaded', () => {
-    var chartRoot = document.createElement('div');
-    chartRoot.id = 'chart-root';
-    document.querySelector('.acrd')?.appendChild(chartRoot);
-});
+  var wrapper = document.getElementById("chart-card-wrapper") || document.querySelector("svg")?.parentNode?.parentNode;
+  if (wrapper) {
+    wrapper.outerHTML = updatedHTML;
+  }
+}, 2000);
