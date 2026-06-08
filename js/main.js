@@ -408,7 +408,23 @@ function renderTrendUI() {
           </div>
 
           <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px;">
-            <span style="font-size: 10px; color: #475569; font-weight: 700; display: block;
+            <span style="font-size: 10px; color: #475569; font-weight: 700; display: block; margin-bottom: 4px;">TOTAL INST. VOLUMETRIC FOOTPRINT</span>
+            <div style="font-size: 16px; font-weight: 800; color: #38bdf8; font-family: monospace;">${(window.GLOBAL_NET_VOLUME_FLOW || 0).toFixed(2)}M Shares</div>
+            <p style="font-size: 10.5px; color: #64748b; margin: 4px 0 0 0; line-height: 1.4;">Real-time block deal scan pipeline active across all listed components.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+    <style>
+      #sector-scroll-container::-webkit-scrollbar { width: 4px; }
+      #sector-scroll-container::-webkit-scrollbar-track { background: transparent; }
+      #sector-scroll-container::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+    </style>
+  `;
+}
+
 async function loadIdx(){
   var [n, s] = await Promise.all([yfQuote("NIFTY50"), yfQuote("SENSEX")]);
   function ic(name, p){ if(!p) return ''; var c = p.up ? "#22c55e" : "#ef4444"; return '<div class="gc"><div class="gcl">' + name + '</div><div class="gcv" style="color:' + c + '">' + p.raw.toLocaleString("en-IN") + '</div><div class="gcs" style="color:' + c + '">' + (p.up ? "▲" : "▼") + " " + p.changePct + '</div></div>'; }
