@@ -129,7 +129,38 @@ document.addEventListener("click", function(e){ if(ddEl && !e.target.closest(".s
 // Global memory caches to store fetched datasets for instant local lookups
 window.ACTIVE_NEWS_POOL = [];
 window.MOVERS_DATA_POOL = [];
-window.LIVE_CHART_POOL = { closes: [], volumes: [], activeTicker: "" };
+window.LIVE_CHART_POOL = { closes: [], volumes: [] };
+
+// 1. CLEAN LIVE RENDERER: Direct SVG Generation
+function updateLiveChart() {
+  var chartContainer = document.querySelector("#chart-root") || document.querySelector("svg")?.parentNode;
+  var headerPriceNode = document.querySelector(".bprc");
+  if (!chartContainer || !headerPriceNode) return;
+
+  var currentPriceRaw = parseFloat(headerPriceNode.textContent.replace(/[^0-9.]/g, ""));
+  if (isNaN(currentPriceRaw) || currentPriceRaw <= 0) return;
+
+  // Sync data pool
+  window.LIVE_CHART_POOL.closes.push(currentPriceRaw);
+  if (window.LIVE_CHART_POOL.closes.length > 30) window.LIVE_CHART_POOL.closes.shift();
+
+  // SVG parameters
+  var w = 500, h = 130;
+  var minP = Math.min(...window.LIVE_CHART_POOL.closes) * 0.9995;
+  var maxP = Math.max(...window.LIVE_CHART_POOL.closes) * 1.0005;
+  var rngP = maxP - minP || 1;
+  
+  var pts = window.LIVE_CHART_POOL.closes.map((p, i) => 
+      (i * (w / 29)) + "," + (h - ((p - minP) / rngP) * h)
+  ).join(" ");
+
+  // Render minimal, high-performance SVG
+  chartContainer.innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%; height:130px; display:block;">
+      <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  `;
+}
 
 if (!window.CURRENT_MOVERS_SECTOR) window.CURRENT_MOVERS_SECTOR = "ALL";
 if (!window.CURRENT_MOVERS_TAB) window.CURRENT_MOVERS_TAB = "GAINERS";
@@ -903,52 +934,26 @@ setInterval(function() {
 // Boot sequence execution
 bootDashboard();
 setInterval(function() {
-  var chartContainer = document.querySelector("svg") ? document.querySelector("svg").parentNode : null;
-  if (!chartContainer) return;
+  var headerPriceNode = document.querySelector(".bprc");
+  if (!headerPriceNode) return;
 
-  try {
-    // FORCE SYNC: Strictly target the primary price header node
-    var headerPriceNode = document.querySelector(".bprc"); 
-    if (!headerPriceNode) return;
-    
-    var currentPriceRaw = parseFloat(headerPriceNode.textContent.replace(/[^-0-9.]/g, ""));
-    if (!currentPriceRaw) return;
+  var currentPriceRaw = parseFloat(headerPriceNode.textContent.replace(/[^0-9.]/g, ""));
+  if (isNaN(currentPriceRaw)) return;
 
-    // If the waveform data is stuck on the old stale value (approx 125), reset the array
-    if (window.LIVE_CHART_POOL.closes.length > 0 && Math.abs(window.LIVE_CHART_POOL.closes[0] - currentPriceRaw) > 50) {
-        window.LIVE_CHART_POOL.closes = [currentPriceRaw];
-    }
+  // Apply micro-fluctuation
+  var tickFlux = currentPriceRaw * 0.0003 * (Math.random() > 0.5 ? 1 : -1);
+  var nextPrice = currentPriceRaw + tickFlux;
 
-    // Generate balanced, high-frequency tick flux (+/- 0.05%)
-    var direction = Math.random() > 0.49 ? 1 : -1;
-    var tickFlux = currentPriceRaw * (Math.random() * 0.0005) * direction;
-    var nextPrice = currentPriceRaw + tickFlux;
-    var isUp = tickFlux >= 0;
+  // Update Display
+  headerPriceNode.innerHTML = "₹" + nextPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  headerPriceNode.style.color = tickFlux >= 0 ? "#22c55e" : "#ef4444";
 
-    // Update main header price node
-    headerPriceNode.innerHTML = "₹" + nextPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    headerPriceNode.style.color = isUp ? "#22c55e" : "#ef4444";
-
-    // Append to Waveform
-    window.LIVE_CHART_POOL.closes.push(nextPrice);
-    if (window.LIVE_CHART_POOL.closes.length > 38) window.LIVE_CHART_POOL.closes.shift();
-
-    var avgVol = window.LIVE_CHART_POOL.volumes.length ? (window.LIVE_CHART_POOL.volumes.reduce((a,b)=>a+b, 0) / window.LIVE_CHART_POOL.volumes.length) : 10000;
-    window.LIVE_CHART_POOL.volumes.push(Math.floor(avgVol * (0.75 + Math.random() * 0.5)));
-    if (window.LIVE_CHART_POOL.volumes.length > window.LIVE_CHART_POOL.closes.length) window.LIVE_CHART_POOL.volumes.shift();
-
-    var upTrend = nextPrice >= window.LIVE_CHART_POOL.closes[0];
-    var updatedChartHTML = originalDrawNativeChart(window.LIVE_CHART_POOL.closes, window.LIVE_CHART_POOL.volumes, upTrend);
-
-    // Swap the graphic nodes silently
-    var outerWrapper = chartContainer.parentNode;
-    if (outerWrapper) {
-      var tempDiv = document.createElement('div');
-      tempDiv.innerHTML = updatedChartHTML;
-      var newChartNode = tempDiv.querySelector("svg").parentNode;
-      if (newChartNode) outerWrapper.innerHTML = newChartNode.parentNode.innerHTML;
-    }
-  } catch (loopError) {
-    console.debug("Loop sync deferred.", loopError);
-  }
+  updateLiveChart();
 }, 2000);
+
+// Initialize boot
+window.addEventListener('DOMContentLoaded', () => {
+    var chartRoot = document.createElement('div');
+    chartRoot.id = 'chart-root';
+    document.querySelector('.acrd')?.appendChild(chartRoot);
+});
