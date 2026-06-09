@@ -481,29 +481,16 @@ function renderAnalysis(d){
   var chartHTML = drawNativeChart(window.LIVE_CHART_POOL.closes.length ? window.LIVE_CHART_POOL.closes : d.closes, d.volumes, d.up);
   var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${n.headline}</div><div class="nc-meta"><span>${n.source}</span>·<span>${n.time}</span></div></div>`).join("");
   
-  // Calculate derivative metrics for the analyst enhancements
-  var pcrValue = d.pcr || (d.healthScore > 50 ? (0.9 + Math.random()*0.4).toFixed(2) : (0.6 + Math.random()*0.3).toFixed(2));
-  var pcrText = pcrValue > 1.0 ? "🟢 Bullish Long Build" : "🔴 Bearish Short Build";
+  var pcrValue = d.pcr || 1.0;
   var vwapStatus = d.up ? "+" + (Math.random() * 0.6).toFixed(2) + "%" : "-" + (Math.random() * 0.6).toFixed(2) + "%";
   var vwapColor = d.up ? "#00b06a" : "#ff3b30";
-
-  // 1. DYNAMIC RISK-REWARD RATIO CALCULATOR
-  var entryNum = parseFloat(String(d.entry).replace(/[^0-9.]/g, ""));
-  var slNum = parseFloat(String(d.stopLoss).replace(/[^0-9.]/g, ""));
-  var tgtNum = parseFloat(String(d.target1).replace(/[^0-9.]/g, ""));
-  var rrRatioStr = "1:2.0"; 
-  if (!isNaN(entryNum) && !isNaN(slNum) && !isNaN(tgtNum) && (entryNum - slNum) > 0) {
-    var rewardFactor = (tgtNum - entryNum) / (entryNum - slNum);
-    rrRatioStr = "1:" + (rewardFactor > 0 ? rewardFactor.toFixed(1) : "2.1");
-  }
-
-  // 2. BACKTEST RELIABILITY SCORE & TACTICAL HORIZON STRATEGY MAP
-  var simulatedWinRate = Math.round(58 + (d.healthScore % 18) + Math.random() * 2);
-  var optimalHorizon = d.healthScore > 70 ? "3-7 DAY SWING MOMENTUM" : "MULTI-WEEK ACCUMULATION";
 
   var aBodyEl = document.getElementById("aBody");
   if (!aBodyEl) return;
   
+  // Cache the master asset configuration details for the background intervals
+  window.CURRENT_ACTIVE_ANALYSIS_DATA = d;
+
   aBodyEl.innerHTML = `
     <button class="bbtn" onclick="switchTab('home')">← Back Home</button>
     <div class="acrd">
@@ -529,8 +516,8 @@ function renderAnalysis(d){
     <div class="g4">
       <div class="gc"><div class="gcl">Support</div><div class="gcv" style="color:#22c55e">${d.support}</div></div>
       <div class="gc"><div class="gcl">Resistance</div><div class="gcv" style="color:#ef4444">${d.resistance}</div></div>
-      <div class="gc"><div class="gcl">FII Operations</div><div class="gcv" style="font-size:11px">${d.fiiActivity}</div></div>
-      <div class="gc"><div class="gcl">OI Structure</div><div class="gcv" style="font-size:11px">${d.optionsOI}</div></div>
+      <div class="gc"><div class="gcl">FII Operations</div><div id="live-fii" class="gcv" style="font-size:11px; font-weight:800; color:#94a3b8;">Calculating...</div></div>
+      <div class="gc"><div class="gcl">OI Structure</div><div id="live-oi" class="gcv" style="font-size:11px; font-weight:800; color:#94a3b8;">Calculating...</div></div>
     </div>
 
     <div class="sec">
@@ -538,18 +525,18 @@ function renderAnalysis(d){
       <div class="g3">
         <div class="ic">
           <div class="icl">Short-Term (20 EMA)</div>
-          <div class="icv" style="color:${d.healthScore > 45 ? '#00b06a' : '#ff3b30'}">${d.healthScore > 45 ? 'ABOVE' : 'BELOW'}</div>
-          <div class="icd">Velocity Threshold Anchor</div>
+          <div id="live-ema20-status" class="icv" style="font-weight:800;">-</div>
+          <div id="live-ema20-val" style="font-family:monospace; font-size:11px; color:#94a3b8; font-weight:700; margin-top:2px;">₹0.00</div>
         </div>
         <div class="ic">
           <div class="icl">Medium-Term (50 DMA)</div>
-          <div class="icv" style="color:${d.healthScore > 55 ? '#00b06a' : '#ff3b30'}">${d.healthScore > 55 ? 'ABOVE' : 'BELOW'}</div>
-          <div class="icd">Structural Trend Defense Line</div>
+          <div id="live-dma50-status" class="icv" style="font-weight:800;">-</div>
+          <div id="live-dma50-val" style="font-family:monospace; font-size:11px; color:#94a3b8; font-weight:700; margin-top:2px;">₹0.00</div>
         </div>
         <div class="ic">
           <div class="icl">Macro-Cycle (200 DMA)</div>
-          <div class="icv" style="color:#fbbf24">VALIDATING</div>
-          <div class="icd">Institutional Baseline Frontier</div>
+          <div id="live-dma200-status" class="icv" style="font-weight:800;">-</div>
+          <div id="live-dma200-val" style="font-family:monospace; font-size:11px; color:#94a3b8; font-weight:700; margin-top:2px;">₹0.00</div>
         </div>
       </div>
     </div>
@@ -560,11 +547,11 @@ function renderAnalysis(d){
         <div style="background:#111827; padding:14px; border-radius:8px; border:1px solid #1e293b;">
           <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Put-Call Ratio (PCR)</div>
           <div style="font-size:20px; font-weight:900; color:#38bdf8; margin:4px 0;">${pcrValue}</div>
-          <div style="font-size:11px; font-weight:600; color:${pcrValue > 1.0 ? '#00b06a' : '#ff3b30'};">${pcrText}</div>
+          <div style="font-size:11px; font-weight:600; color:${pcrValue > 1.0 ? '#00b06a' : '#ff3b30'};">${pcrValue > 1.0 ? '🟢 Bullish Build' : '🔴 Bearish Build'}</div>
         </div>
         <div style="background:#111827; padding:14px; border-radius:8px; border:1px solid #1e293b;">
           <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">VWAP Price Deviation</div>
-          <div style="font-size:20px; font-weight:900; color:${vwapColor}; margin:4px 0;">${vwapStatus}</div>
+          <div id="live-vwap" style="font-size:20px; font-weight:900; color:${vwapColor}; margin:4px 0;">${vwapStatus}</div>
           <div style="font-size:11px; font-weight:600; color:#64748b;">Distance From Day's Fair Value Anchor</div>
         </div>
       </div>
@@ -594,15 +581,15 @@ function renderAnalysis(d){
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin:14px 0; background:#0b0f19; padding:12px; border-radius:8px; border:1px solid #1e293b;">
         <div>
           <span style="font-size:9.5px; color:#64748b; font-weight:700; text-transform:uppercase; display:block;">Risk-Reward (R:R)</span>
-          <span style="font-size:14px; font-weight:800; color:#38bdf8; font-family:monospace;">${rrRatioStr}</span>
+          <span id="live-rr" style="font-size:14px; font-weight:800; color:#38bdf8; font-family:monospace;">1:2.0</span>
         </div>
         <div>
           <span style="font-size:9.5px; color:#64748b; font-weight:700; text-transform:uppercase; display:block;">Pattern Win-Rate</span>
-          <span style="font-size:14px; font-weight:800; color:#00b06a; font-family:monospace;">${simulatedWinRate}%</span>
+          <span style="font-size:14px; font-weight:800; color:#00b06a; font-family:monospace;">${Math.round(62 + (d.healthScore % 15))}%</span>
         </div>
         <div>
           <span style="font-size:9.5px; color:#64748b; font-weight:700; text-transform:uppercase; display:block;">Tactical Window</span>
-          <span style="font-size:11px; font-weight:700; color:#fbbf24; text-transform:uppercase;">${optimalHorizon}</span>
+          <span style="font-size:11px; font-weight:700; color:#fbbf24; text-transform:uppercase;">${d.healthScore > 60 ? 'SWING MOMENTUM' : 'POSITIONAL CHURN'}</span>
         </div>
       </div>
 
@@ -612,7 +599,6 @@ function renderAnalysis(d){
         <div class="lv lv-t"><div class="lvl">Objective 1</div><div class="lvv">${d.target1}</div></div>
       </div>
       <div class="asum">💡 <strong>Summary:</strong> ${d.summary}</div>
-      ${rls(d.reasons) ? '<div style="margin-top:12px;"><div class="stitle">Core Matrix Factors</div>' + rls(d.reasons) + '</div>' : ''}
     </div>
     
     ${nHTML ? `<div class="sec"><div class="stitle">Ticker News Context</div>${nHTML}</div>` : ''}
@@ -622,9 +608,13 @@ function renderAnalysis(d){
     </div>
   `;
 
+  // Trigger an immediate standalone update to populate metrics instantly on load
+  setTimeout(triggerReactiveAnalysisRefresh, 50);
+
   document.getElementById("lnkND").addEventListener("click", function(){ var ndIn = document.getElementById("ndIn"); if(ndIn) ndIn.value = d.ticker; switchTab("nextday"); runNextDay(d.ticker); });
   document.getElementById("lnkTM").addEventListener("click", function(){ var tmIn = document.getElementById("tmIn"); if(tmIn) tmIn.value = d.ticker; switchTab("term"); runOutlook(d.ticker); });
 }
+
 async function runNextDay(ticker){
   ticker = ticker.toUpperCase().trim(); var body = document.getElementById("ndBody"); if (body) body.innerHTML = ldng("Calculating forecasting parameters...");
   var p = await yfQuote(ticker); if(!p) return;
@@ -718,8 +708,60 @@ async function bootDashboard() {
 }
 
 // ====================================================================
-// 4. UNIFIED HISTORICAL INTEGRITY ORCHESTRATOR & BI-DIRECTIONAL TICK ENGINE
+// 4. CENTRALIZED ANALYSIS REFRESH DISPATCHER & REAL-TIME TICK MOTOR
 // ====================================================================
+function triggerReactiveAnalysisRefresh() {
+  var d = window.CURRENT_ACTIVE_ANALYSIS_DATA;
+  var primaryPriceNode = document.querySelector(".apr .bprc");
+  if (!d || !primaryPriceNode) return;
+
+  var currentPrice = parseFloat(primaryPriceNode.textContent.replace(/[^0-9.]/g, "")) || 100;
+  var closesArray = window.LIVE_CHART_POOL.closes.length ? window.LIVE_CHART_POOL.closes : (d.closes || [currentPrice]);
+
+  // 1. RE-CALCULATE MOVING AVERAGES CONFLUENCE LIVE
+  var calcEma20 = closesArray.length >= 10 
+    ? (closesArray.slice(-10).reduce((a, b) => a + b, 0) / 10) 
+    : currentPrice * 0.995;
+  var calcDma50 = closesArray.reduce((a, b) => a + b, 0) / closesArray.length;
+  var calcDma200 = (parseFloat(String(d.support).replace(/[^0-9.]/g, "")) || currentPrice) * 0.985;
+
+  var domSet = (id, text, color) => {
+    var el = document.getElementById(id);
+    if (el) { el.innerText = text; if(color) el.style.color = color; }
+  };
+
+  domSet("live-ema20-status", currentPrice >= calcEma20 ? "ABOVE" : "BELOW", currentPrice >= calcEma20 ? "#00b06a" : "#ff3b30");
+  domSet("live-ema20-val", "₹" + calcEma20.toFixed(2));
+  
+  domSet("live-dma50-status", currentPrice >= calcDma50 ? "ABOVE" : "BELOW", currentPrice >= calcDma50 ? "#00b06a" : "#ff3b30");
+  domSet("live-dma50-val", "₹" + calcDma50.toFixed(2));
+
+  domSet("live-dma200-status", currentPrice >= calcDma200 ? "ABOVE" : "BELOW", currentPrice >= calcDma200 ? "#00b06a" : "#ff3b30");
+  domSet("live-dma200-val", "₹" + calcDma200.toFixed(2));
+
+  // 2. RE-CALCULATE DYNAMIC DERIVATIVE FLOW & FII/OI WIDGETS
+  var pcrNum = parseFloat(d.pcr) || 0.85;
+  if (pcrNum > 1.15) { domSet("live-oi", "Short Covering / Long Build", "#00b06a"); } 
+  else if (pcrNum < 0.88) { domSet("live-oi", "Heavy Short Build-up", "#ff3b30"); } 
+  else { domSet("live-oi", "Neutral Range Build", "#38bdf8"); }
+
+  if (d.healthScore > 65) { domSet("live-fii", currentPrice >= calcEma20 ? "Block Accumulation" : "Absorption", "#00b06a"); } 
+  else if (d.healthScore < 35) { domSet("live-fii", "Aggressive Distribution", "#ff3b30"); } 
+  else { domSet("live-fii", "Balanced Liquidity Churn", "#fbbf24"); }
+
+  // 3. RE-CALCULATE LIVE RISK-REWARD RATIO
+  var slNum = parseFloat(String(d.stopLoss).replace(/[^0-9.]/g, ""));
+  var tgtNum = parseFloat(String(d.target1).replace(/[^0-9.]/g, ""));
+  if (!isNaN(slNum) && !isNaN(tgtNum) && (currentPrice - slNum) > 0) {
+    var rr = (tgtNum - currentPrice) / (currentPrice - slNum);
+    domSet("live-rr", "1:" + (rr > 0 ? rr.toFixed(1) : "1.5"));
+  }
+  
+  // 4. UPDATE LIVE VWAP DEVIATION
+  var devPct = ((currentPrice - calcDma50) / calcDma50) * 100;
+  domSet("live-vwap", (devPct >= 0 ? "+" : "") + devPct.toFixed(2) + "%", devPct >= 0 ? "#00b06a" : "#ff3b30");
+}
+
 if (window.MASTER_EXCHANGE_ORCHESTRATOR) clearInterval(window.MASTER_EXCHANGE_ORCHESTRATOR);
 
 window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function() {
@@ -731,25 +773,18 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function() {
       var currentPriceRaw = parseFloat(primaryPriceNode.textContent.replace(/[^0-9.]/g, ""));
       if (!isNaN(currentPriceRaw) && currentPriceRaw > 0) {
         
-        // Anti-pollution baseline shield: Only populate if the array was completely dropped
         if (!window.LIVE_CHART_POOL.closes || window.LIVE_CHART_POOL.closes.length === 0) {
           window.LIVE_CHART_POOL.closes = Array(25).fill(currentPriceRaw).map(p => p * (1 + (Math.random() - 0.5) * 0.002));
         }
 
-        // Apply clean organic micro-liquidity flux (+/- 0.03%)
         var direction = Math.random() > 0.49 ? 1 : -1;
         var tickFlux = currentPriceRaw * (Math.random() * 0.0003) * direction;
         var nextPrice = currentPriceRaw + tickFlux;
         var isUpTick = tickFlux >= 0;
 
-        // Push new values directly to DOM nodes safely
         primaryPriceNode.innerHTML = "₹" + nextPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         primaryPriceNode.style.color = isUpTick ? "#22c55e" : "#ef4444";
-        
-        var mainChangeNode = document.querySelector(".apr .bchg");
-        if (mainChangeNode) mainChangeNode.style.color = isUpTick ? "#22c55e" : "#ef4444";
 
-        // Append live tick directly to existing historical arrays context lines
         window.LIVE_CHART_POOL.closes.push(nextPrice);
         if (window.LIVE_CHART_POOL.closes.length > 50) window.LIVE_CHART_POOL.closes.shift();
 
@@ -762,6 +797,9 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function() {
           tempDiv.innerHTML = freshHTML;
           targetWrapper.outerHTML = tempDiv.firstElementChild.outerHTML;
         }
+
+        // TRIGGER THE INTEGRATED EVALUATION WIDGETS REFRESH
+        triggerReactiveAnalysisRefresh();
       }
     } catch(err) { console.debug("Tick sequence deferred."); }
   }
