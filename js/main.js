@@ -24,8 +24,9 @@ function drawNativeChart(closes, volumes, up) {
   var minP = Math.min(...closes), maxP = Math.max(...closes);
   var rngP = maxP - minP || 1;
   
-  minP -= (rngP * 0.05);
-  maxP += (rngP * 0.05);
+  // Dynamic structural buffer padding to preserve movement fidelity
+  minP -= (rngP * 0.08);
+  maxP += (rngP * 0.08);
   rngP = maxP - minP;
 
   var coordinates = closes.map((p, i) => {
@@ -47,6 +48,15 @@ function drawNativeChart(closes, volumes, up) {
   `;
 
   var currentLatestPrice = closes[closes.length - 1] || 0;
+  
+  // NEW CONTENT: DYNAMIC REAL-TIME PRICE LEVEL HORIZONTAL TRACKING LINE
+  var currentY = h - ((currentLatestPrice - minP) / rngP) * (h - 40) - 20;
+  var livePriceLineHTML = `
+    <line x1="0" y1="${currentY.toFixed(1)}" x2="${w}" y2="${currentY.toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.65" />
+    <rect x="${w - 65}" y="${(currentY - 9).toFixed(1)}" width="62" height="15" fill="#0b0f19" stroke="${color}" stroke-width="1" rx="3" opacity="0.9" />
+    <text x="${w - 34}" y="${(currentY + 2).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="8.5" font-weight="800" font-family="monospace">₹${currentLatestPrice.toFixed(2)}</text>
+  `;
+
   var priceBadgeHTML = currentLatestPrice > 0 ? `
     <span style="background: rgba(56,189,248,0.02); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.12); font-size: 9.5px; color: ${color}; font-weight: 800; font-family: monospace;">
       ₹${currentLatestPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -76,6 +86,7 @@ function drawNativeChart(closes, volumes, up) {
           ${gridLinesHTML}
           <path d="${areaPathData}" fill="url(#${gradId})" />
           <polyline points="${pricePts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          ${livePriceLineHTML}
           <circle cx="${coordinates[coordinates.length - 1].x.toFixed(1)}" cy="${coordinates[coordinates.length - 1].y.toFixed(1)}" r="4" fill="${color}" stroke="#0b0f19" stroke-width="1.5" />
         </svg>
         <div style="position: absolute; left: 4px; top: -4px; font-size: 9px; color: #475569; font-weight: 700;">H: ₹${maxP.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
@@ -84,6 +95,7 @@ function drawNativeChart(closes, volumes, up) {
     </div>
   `;
 }
+
 
 function switchTab(name){
   document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-tab") === name); });
@@ -677,7 +689,7 @@ async function bootDashboard() {
 }
 
 // ====================================================================
-// 4. UNIFIED CORE INTERACTION ORCHESTRATOR & BI-DIRECTIONAL TICK ENGINE
+// 4. UNIFIED HISTORICAL INTEGRITY ORCHESTRATOR & BI-DIRECTIONAL TICK ENGINE
 // ====================================================================
 if (window.MASTER_EXCHANGE_ORCHESTRATOR) clearInterval(window.MASTER_EXCHANGE_ORCHESTRATOR);
 
@@ -690,24 +702,27 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function() {
       var currentPriceRaw = parseFloat(primaryPriceNode.textContent.replace(/[^0-9.]/g, ""));
       if (!isNaN(currentPriceRaw) && currentPriceRaw > 0) {
         
-        if (!window.LIVE_CHART_POOL.closes || window.LIVE_CHART_POOL.closes.length === 0 || 
-            window.LIVE_CHART_POOL.closes.some(p => p > currentPriceRaw * 2.5 || p < currentPriceRaw * 0.3)) {
-          window.LIVE_CHART_POOL.closes = Array(25).fill(currentPriceRaw).map(p => p * (1 + (Math.random() - 0.5) * 0.003));
+        // Anti-pollution baseline shield: Only populate if the array was completely dropped
+        if (!window.LIVE_CHART_POOL.closes || window.LIVE_CHART_POOL.closes.length === 0) {
+          window.LIVE_CHART_POOL.closes = Array(25).fill(currentPriceRaw).map(p => p * (1 + (Math.random() - 0.5) * 0.002));
         }
 
+        // Apply clean organic micro-liquidity flux (+/- 0.03%)
         var direction = Math.random() > 0.49 ? 1 : -1;
-        var tickFlux = currentPriceRaw * (Math.random() * 0.0004) * direction;
+        var tickFlux = currentPriceRaw * (Math.random() * 0.0003) * direction;
         var nextPrice = currentPriceRaw + tickFlux;
         var isUpTick = tickFlux >= 0;
 
+        // Push new values directly to DOM nodes safely
         primaryPriceNode.innerHTML = "₹" + nextPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         primaryPriceNode.style.color = isUpTick ? "#22c55e" : "#ef4444";
         
         var mainChangeNode = document.querySelector(".apr .bchg");
         if (mainChangeNode) mainChangeNode.style.color = isUpTick ? "#22c55e" : "#ef4444";
 
+        // Append live tick directly to existing historical arrays context lines
         window.LIVE_CHART_POOL.closes.push(nextPrice);
-        if (window.LIVE_CHART_POOL.closes.length > 35) window.LIVE_CHART_POOL.closes.shift();
+        if (window.LIVE_CHART_POOL.closes.length > 50) window.LIVE_CHART_POOL.closes.shift();
 
         var upTrend = nextPrice >= window.LIVE_CHART_POOL.closes[0];
         var freshHTML = drawNativeChart(window.LIVE_CHART_POOL.closes, [100], upTrend);
@@ -719,7 +734,7 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function() {
           targetWrapper.outerHTML = tempDiv.firstElementChild.outerHTML;
         }
       }
-    } catch(err) { console.debug("Tick deferred."); }
+    } catch(err) { console.debug("Tick sequence deferred."); }
   }
 
   if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 15000) {
