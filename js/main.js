@@ -398,7 +398,7 @@ function renderTrendUI() {
   `;
 
   // ====================================================================
-  // DYNAMIC INTRADAY INJECTION INTO THE "NSE TOP MOVERS" HOUSING ZONE
+  // CRITICAL FIX: BOUNDARY-RESTRICTED TARGET INJECTION (0% HARDCODED)
   // ====================================================================
   if (window.DYNAMIC_RAW_STOCKS_POOL && window.DYNAMIC_RAW_STOCKS_POOL.length > 0) {
     var sortedStocks = [...window.DYNAMIC_RAW_STOCKS_POOL].sort((a, b) => b.changePct - a.changePct).slice(0, 6);
@@ -407,7 +407,7 @@ function renderTrendUI() {
     sortedStocks.forEach(s => {
       var color = s.up ? "#00b06a" : "#ff3b30";
       var arrow = s.up ? "▲" : "▼";
-      var displayPrice = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits:2 }) : "₹—";
+      var displayPrice = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "₹—";
       
       moversHTML += `
         <div class="mover-card" onclick="runAnalysis('${s.name}')" style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; text-align:left; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'">
@@ -419,22 +419,24 @@ function renderTrendUI() {
     });
     moversHTML += `</div>`;
 
-    // Direct text-content scanning across header leaf layers (Robust structural matching)
-    var allElements = document.querySelectorAll("div, h3, span, p, strong, h2");
-    for (var i = 0; i < allElements.length; i++) {
-      var el = allElements[i];
-      if (el.textContent.includes("NSE TOP MOVERS")) {
-        var sectionParent = el.closest('.sec') || el.parentElement;
-        if (sectionParent) {
-          var existingGrid = sectionParent.querySelector(".movers-container");
-          if (existingGrid) {
-            existingGrid.outerHTML = moversHTML;
-          } else {
-            // Target the heading's structural row layer wrapper directly
-            var headerBlock = el.closest('div') || el;
-            headerBlock.insertAdjacentHTML('afterend', moversHTML);
-          }
-          break;
+    // Lock onto the precise specific headline element using a max-character constraint
+    var targetHeadlineNode = null;
+    document.querySelectorAll("div, h3, span, p, strong, h2").forEach(el => {
+      if (el.textContent.includes("NSE TOP MOVERS") && el.textContent.length < 60) {
+        targetHeadlineNode = el;
+      }
+    });
+
+    if (targetHeadlineNode) {
+      var sectionParent = targetHeadlineNode.closest('.sec') || targetHeadlineNode.parentElement;
+      if (sectionParent) {
+        var existingGrid = sectionParent.querySelector(".movers-container");
+        if (existingGrid) {
+          existingGrid.outerHTML = moversHTML;
+        } else {
+          // Mount it cleanly beneath the label's immediate header container
+          var headerContainerBlock = targetHeadlineNode.closest('div') || targetHeadlineNode;
+          headerContainerBlock.insertAdjacentHTML('afterend', moversHTML);
         }
       }
     }
