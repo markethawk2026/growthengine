@@ -240,76 +240,74 @@ async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
 
-  if (!window.MOVERS_DATA_POOL || !window.MOVERS_DATA_POOL.length || forceRefresh === true) {
-    container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px;"><div class="spnr"></div></div>`;
-    var rawData = [];
-    var individualStocks = []; // Array tracking individual equities for Top Movers row
-    
-    window.GLOBAL_TOTAL_ADVANCES = 0;
-    window.GLOBAL_TOTAL_DECLINES = 0;
-    window.GLOBAL_NET_VOLUME_FLOW = 0;
+  // Always clear and fetch fresh streams on interval ticks to eliminate empty caching states
+  var rawData = [];
+  var individualStocks = []; 
+  
+  window.GLOBAL_TOTAL_ADVANCES = 0;
+  window.GLOBAL_TOTAL_DECLINES = 0;
+  window.GLOBAL_NET_VOLUME_FLOW = 0;
 
-    if (typeof yfMovers === "function") {
-      try { 
-        var apiData = await yfMovers(); 
-        if (Array.isArray(apiData) && apiData.length > 0) {
-          var sectorMap = {};
+  if (typeof yfMovers === "function") {
+    try { 
+      var apiData = await yfMovers(); 
+      if (Array.isArray(apiData) && apiData.length > 0) {
+        var sectorMap = {};
+        
+        apiData.forEach(function(item) {
+          var rawSector = item.sector || item.industry || "GENERAL EQUITIES";
+          var sectorKey = String(rawSector).toUpperCase().replace(/ETF|BEES|NIFTY|INDEX/gi, "").trim();
+          if (!sectorKey) sectorKey = "GENERAL EQUITIES";
           
-          apiData.forEach(function(item) {
-            var rawSector = item.sector || item.industry || "GENERAL EQUITIES";
-            var sectorKey = String(rawSector).toUpperCase().replace(/ETF|BEES|NIFTY|INDEX/gi, "").trim();
-            if (!sectorKey) sectorKey = "GENERAL EQUITIES";
-            
-            var cleanTicker = String(item.ticker || item.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase().trim();
-            var rawChange = item.rawChangePct || parseFloat(String(item.changePct).replace(/[^0-9.-]/g, "")) || 0;
-            var rawVol = parseFloat(String(item.volume).replace(/[^0-9.]/g, "")) || 0.0;
-            var rawPrice = parseFloat(String(item.price || item.regularMarketPrice || "0").replace(/[^0-9.]/g, "")) || 0;
-            
-            window.GLOBAL_NET_VOLUME_FLOW += rawVol;
-            if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
+          var cleanTicker = String(item.ticker || item.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase().trim();
+          var rawChange = item.rawChangePct || parseFloat(String(item.changePct).replace(/[^0-9.-]/g, "")) || 0;
+          var rawVol = parseFloat(String(item.volume).replace(/[^0-9.]/g, "")) || 0.0;
+          var rawPrice = parseFloat(String(item.price || item.regularMarketPrice || "0").replace(/[^0-9.]/g, "")) || 0;
+          
+          window.GLOBAL_NET_VOLUME_FLOW += rawVol;
+          if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
 
-            // Harvest clean stock equities for individual movers matrix
-            if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
-              individualStocks.push({
-                name: cleanTicker,
-                price: rawPrice,
-                changePct: rawChange,
-                up: rawChange >= 0
-              });
-            }
-
-            if (!sectorMap[sectorKey]) {
-              sectorMap[sectorKey] = { 
-                name: sectorKey, count: 0, changeSum: 0, volSum: 0, advances: 0, declines: 0, leadTicker: cleanTicker 
-              };
-            }
-            
-            sectorMap[sectorKey].count++;
-            sectorMap[sectorKey].changeSum += rawChange;
-            sectorMap[sectorKey].volSum += rawVol;
-            if (rawChange >= 0) { sectorMap[sectorKey].advances++; } else { sectorMap[sectorKey].declines++; }
-          });
-
-          Object.keys(sectorMap).forEach(function(key) {
-            var sec = sectorMap[key];
-            var avgChange = sec.changeSum / sec.count;
-            var totalRanked = sec.advances + sec.declines || 1;
-            var advPct = Math.round((sec.advances / totalRanked) * 100);
-            
-            rawData.push({
-              sectorName: sec.name, targetTicker: sec.leadTicker, avgChangePct: (avgChange >= 0 ? "+" : "") + avgChange.toFixed(2) + "%",
-              rawChange: avgChange, flowVelocity: sec.volSum / sec.count > 0 ? parseFloat((1.0 + Math.min((sec.volSum / sec.count) / 1000000, 8.5)).toFixed(1)) : parseFloat((1.5 + (sec.count % 4) * 1.1).toFixed(1)),
-              advancesPct: advPct, declinesPct: 100 - advPct, advCount: sec.advances, decCount: sec.declines, bullishFlow: avgChange >= 0
+          // Harvest clean stock equities dynamically for top movers grid
+          if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
+            individualStocks.push({
+              name: cleanTicker,
+              price: rawPrice,
+              changePct: rawChange,
+              up: rawChange >= 0
             });
-          });
-        }
-      } catch(e) { console.warn("Market analytics matrix feed stream deferred.", e); }
-    }
+          }
 
-    // Preserve dynamic array sort states natively
-    window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
-    window.DYNAMIC_RAW_STOCKS_POOL = individualStocks;
+          if (!sectorMap[sectorKey]) {
+            sectorMap[sectorKey] = { 
+              name: sectorKey, count: 0, changeSum: 0, volSum: 0, advances: 0, declines: 0, leadTicker: cleanTicker 
+            };
+          }
+          
+          sectorMap[sectorKey].count++;
+          sectorMap[sectorKey].changeSum += rawChange;
+          sectorMap[sectorKey].volSum += rawVol;
+          if (rawChange >= 0) { sectorMap[sectorKey].advances++; } else { sectorMap[sectorKey].declines++; }
+        });
+
+        Object.keys(sectorMap).forEach(function(key) {
+          var sec = sectorMap[key];
+          var avgChange = sec.changeSum / sec.count;
+          var totalRanked = sec.advances + sec.declines || 1;
+          var advPct = Math.round((sec.advances / totalRanked) * 100);
+          
+          rawData.push({
+            sectorName: sec.name, targetTicker: sec.leadTicker, avgChangePct: (avgChange >= 0 ? "+" : "") + avgChange.toFixed(2) + "%",
+            rawChange: avgChange, flowVelocity: sec.volSum / sec.count > 0 ? parseFloat((1.0 + Math.min((sec.volSum / sec.count) / 1000000, 8.5)).toFixed(1)) : parseFloat((1.5 + (sec.count % 4) * 1.1).toFixed(1)),
+            advancesPct: advPct, declinesPct: 100 - advPct, advCount: sec.advances, decCount: sec.declines, bullishFlow: avgChange >= 0
+          });
+        });
+      }
+    } catch(e) { console.warn("Market analytics matrix feed stream deferred.", e); }
   }
+
+  // Anchor to state arrays natively
+  window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
+  window.DYNAMIC_RAW_STOCKS_POOL = individualStocks;
   
   renderTrendUI();
 }
@@ -398,7 +396,7 @@ function renderTrendUI() {
   `;
 
   // ====================================================================
-  // CRITICAL FIX: BOUNDARY-RESTRICTED TARGET INJECTION (0% HARDCODED)
+  // HIGH-PRECISION LEAF INTERCEPTOR FOR TOP MOVERS ROW (0% HARDCODED)
   // ====================================================================
   if (window.DYNAMIC_RAW_STOCKS_POOL && window.DYNAMIC_RAW_STOCKS_POOL.length > 0) {
     var sortedStocks = [...window.DYNAMIC_RAW_STOCKS_POOL].sort((a, b) => b.changePct - a.changePct).slice(0, 6);
@@ -419,30 +417,32 @@ function renderTrendUI() {
     });
     moversHTML += `</div>`;
 
-    // Lock onto the precise specific headline element using a max-character constraint
-    var targetHeadlineNode = null;
-    document.querySelectorAll("div, h3, span, p, strong, h2").forEach(el => {
-      if (el.textContent.includes("NSE TOP MOVERS") && el.textContent.length < 60) {
-        targetHeadlineNode = el;
+    // Target the specific narrow headline text element node explicitly
+    var targetLabelNode = null;
+    var allPageNodes = document.querySelectorAll("h1, h2, h3, h4, div, span, p, strong");
+    for (var i = 0; i < allPageNodes.length; i++) {
+      var node = allPageNodes[i];
+      if (node.textContent.includes("NSE TOP MOVERS") && node.textContent.length < 50) {
+        targetLabelNode = node;
+        break;
       }
-    });
+    }
 
-    if (targetHeadlineNode) {
-      var sectionParent = targetHeadlineNode.closest('.sec') || targetHeadlineNode.parentElement;
-      if (sectionParent) {
-        var existingGrid = sectionParent.querySelector(".movers-container");
-        if (existingGrid) {
-          existingGrid.outerHTML = moversHTML;
+    if (targetLabelNode) {
+      // Step outward to find the immediate header wrapper container row
+      var headerRowWrapper = targetLabelNode.parentElement;
+      if (headerRowWrapper) {
+        var existingContainer = headerRowWrapper.parentElement.querySelector(".movers-container");
+        if (existingContainer) {
+          existingContainer.outerHTML = moversHTML;
         } else {
-          // Mount it cleanly beneath the label's immediate header container
-          var headerContainerBlock = targetHeadlineNode.closest('div') || targetHeadlineNode;
-          headerContainerBlock.insertAdjacentHTML('afterend', moversHTML);
+          // Mount the movers container cleanly right after the header block row
+          headerRowWrapper.insertAdjacentHTML('afterend', moversHTML);
         }
       }
     }
   }
 }
-
 // ====================================================================
 // 1. EXCHANGE GATEWAY HELPER: REAL-TIME WEEKDAY CLOCK VALVE
 // ====================================================================
