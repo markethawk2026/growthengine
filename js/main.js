@@ -234,7 +234,7 @@ var btnNewsEl = document.getElementById("btnNews");
 if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ====================================================================
-// 2. UNIFIED INTRADAY BREAKOUT TERMINAL & SECTOR MATRIX (ZERO HARDCODED)
+// 2. UNIFIED 3-COLUMN BREAKOUT TERMINAL & SECTOR MATRIX (ZERO HARDCODED)
 // ====================================================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
@@ -324,7 +324,7 @@ function renderTrendUI() {
   if (marketBreadthPct > 65) { statusLabel = "AGGRESSIVE ACCUMULATION"; statusColor = "#00b06a"; }
   else if (marketBreadthPct < 35) { statusLabel = "EXTREME LIQUIDATION DETECTED"; statusColor = "#ff3b30"; }
 
-  // 1. GENERATE SECTOR ROTATION MODULE CARDS
+  // 1. COLUMN 2 COMPILATION: SECTOR PARTICIPATION CARDS
   var sectorsHTML = "";
   window.MOVERS_DATA_POOL.forEach(function(sector) {
     var flowColor = sector.bullishFlow ? "#00b06a" : "#ff3b30";
@@ -333,33 +333,25 @@ function renderTrendUI() {
 
     sectorsHTML += `
       <div onclick="runAnalysis('${sector.targetTicker}')" 
-           style="background: #111827; padding: 12px 14px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 10px; cursor: pointer; transition: all 0.15s;"
+           style="background: #111827; padding: 10px 12px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 6px;"
            onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)'"
            onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none'">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="text-align: left;"><span style="color: #f1f5f9; font-weight: 700; font-size: 12px; letter-spacing: 0.2px;">${sector.sectorName}</span></div>
-          <div style="display: flex; align-items: center; gap: 12px; text-align: right;">
-            <div><span style="color: ${flowColor}; font-weight: 800; font-size: 12.5px;">${sector.avgChangePct}</span></div>
-            <div style="background: ${velocityBg}; border: 1px solid ${velocityColor}; padding: 3px 8px; border-radius: 4px; min-width: 60px; text-align: center;">
-              <span style="color: ${velocityColor}; font-size: 11px; font-weight: 900;">${sector.flowVelocity}x Vol</span>
-            </div>
+          <span style="color: #f1f5f9; font-weight: 700; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${sector.sectorName}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: ${flowColor}; font-weight: 800; font-size: 11.5px;">${sector.avgChangePct}</span>
+            <div style="background: ${velocityBg}; border: 1px solid ${velocityColor}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 900; color: ${velocityColor};">${sector.flowVelocity}x</div>
           </div>
         </div>
-        <div style="width: 100%;">
-          <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: 700; color: #64748b; margin-bottom: 4px; font-family: monospace;">
-            <span style="color: #00b06a;">🟢 ADV: ${sector.advCount} (${sector.advancesPct}%)</span>
-            <span style="color: #ff3b30;">DEC: ${sector.decCount} (${sector.declinesPct}%) 🔴</span>
-          </div>
-          <div style="height: 5px; width: 100%; background: #1e293b; border-radius: 3px; overflow: hidden; display: flex;">
-            <div style="width: ${sector.advancesPct}%; background: #00b06a; height: 100%;"></div>
-            <div style="width: ${sector.declinesPct}%; background: #ff3b30; height: 100%;"></div>
-          </div>
+        <div style="height: 4px; width: 100%; background: #1e293b; border-radius: 2px; overflow: hidden; display: flex;">
+          <div style="width: ${sector.advancesPct}%; background: #00b06a; height: 100%;"></div>
+          <div style="width: ${sector.declinesPct}%; background: #ff3b30; height: 100%;"></div>
         </div>
       </div>
     `;
   });
 
-  // 2. GENERATE VOLUMETRIC AND PRICE BREAKOUT COMPONENT PANELS
+  // 2. COLUMN 1 COMPILATION: SCANNER FLOW MATRICES
   var volumeShockersHTML = "";
   var priceBreakoutsHTML = "";
 
@@ -373,7 +365,7 @@ function renderTrendUI() {
             <strong style="font-size:12px; color:#f8fafc; display:block;">${s.name}</strong>
             <span style="font-size:10px; color:#64748b; font-family:monospace;">₹${s.price.toFixed(2)}</span>
           </div>
-          <span style="font-size:10px; background:rgba(168,85,247,0.1); color:#c084fc; border:1px solid rgba(168,85,247,0.2); padding:2px 6px; border-radius:4px; font-weight:800; font-family:monospace;">⚡ ${vMult}x VOL</span>
+          <span style="font-size:10px; background:rgba(168,85,247,0.1); color:#c084fc; border:1px solid rgba(168,85,247,0.2); padding:2px 6px; border-radius:4px; font-weight:800; font-family:monospace;">⚡ ${vMult}x</span>
         </div>
       `;
     });
@@ -395,68 +387,63 @@ function renderTrendUI() {
     });
   }
 
-  // 3. COMPILE COMPLETE ASYNC WORKSPACE INJECTION TO ELIMINATE CLIPPING
+  // 3. MASTER INJECTION: FILL ENTIRE SCREEN WIDTH UNIFORMLY
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:16px; width:100%; box-sizing:border-box;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
       
-      <div style="width:100%; background:#0b0f19; border:1px solid #1e293b; border-radius:12px; padding:16px; box-sizing:border-box;">
-        <div style="border-bottom:1px solid #1e293b; padding-bottom:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-          <span style="font-size:11px; color:#38bdf8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">📡 Intraday Diagnostic Breakout Scanner</span>
-          <span style="background:rgba(56,189,248,0.06); border:1px solid #38bdf8; padding:2px 6px; border-radius:4px; font-size:8.5px; color:#38bdf8; font-weight:700;">REAL-TIME SIGNAL</span>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📡 Intraday Diagnostic Scanner</span>
+          <span style="background: rgba(56,189,248,0.06); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700;">SIGNAL</span>
         </div>
         
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; width:100%;">
-          <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
-            <h4 style="font-size:11px; color:#a855f7; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; text-align:left; display:flex; align-items:center; gap:6px;">
-              <span style="width:6px; height:6px; background:#a855f7; border-radius:50%;"></span> Volumetric Momentum Shockers
-            </h4>
-            ${volumeShockersHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0; text-align:left;">Processing index volume arrays...</div>'}
+        <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
+          <h4 style="font-size:11px; color:#a855f7; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+            <span style="width:6px; height:6px; background:#a855f7; border-radius:50%;"></span> Volumetric Momentum Shockers
+          </h4>
+          ${volumeShockersHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Processing volume arrays...</div>'}
+        </div>
+        
+        <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
+          <h4 style="font-size:11px; color:#00b06a; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+            <span style="width:6px; height:6px; background:#00b06a; border-radius:50%;"></span> Price Acceleration Signals
+          </h4>
+          ${priceBreakoutsHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Calculating price models...</div>'}
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Flow & Participation</span>
+          <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color:#38bdf8; font-weight: 700;">A/D PANEL</span>
+        </div>
+        <div id="sector-scroll-container" style="max-height: 380px; overflow-y: auto; padding-right: 2px;">
+          ${sectorsHTML}
+        </div>
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+          <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📊 Macro Exchange Sentiment Radar</span>
+        </div>
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 360px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+          <div>
+            <div style="font-size: 10px; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">MARKET SENTIMENT COGNITION</div>
+            <div style="font-size: 14px; font-weight: 900; color: ${statusColor}; margin: 6px 0 14px 0; letter-spacing: 0.2px;">${statusLabel}</div>
+            <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+              <span style="font-size: 10px; color: #475569; font-weight: 700; display: block; margin-bottom: 4px;">AGGREGATE MARKET ADVANCE-DECLINE</span>
+              <div style="font-size: 22px; font-weight: 900; color: #f1f5f9; font-family: monospace;">${totalAdv} <span style="color:#64748b; font-size:14px; font-weight:500;">vs</span> <span style="color:#ff3b30;">${totalDec}</span></div>
+              <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Net Breadth Ratio: <strong style="color:#38bdf8;">${marketBreadthPct}%</strong> Bulls</div>
+            </div>
           </div>
-          
-          <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
-            <h4 style="font-size:11px; color:#00b06a; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; text-align:left; display:flex; align-items:center; gap:6px;">
-              <span style="width:6px; height:6px; background:#00b06a; border-radius:50%;"></span> Price Acceleration Signals
-            </h4>
-            ${priceBreakoutsHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0; text-align:left;">Calculating price trend vector models...</div>'}
+          <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px;">
+            <span style="font-size: 10px; color: #475569; font-weight: 700; display: block; margin-bottom: 4px;">TOTAL INST. VOLUMETRIC FOOTPRINT</span>
+            <div style="font-size: 16px; font-weight: 800; color: #38bdf8; font-family: monospace;">${(window.GLOBAL_NET_VOLUME_FLOW || 0).toFixed(2)}M Shares</div>
+            <p style="font-size: 10.5px; color: #64748b; margin: 4px 0 0 0; line-height: 1.4;">Real-time block deal scan pipeline active across listed components.</p>
           </div>
         </div>
       </div>
 
-      <div style="display:flex; flex-wrap:wrap; gap:16px; width:100%; box-sizing:border-box;">
-        
-        <div style="flex:1.3 1 320px; display:flex; flex-direction:column; gap:8px;">
-          <div style="border-bottom:1px solid #1e293b; padding-bottom:8px; display:flex; justify-content:space-between; align-items:center; text-align:left;">
-            <span style="font-size:11px; color:#38bdf8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">⚡ Institutional Flow & Sector Participation</span>
-            <span style="background:rgba(56,189,248,0.05); border:1px solid #38bdf8; padding:2px 6px; border-radius:4px; font-size:8.5px; color:#38bdf8; font-weight:700;">A/D PANEL</span>
-          </div>
-          <div id="sector-scroll-container" style="max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:2px;">
-            ${sectorsHTML}
-          </div>
-        </div>
-        
-        <div style="flex:1 1 240px; display:flex; flex-direction:column; gap:8px;">
-          <div style="border-bottom:1px solid #1e293b; padding-bottom:8px; text-align:left;">
-            <span style="font-size:11px; color:#fbbf24; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">📊 Macro Exchange Sentiment Radar</span>
-          </div>
-          <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:12px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; height:calc(100% - 24px); box-sizing:border-box; min-height:220px; box-shadow:inset 0 2px 4px rgba(0,0,0,0.3); text-align:left;">
-            <div>
-              <div style="font-size:10px; color:#64748b; font-weight:700; letter-spacing:0.5px;">MARKET SENTIMENT COGNITION</div>
-              <div style="font-size:15px; font-weight:900; color:${statusColor}; margin:6px 0 14px 0; letter-spacing:0.2px;">${statusLabel}</div>
-              <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px; margin-bottom:14px;">
-                <span style="font-size:10px; color:#475569; font-weight:700; display:block; margin-bottom:4px;">AGGREGATE MARKET ADVANCE-DECLINE</span>
-                <div style="font-size:22px; font-weight:900; color:#f1f5f9; font-family:monospace;">${totalAdv} <span style="color:#64748b; font-size:14px; font-weight:500;">vs</span> <span style="color:#ff3b30;">${totalDec}</span></div>
-                <div style="font-size:11px; color:#64748b; margin-top:2px;">Net Breadth Ratio: <strong style="color:#38bdf8;">${marketBreadthPct}%</strong> positive participation</div>
-              </div>
-            </div>
-            <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
-              <span style="font-size:10px; color:#475569; font-weight:700; display:block; margin-bottom:4px;">TOTAL INST. VOLUMETRIC FOOTPRINT</span>
-              <div style="font-size:16px; font-weight:800; color:#38bdf8; font-family:monospace;">${(window.GLOBAL_NET_VOLUME_FLOW || 0).toFixed(2)}M Shares</div>
-              <p style="font-size:10.5px; color:#64748b; margin:4px 0 0 0; line-height:1.4;">Real-time block deal scan pipeline active across all listed components.</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
     </div>
   `;
 }
