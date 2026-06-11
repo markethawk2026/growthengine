@@ -266,7 +266,7 @@ async function loadTrend(forceRefresh) {
           window.GLOBAL_NET_VOLUME_FLOW += rawVol;
           if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
 
-          // Harvest valid equities for the Real-Time Technical Analyzer Engine
+          // Harvest valid equities for the Technical Analyzer Engine
           if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
             analyzerPool.push({
               name: cleanTicker,
@@ -325,7 +325,7 @@ function renderTrendUI() {
   if (marketBreadthPct > 65) { statusLabel = "AGGRESSIVE ACCUMULATION"; statusColor = "#00b06a"; }
   else if (marketBreadthPct < 35) { statusLabel = "EXTREME LIQUIDATION DETECTED"; statusColor = "#ff3b30"; }
 
-  // 1. GENERATE SECTOR ROTATION SUB-LIST
+  // 1. GENERATE SECTOR ROTATION MODULES
   var sectorsHTML = "";
   window.MOVERS_DATA_POOL.forEach(function(sector) {
     var flowColor = sector.bullishFlow ? "#00b06a" : "#ff3b30";
@@ -351,28 +351,26 @@ function renderTrendUI() {
     `;
   });
 
-  // 2. GENERATE REAL-TIME ALGORITHMIC STOCK ANALYZER ROWS
+  // 2. FIXED: GENERATE REAL-TIME ALGORITHMIC STOCK ANALYZER ROWS
   var analyzerRowsHTML = "";
-  if (window.INTRADAY_ANALYZER_POOL && window.INTRADAY_SCANNER_POOL.length > 0) {
-    // Sort by absolute momentum intensity (highest change or volatility)
-    var sortedAnalysis = [...window.INTRADAY_ANALYZER_POOL].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 5);
+  if (window.INTRADAY_ANALYZER_POOL && window.INTRADAY_ANALYZER_POOL.length > 0) {
+    var sortedAnalysis = [...window.INTRADAY_ANALYZER_POOL].sort((a, b) => b.changePct - a.changePct).slice(0, 5);
     
     sortedAnalysis.forEach(s => {
       var changeColor = s.up ? "#00b06a" : "#ff3b30";
       var prefix = s.up ? "▲ +" : "▼ ";
       var priceDisplay = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "₹—";
       
-      // Compute Technical Verdict commentary programmatically
       var verdictText = "NEUTRAL DRIFT";
       var verdictColor = "#94a3b8";
       var verdictBg = "rgba(148,163,184,0.06)";
       
       if (s.changePct >= 2.0) {
-        verdictText = "STRONG BREAKOUT"; verdictColor = "#00b06a"; verdictBg = "rgba(0,176,106,0.08)";
+        verdictText = "BREAKOUT"; verdictColor = "#00b06a"; verdictBg = "rgba(0,176,106,0.08)";
       } else if (s.changePct > 0 && s.changePct < 2.0) {
         verdictText = "ACCUMULATION"; verdictColor = "#38bdf8"; verdictBg = "rgba(56,189,248,0.08)";
       } else if (s.changePct <= -2.0) {
-        verdictText = "SHARP LIQUIDATION"; verdictColor = "#ff3b30"; verdictBg = "rgba(255,59,48,0.08)";
+        verdictText = "LIQUIDATION"; verdictColor = "#ff3b30"; verdictBg = "rgba(255,59,48,0.08)";
       } else if (s.changePct < 0 && s.changePct > -2.0) {
         verdictText = "DISTRIBUTION"; verdictColor = "#fbbf24"; verdictBg = "rgba(251,191,36,0.08)";
       }
@@ -392,7 +390,7 @@ function renderTrendUI() {
     });
   }
 
-  // 3. MASTER INJECTION: DRAW EVERYTHING IN A SYMMETRICAL 3-COLUMN DESK LAYOUT
+  // 3. MASTER INJECTION: 3-COLUMN INTEL DESK VERTICAL STRUCTURE
   container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin: 0;";
   container.innerHTML = `
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
@@ -409,7 +407,7 @@ function renderTrendUI() {
                 <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase;">Asset</th>
                 <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Price</th>
                 <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Intraday</th>
-                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">System Signal</th>
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Signal</th>
               </tr>
             </thead>
             <tbody>
