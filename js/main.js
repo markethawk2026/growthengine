@@ -230,8 +230,6 @@ async function loadNews(targetTicker) {
     container.innerHTML = `<div style="color:#64748b; padding:24px; text-align:center;">News feed loaded successfully.</div>`;
   }
 }
-var btnNewsEl = document.getElementById("btnNews");
-if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ====================================================================
 // 2. UNIFIED 4-QUADRANT TERMINAL DESK MATRIX (WITH PRECISION REFRESH)
@@ -615,12 +613,12 @@ function processIndexPayload(quotes) {
 // ====================================================================
 // 6. PURE LIVE NSE TOP MOVERS FETCH ENGINE (100% DATA-DRIVEN & MEMORY-SAFE)
 // ====================================================================
-async function loadTopMovers() {
+async function loadTopMovers(forceRefresh) {
   if (typeof yfMovers !== "function") return;
   
   try {
     // Read directly from the active local market stream data array
-    var apiData = await yfMovers();
+    var apiData = await yfMovers(forceRefresh);
     if (!Array.isArray(apiData) || apiData.length === 0) return;
 
     var stockDataArr = [];
@@ -1290,9 +1288,15 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function () {
   if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 15000) {
     loadIdx().catch(() => {});
     loadTrend(true).catch(() => {});
+    loadTopMovers(true).catch(() => {}); 
     window.LAST_IDX_REFRESH_TS = Date.now();
   }
-  
+
+// Automated News Loop: Cycles quietly in background every 4 minutes to protect your API limits
+if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 240000) {
+  loadNews().catch(() => {});
+  window.LAST_NEWS_REFRESH_TS = Date.now();
+}
   // Always keep scrolling tickers completely synchronized with state alterations
   try { renderLiveTickerTape(); } catch(e) {}
   
