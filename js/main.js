@@ -1306,7 +1306,7 @@ if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 2
 // CENTRALIZED THEME SWITCHER CORE LOGIC
 // ==========================================
 function initThemeSwitcher() {
-  var themeBtn = document.getElementById("themeToggle");
+  var themeBtn = document.getElementById(".themeToggle");
   if (!themeBtn) return;
 
   themeBtn.addEventListener("click", function() {
