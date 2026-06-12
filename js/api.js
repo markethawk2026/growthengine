@@ -212,77 +212,45 @@ async function yfNews(q) {
   return masterArticles.slice(0, 30);
 }
 
-// ====================================================================
-// CORE LIVE TRENDING ENGINE (100% REAL EXCHANGE DATA · NO HARDCODE)
-// ====================================================================
 async function yfMovers(forceRefresh) {
-  var liveSymbols = [];
+  // 1. Get tickers from headlines (Purely Dynamic)
+  var articles = window.ACTIVE_NEWS_POOL || (window.CACHE && window.CACHE.news) || [];
+  var tokens = [];
+  articles.forEach(function(art) {
+    var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
+    if (matches) tokens.push(...matches);
+  });
 
-  // 1. DYNAMIC SEARCH: Extract uppercase words directly from your active live headlines
-  try {
-    var articles = window.ACTIVE_NEWS_POOL || (window.CACHE && window.CACHE.news) || [];
-    var tokens = [];
-    articles.forEach(function(art) {
-      var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
-      if (matches) tokens.push(...matches);
-    });
-
-    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT"];
-    var uniqueTokens = [...new Set(tokens)].filter(t => !stopWords.includes(t)).slice(0, 6);
-
-    // Turn headline words into real legal tickers using your working yfSearch engine
-    for (var token of uniqueTokens) {
-      if (liveSymbols.length >= 5) break;
-      var searchResults = await yfSearch(token);
-      if (searchResults && searchResults.length > 0 && searchResults[0].symbol) {
-        var sym = searchResults[0].symbol;
-        if (!liveSymbols.includes(sym)) {
-          liveSymbols.push(sym);
-        }
-      }
-    }
-  } catch (err) {
-    console.debug("Headline asset identification shifted.");
-  }
-
-  // 2. CONTEXT FALLBACK: If everything is empty, drop back to user's active screen node
-  if (liveSymbols.length === 0 && window.activeTickerNode) {
-    liveSymbols = [window.activeTickerNode];
-  }
+  var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT"];
+  var uniqueTokens = [...new Set(tokens)].filter(t => !stopWords.includes(t)).slice(0, 5);
 
   var formattedResults = [];
 
-  // 3. PROPERTY REALIGNMENT: Fetch true quotes and parse values cleanly for the table template
-  for (var symbol of liveSymbols) {
+  // 2. Fetch live data for each token
+  for (var token of uniqueTokens) {
     try {
-      var cleanTicker = symbol.replace(".NS", "").replace(".BO", "").replace("^", "");
+      // Use your native yfQuote function
+      var q = await yfQuote(token);
       
-      // Call your native, working quote loader
-      var q = await yfQuote(cleanTicker);
-      if (q) {
-        // Parse your pre-formatted changePct string back into a real decimal float for the UI arrows
-        var rawPct = 0;
-        if (q.changePct) {
-          rawPct = parseFloat(String(q.changePct).replace("%", "").replace("+", "")) || 0;
-        }
-
+      // Check if data exists - if q is null or missing price, skip this asset
+      if (q && q.price) {
         formattedResults.push({
-          ticker: cleanTicker.toUpperCase(),
-          symbol: symbol.toUpperCase(),
-          name: q.name || cleanTicker,
-          price: q.price || "0.00",
-          changePct: rawPct,            // Extracted raw float value for UI comparison rows
-          rawChangePct: rawPct,
-          intraday: q.changePct || "0.00%", // Pre-formatted string matching table expectations
+          ticker: token.toUpperCase(),
+          symbol: token.toUpperCase() + ".NS",
+          name: q.name || token,
+          price: q.price,
+          changePct: q.changePct,
           volume: q.volume || "0",
-          sector: q.sector || "MARKET CORE"
+          sector: "NSE"
         });
       }
-    } catch (err) {
-      console.debug("Asset mapping bypassed for symbol: " + symbol);
+    } catch (e) {
+      continue;
     }
   }
 
+  // 3. Return what we found. If it's an empty array [], 
+  // let the UI handle the empty state rather than forcing fake data.
   return formattedResults;
 }
 
