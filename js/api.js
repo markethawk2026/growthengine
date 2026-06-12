@@ -216,110 +216,70 @@ async function yfNews(q) {
 // CORE LIVE TRENDING ENGINE (100% REAL EXCHANGE DATA · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  var timestamp = Date.now();
   var liveSymbols = [];
 
-  // Standalone verified public proxy circuits
-  var proxyCircuits = [
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
-  ];
-
-  // TRACK 1: Query live Indian Day Gainers or Trending arrays
-  var endpoints = [
-    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN&_=${timestamp}`,
-    `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`
-  ];
-
-  for (var targetUrl of endpoints) {
-    if (liveSymbols.length > 0) break;
-    for (var proxy of proxyCircuits) {
-      try {
-        var response = await fetch(proxy(targetUrl));
-        if (!response.ok) continue;
-        var text = await response.text();
-        
-        // Strict JSON parsing insulation to catch HTML proxy blocks safely
-        var json;
-        try { json = JSON.parse(text); } catch(e) { continue; }
-        if (json && json.contents) {
-          try { json = JSON.parse(json.contents); } catch(e) { continue; }
-        }
-        
-        var resultNode = json?.finance?.result?.[0] || json?.quoteResponse?.result;
-        if (resultNode) {
-          var quotes = resultNode.quotes || (Array.isArray(resultNode) ? resultNode : []);
-          var symbols = quotes.map(q => q.symbol).filter(Boolean);
-          if (symbols.length > 0) {
-            liveSymbols = symbols;
-            break;
-          }
-        }
-      } catch (e) {
-        console.debug("Network route bypassed.");
-      }
-    }
-  }
-
-  // TRACK 2: Dynamic Headline Harvesting (Zero hardcoding, pulls text from active screen)
-  if (liveSymbols.length === 0) {
+  // 1. DYNAMIC SEARCH: Extract uppercase words directly from your active live headlines
+  try {
     var articles = window.ACTIVE_NEWS_POOL || (window.CACHE && window.CACHE.news) || [];
-    var discoveredWords = [];
-    
+    var tokens = [];
     articles.forEach(function(art) {
       var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
-      if (matches) discoveredWords.push(...matches);
+      if (matches) tokens.push(...matches);
     });
-    
-    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT", "WILL", "WITH", "FROM"];
-    liveSymbols = [...new Set(discoveredWords)]
-      .filter(w => !stopWords.includes(w))
-      .map(w => w + ".NS");
+
+    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT"];
+    var uniqueTokens = [...new Set(tokens)].filter(t => !stopWords.includes(t)).slice(0, 6);
+
+    // Turn headline words into real legal tickers using your working yfSearch engine
+    for (var token of uniqueTokens) {
+      if (liveSymbols.length >= 5) break;
+      var searchResults = await yfSearch(token);
+      if (searchResults && searchResults.length > 0 && searchResults[0].symbol) {
+        var sym = searchResults[0].symbol;
+        if (!liveSymbols.includes(sym)) {
+          liveSymbols.push(sym);
+        }
+      }
+    }
+  } catch (err) {
+    console.debug("Headline asset identification shifted.");
   }
 
-  // TRACK 3: Active Interface Node Fallback
+  // 2. CONTEXT FALLBACK: If everything is empty, drop back to user's active screen node
   if (liveSymbols.length === 0 && window.activeTickerNode) {
-    liveSymbols = [window.activeTickerNode.endsWith(".NS") ? window.activeTickerNode : window.activeTickerNode + ".NS"];
+    liveSymbols = [window.activeTickerNode];
   }
 
-  // Final array deduplication and row sizing clamping
-  liveSymbols = [...new Set(liveSymbols)].slice(0, 5);
   var formattedResults = [];
 
-  // STEP 2: Route discovered keys directly through your verified yfQuote engine
-  for (var rawSymbol of liveSymbols) {
+  // 3. PROPERTY REALIGNMENT: Fetch true quotes and parse values cleanly for the table template
+  for (var symbol of liveSymbols) {
     try {
-      var cleanTicker = String(rawSymbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
+      var cleanTicker = symbol.replace(".NS", "").replace(".BO", "").replace("^", "");
       
-      // Look up live data using your working core function
+      // Call your native, working quote loader
       var q = await yfQuote(cleanTicker);
-      if (!q) q = await yfQuote(cleanTicker + ".NS");
-      
       if (q) {
-        var priceValue = q.regularMarketPrice || q.price || q.rawPrice || 0;
-        var changeValue = q.regularMarketChangePercent || q.changePercent || q.changePct || q.rawChangePct || 0;
-        
-        if (typeof changeValue === 'string') {
-          changeValue = parseFloat(changeValue.replace('%', '').replace('+', '')) || 0;
-        }
-        if (typeof priceValue === 'string') {
-          priceValue = parseFloat(priceValue.replace(/[^0-9.]/g, '')) || 0;
+        // Parse your pre-formatted changePct string back into a real decimal float for the UI arrows
+        var rawPct = 0;
+        if (q.changePct) {
+          rawPct = parseFloat(String(q.changePct).replace("%", "").replace("+", "")) || 0;
         }
 
         formattedResults.push({
-          ticker: cleanTicker,
-          symbol: cleanTicker + ".NS",
-          name: q.name || q.shortName || q.longName || cleanTicker,
-          price: priceValue,
-          changePct: changeValue,
-          rawChangePct: changeValue,
-          intraday: changeValue,
-          volume: q.volume || q.regularMarketVolume || 0,
-          sector: q.sector || q.industry || q.quoteType || "EQUITY"
+          ticker: cleanTicker.toUpperCase(),
+          symbol: symbol.toUpperCase(),
+          name: q.name || cleanTicker,
+          price: q.price || "0.00",
+          changePct: rawPct,            // Extracted raw float value for UI comparison rows
+          rawChangePct: rawPct,
+          intraday: q.changePct || "0.00%", // Pre-formatted string matching table expectations
+          volume: q.volume || "0",
+          sector: q.sector || "MARKET CORE"
         });
       }
     } catch (err) {
-      console.debug("Quote validation skipped for token: " + rawSymbol);
+      console.debug("Asset mapping bypassed for symbol: " + symbol);
     }
   }
 
