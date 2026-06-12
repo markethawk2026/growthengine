@@ -212,85 +212,86 @@ async function yfNews(q) {
   return masterArticles.slice(0, 30);
 }
 
+
 // ====================================================================
 // CORE YAHOO FINANCE TRENDING & SCREENER PIPELINE (100% REAL LIVE DATA)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
-  var formattedResults = [];
+  var results = [];
 
-  // Robust public proxy gateways to handle live JSON streams
-  var proxyCircuits = [
+  // Robust public proxy gateways to handle live streaming JSON architectures
+  var proxies = [
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
     (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
   ];
 
-  // Live Yahoo Finance API feeds covering Gainers, Losers, Active, and Trending
-  var targetEndpoints = [
+  // Live global market screener endpoints for automated hot-asset ingestion
+  var registries = [
     `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN&_=${timestamp}`,
     `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_losers&count=10&region=IN&_=${timestamp}`,
     `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_active&count=10&region=IN&_=${timestamp}`,
     `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`
   ];
 
-  // Execute single-pass stream gathering across endpoints
-  for (var url of targetEndpoints) {
-    if (formattedResults.length >= 5) break;
+  // Stream each registry to build the live view data structure
+  for (var targetUrl of registries) {
+    if (results.length >= 5) break;
 
-    for (var proxy of proxyCircuits) {
+    for (var proxy of proxies) {
       try {
-        var response = await fetch(proxy(url));
+        var response = await fetch(proxy(targetUrl));
         if (!response.ok) continue;
         var rawText = await response.text();
-        
-        // Strict multi-layer JSON wrapper handling
-        var json;
-        try { json = JSON.parse(rawText); } catch(e) { continue; }
-        if (json && json.contents) {
-          try { json = JSON.parse(json.contents); } catch(e) { continue; }
-        }
 
-        var resultContainer = json?.finance?.result?.[0];
-        if (resultContainer) {
-          var quotes = resultContainer.quotes || [];
-          
-          for (var q of quotes) {
-            if (formattedResults.length >= 5) break;
-            if (!q.symbol) continue;
+        // Safe JSON extraction across wrapping layers
+        var json = JSON.parse(rawText);
+        if (json && json.contents) json = JSON.parse(json.contents);
 
-            // Ensure we filter out duplicates across different feeds
-            var isDuplicate = formattedResults.some(item => item.symbol === q.symbol);
-            if (isDuplicate) continue;
+        var resultNode = json?.finance?.result?.[0] || json?.quoteResponse?.result;
+        if (!resultNode) continue;
 
+        var quotes = resultNode.quotes || (Array.isArray(resultNode) ? resultNode : []);
+
+        for (var q of quotes) {
+          if (results.length >= 5) break;
+          if (!q || !q.symbol) continue;
+
+          // Prevent identical tickers from double-rendering across different lists
+          var identityConflict = results.some(item => item.symbol === q.symbol);
+          if (identityConflict) continue;
+
+          var livePrice = q.regularMarketPrice || q.price || 0;
+          var liveChange = q.regularMarketChangePercent || q.changePercent || 0;
+
+          // Only map assets that have a valid tradable value returned by the network stream
+          if (livePrice > 0) {
             var cleanTicker = String(q.symbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
-            var changeValue = parseFloat(q.regularMarketChangePercent) || 0;
-            var priceValue = parseFloat(q.regularMarketPrice) || 0;
-
-            // Only push if the API returned an actual live tradable price
-            if (priceValue > 0) {
-              formattedResults.push({
-                ticker: cleanTicker,
-                symbol: String(q.symbol).toUpperCase(),
-                name: q.shortName || q.longName || cleanTicker,
-                price: priceValue,
-                changePct: changeValue,
-                rawChangePct: changeValue,
-                intraday: changeValue,
-                volume: parseFloat(q.regularMarketVolume) || 0,
-                sector: q.exchange || q.market || "NSE"
-              });
-            }
+            
+            results.push({
+              ticker: cleanTicker,
+              symbol: String(q.symbol).toUpperCase(),
+              name: q.shortName || q.longName || cleanTicker,
+              price: parseFloat(livePrice),
+              changePct: parseFloat(liveChange),
+              rawChangePct: parseFloat(liveChange),
+              intraday: parseFloat(liveChange),
+              volume: parseFloat(q.regularMarketVolume || q.volume || 0),
+              sector: q.exchange || q.market || "NSE"
+            });
           }
         }
-        if (formattedResults.length > 0) break; // Break out of proxy circuit if dataset acquired
+
+        if (results.length > 0) break; // Dataset acquired for this registry, evaluate next step
       } catch (err) {
-        console.debug("Screener routing channel shifted.");
+        console.debug("API routing connection rotated.");
       }
     }
   }
 
-  // Return the pure, untampered array directly to the front-end rendering loop
-  return formattedResults;
+  // Returns precisely what was captured from the live wire. No fallbacks, no fakes.
+  return results;
 }
 
 function parseDynamicMoverItem(sym, q) {
