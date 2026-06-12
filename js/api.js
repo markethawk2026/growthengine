@@ -212,133 +212,87 @@ async function yfNews(q) {
   return masterArticles.slice(0, 30);
 }
 
-async function yfMovers(forceRefresh = false) {
-  try {
-    // SAFE BODY EXTRACTION
-    const bodyText =
-      document?.body?.innerText || "";
+// ====================================================================
+// CORE LIVE TRENDING ENGINE (100% REAL EXCHANGE DATA · NO HARDCODE)
+// ====================================================================
+async function yfMovers(forceRefresh) {
+  // 1. Multiple independent proxy gateways to bypass Yahoo's strict CORS blocks
+  var proxies = [
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+  ];
 
-    // STRICT SYMBOL MATCHING
-    const rawMatches =
-      bodyText.match(/\b[A-Z]{3,10}\b/g) || [];
+  var symbols = [];
+  var trendingUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
 
-    // COMMON FALSE POSITIVES
-    const stopWords = new Set([
-      "NEWS",
-      "INDIA",
-      "MARKET",
-      "STOCKS",
-      "TODAY",
-      "BANK",
-      "RISE",
-      "FALL",
-      "JUMP",
-      "HIGH",
-      "VIEW",
-      "BULL",
-      "BEAR",
-      "THE",
-      "FOR",
-      "OUT",
-      "NSE",
-      "BSE",
-      "SENSEX",
-      "NIFTY"
-    ]);
-
-    // CLEAN TICKERS
-    const tickers = [
-      ...new Set(
-        rawMatches.filter(t =>
-          !stopWords.has(t) &&
-          /^[A-Z]+$/.test(t)
-        )
-      )
-    ].slice(0, 8);
-
-    console.log("Detected tickers:", tickers);
-
-    if (!tickers.length) {
-      return [];
+  // TRACK 1: Real-time trending symbols from Yahoo India
+  for (var proxy of proxies) {
+    try {
+      var res = await fetch(proxy(trendingUrl));
+      if (!res.ok) continue;
+      var data = JSON.parse(await res.text());
+      var quotes = data?.finance?.result?.[0]?.quotes || [];
+      
+      // Extract up to 5 genuine NSE/BSE tickers
+      symbols = quotes.map(q => q.symbol).filter(s => s.endsWith('.NS') || s.endsWith('.BO')).slice(0, 5);
+      if (symbols.length > 0) break;
+    } catch (e) {
+      console.debug("Trending proxy blocked, rotating...");
     }
-
-    // FETCH IN PARALLEL
-    const settled = await Promise.allSettled(
-      tickers.map(async ticker => {
-        try {
-          const q = await yfQuote(ticker);
-
-          // HARD VALIDATION
-          if (
-            !q ||
-            typeof q !== "object"
-          ) {
-            return null;
-          }
-
-          const price =
-            Number(q.price);
-
-          if (!Number.isFinite(price)) {
-            return null;
-          }
-
-          return {
-            ticker,
-            symbol: `${ticker}.NS`,
-            name:
-              typeof q.name === "string"
-                ? q.name
-                : ticker,
-            price,
-            changePct:
-              String(
-                q.changePct || "0.00%"
-              ),
-            volume:
-              String(
-                q.volume || "0"
-              ),
-            sector: "NSE"
-          };
-
-        } catch (err) {
-          console.debug(
-            "Quote failed:",
-            ticker,
-            err
-          );
-
-          return null;
-        }
-      })
-    );
-
-    // FILTER SUCCESSFUL RESULTS
-    const results = settled
-      .filter(r => r.status === "fulfilled")
-      .map(r => r.value)
-      .filter(Boolean);
-
-    console.log(
-      "Final movers:",
-      results
-    );
-
-    return results;
-
-  } catch (fatal) {
-
-    // NEVER ALLOW UI DEADLOCK
-    console.error(
-      "yfMovers fatal:",
-      fatal
-    );
-
-    return [];
   }
-}
 
+  // TRACK 2: Purely Dynamic Headline Scrape (Only runs if Track 1 is blocked by API)
+  if (symbols.length === 0) {
+    var text = document.body.innerText || "";
+    var matches = text.match(/\b[A-Z]{3,8}\b/g) || [];
+    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT", "AND", "WITH"];
+    
+    symbols = [...new Set(matches)]
+      .filter(w => !stopWords.includes(w))
+      .slice(0, 5)
+      .map(w => w + ".NS");
+  }
+
+  var results = [];
+
+  // TRACK 3: Fetch true 100% Live Market Prices for discovered symbols
+  if (symbols.length > 0) {
+    var quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}`;
+    for (var proxy of proxies) {
+      try {
+        var qRes = await fetch(proxy(quoteUrl));
+        if (!qRes.ok) continue;
+        var qData = JSON.parse(await qRes.text());
+        var fetchedQuotes = qData?.quoteResponse?.result || [];
+        
+        if (fetchedQuotes.length > 0) {
+          fetchedQuotes.forEach(q => {
+            if (q.regularMarketPrice !== undefined) {
+              results.push({
+                ticker: String(q.symbol).replace(".NS", "").replace(".BO", ""),
+                symbol: String(q.symbol),
+                name: q.shortName || q.longName || q.symbol,
+                price: parseFloat(q.regularMarketPrice) || 0,
+                changePct: parseFloat(q.regularMarketChangePercent) || 0,
+                rawChangePct: parseFloat(q.regularMarketChangePercent) || 0,
+                intraday: parseFloat(q.regularMarketChangePercent) || 0,
+                volume: parseInt(q.regularMarketVolume) || 0,
+                sector: q.exchange || q.market || ""
+              });
+            }
+          });
+          break; // Successfully fetched, exit proxy rotation
+        }
+      } catch (e) {
+        console.debug("Quote proxy blocked, rotating...");
+      }
+    }
+  }
+
+  // Return EXACTLY what was found. No fake arrays. No hardcoded indexes.
+  return results;
+}
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
