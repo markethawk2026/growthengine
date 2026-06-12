@@ -213,70 +213,94 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// COMPREHENSIVE ZERO-HARDCODE MOVERS & LIVE SIGNAL PIPELINE
+// 100% DYNAMIC LIVE MOVERS & REAL-TIME SIGNAL PIPELINE
 // ====================================================================
 async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
   var liveSymbols = [];
 
-  // TRACK 1: Hit the live Indian Day Gainers screener matrix directly via your proxyFetch engine
-  try {
-    var screenerUrl = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=8&region=IN&_=${timestamp}`;
-    var json = await proxyFetch(screenerUrl);
-    if (json && json.finance && json.finance.result && json.finance.result[0]) {
-      var quotes = json.finance.result[0].quotes || [];
-      liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
-    }
-  } catch (e) {
-    console.debug("Screener track offline, switching to secondary trending vector.");
-  }
+  // Standalone proxy rotation circuits to protect against network rate-limits
+  var proxyCircuits = [
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+  ];
 
-  // TRACK 2: Secondary dynamic backup using the live trending market vector
-  if (liveSymbols.length === 0) {
+  // TRACK 1: Query the live Indian Day Gainers screener matrix
+  var screenerUrl = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN&_=${timestamp}`;
+  for (var proxy of proxyCircuits) {
     try {
-      var trendingUrl = `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`;
-      var json = await proxyFetch(trendingUrl);
+      var response = await fetch(proxy(screenerUrl));
+      var json = await response.json();
+      if (json && json.contents) json = JSON.parse(json.contents);
+      
       if (json && json.finance && json.finance.result && json.finance.result[0]) {
         var quotes = json.finance.result[0].quotes || [];
         liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
       }
+      if (liveSymbols.length > 0) break;
     } catch (e) {
-      console.debug("Trending vector offline.");
+      console.debug("Screener matrix bypassed to alternative network route.");
     }
   }
 
-  // TRACK 3: 100% Pure dynamic session fallback (No hardcoded backup tickers)
+  // TRACK 2: Secondary backup using the live geographic trending vector
   if (liveSymbols.length === 0) {
-    var activeNode = window.activeTickerNode || "NIFTY";
-    liveSymbols = [activeNode];
+    var trendingUrl = `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`;
+    for (var proxy of proxyCircuits) {
+      try {
+        var response = await fetch(proxy(trendingUrl));
+        var json = await response.json();
+        if (json && json.contents) json = JSON.parse(json.contents);
+        
+        if (json && json.finance && json.finance.result && json.finance.result[0]) {
+          var quotes = json.finance.result[0].quotes || [];
+          liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
+        }
+        if (liveSymbols.length > 0) break;
+      } catch (e) {
+        console.debug("Trending stream circuit bypassed.");
+      }
+    }
   }
 
-  // Deduplicate and pull the top 5 assets for your layout rows
-  liveSymbols = [...new Set(liveSymbols)].slice(0, 5);
+  // TRACK 3: Absolute zero-hardcode session safety line
+  if (liveSymbols.length === 0 && window.activeTickerNode) {
+    liveSymbols = [window.activeTickerNode];
+  }
 
-  // FINAL RESOLUTION STEP: Route assets directly through your verified yfQuote engine
+  // Filter unique tokens and slice to match your maximum display row capacity
+  liveSymbols = [...new Set(liveSymbols)].slice(0, 5);
   var formattedResults = [];
+
+  // STEP 2: Directly resolve real-time quote metrics for the discovered assets
   for (var symbol of liveSymbols) {
-    try {
-      var cleanSearchToken = symbol.replace(".NS", "").replace(".BO", "");
-      var q = await yfQuote(cleanSearchToken);
-      
-      if (q) {
-        var cleanTicker = cleanSearchToken.toUpperCase();
-        var changeValue = parseFloat(q.changePct) || 0;
+    var cleanSymbol = String(symbol).toUpperCase();
+    var quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(cleanSymbol)}&_=${timestamp}`;
+    
+    for (var proxy of proxyCircuits) {
+      try {
+        var response = await fetch(proxy(quoteUrl));
+        var json = await response.json();
+        if (json && json.contents) json = JSON.parse(json.contents);
         
-        formattedResults.push({
-          ticker: cleanTicker,
-          symbol: (cleanTicker.startsWith("^") ? cleanTicker : cleanTicker + ".NS"),
-          price: q.price, 
-          changePct: changeValue,
-          rawChangePct: changeValue,
-          volume: q.volume,
-          sector: q.name || "MARKET CORE"
-        });
+        if (json && json.quoteResponse && json.quoteResponse.result && json.quoteResponse.result[0]) {
+          var q = json.quoteResponse.result[0];
+          var changeValue = parseFloat(q.regularMarketChangePercent) || 0;
+          
+          formattedResults.push({
+            ticker: cleanSymbol.replace(".NS", "").replace(".BO", "").replace("^", ""),
+            symbol: cleanSymbol,
+            price: parseFloat(q.regularMarketPrice) || 0,
+            changePct: changeValue,
+            rawChangePct: changeValue,
+            volume: parseFloat(q.regularMarketVolume) || 0,
+            sector: q.industry || q.quoteType || "MARKET CORE"
+          });
+          break; // Successfully ingested data for this symbol, move to next
+        }
+      } catch (err) {
+        console.debug("Quote engine skipped line item processing.");
       }
-    } catch (err) {
-      console.debug("Quote validation skipped for: " + symbol);
     }
   }
 
