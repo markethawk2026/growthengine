@@ -1045,3 +1045,32 @@ body.light .chart-tooltip {
   border-radius: 20px;
   color: #94a3b8;
 }
+/* Light Theme Global Override Properties */
+body.light-theme {
+    background: #f8fafc !important; /* Light background */
+    color: #0f172a !important;      /* Dark text */
+}
+
+/* Update your dashboard cards to look crisp in light mode */
+body.light-theme .acrd,
+body.light-theme .sec,
+body.light-theme .gc,
+body.light-theme .ic,
+body.light-theme .mover-card,
+body.light-theme #chart-card-wrapper {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Adjust general secondary labels so they remain readable */
+body.light-theme div, 
+body.light-theme span, 
+body.light-theme p {
+    --text-primary: #0f172a;
+}
+body.light-theme .gcl,
+body.light-theme .icl,
+body.light-theme .stitle {
+    color: #475569 !important;
+}
