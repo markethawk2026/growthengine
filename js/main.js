@@ -1303,29 +1303,35 @@ if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 2
 }, 2000);
 
 // ==========================================
-// CENTRALIZED THEME SWITCHER CORE LOGIC
+// CENTRALIZED RESILIENT THEME SWITCHER
 // ==========================================
 function initThemeSwitcher() {
-  var themeBtn = document.getElementById(".themeToggle");
-  if (!themeBtn) return;
+  // Finds the button whether your HTML uses the ID or the Class name
+  var themeBtn = document.getElementById("themeBtn") || 
+                 document.getElementById("themeToggle") || 
+                 document.querySelector(".themeToggle");
+                 
+  if (!themeBtn) {
+    console.warn("Theme toggle button not found in the DOM.");
+    return;
+  }
 
   themeBtn.addEventListener("click", function() {
-    // 1. Flip your global tracking boolean
+    // 1. Flip the global state tracking variable
     isLight = !isLight;
     
-    // 2. Toggle the light-theme class on the body element
+    // 2. Toggle BOTH classes so it triggers your template styles AND custom overrides
+    document.body.classList.toggle("light", isLight);
     document.body.classList.toggle("light-theme", isLight);
     
-    // 3. Swap the visual icon character
+    // 3. Update the button icon dynamically
     themeBtn.innerText = isLight ? "☀️" : "🌙";
     
-    console.log("Theme switched. Light mode active:", isLight);
+    console.log("Theme updated successfully. Light mode active:", isLight);
   });
 }
 
-// Call this inside your existing bootDashboard setup or DOMContentLoaded block
-document.addEventListener("DOMContentLoaded", function() {
-  initThemeSwitcher();
-});
+// Ensure it loads as soon as the page structure is ready
+document.addEventListener("DOMContentLoaded", initThemeSwitcher);
 
 bootDashboard();
