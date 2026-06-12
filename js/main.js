@@ -1302,4 +1302,30 @@ if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 2
   
 }, 2000);
 
+// ==========================================
+// CENTRALIZED THEME SWITCHER CORE LOGIC
+// ==========================================
+function initThemeSwitcher() {
+  var themeBtn = document.getElementById("themeToggle");
+  if (!themeBtn) return;
+
+  themeBtn.addEventListener("click", function() {
+    // 1. Flip your global tracking boolean
+    isLight = !isLight;
+    
+    // 2. Toggle the light-theme class on the body element
+    document.body.classList.toggle("light-theme", isLight);
+    
+    // 3. Swap the visual icon character
+    themeBtn.innerText = isLight ? "☀️" : "🌙";
+    
+    console.log("Theme switched. Light mode active:", isLight);
+  });
+}
+
+// Call this inside your existing bootDashboard setup or DOMContentLoaded block
+document.addEventListener("DOMContentLoaded", function() {
+  initThemeSwitcher();
+});
+
 bootDashboard();
