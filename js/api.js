@@ -219,7 +219,6 @@ async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
   var liveSymbols = [];
   
-  // Use clean, working proxy assignments directly matching your global arrays
   var proxyCircuits = [
     (url) => "https://corsproxy.io/?url=" + encodeURIComponent(url),
     (url) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(url)
@@ -241,33 +240,43 @@ async function yfMovers(forceRefresh) {
     }
   }
 
-  // TRACK 2: If trending feed is offline, harvest symbols from active news elements
+  // TRACK 2: If trending feed is offline, resolve words using your built-in search engine
   if (liveSymbols.length === 0) {
-    var harvestedTokens = [];
+    var searchTerms = [];
     if (window.ACTIVE_NEWS_POOL && window.ACTIVE_NEWS_POOL.length > 0) {
-      window.ACTIVE_NEWS_POOL.forEach(function(art) {
-        var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
-        if (matches) harvestedTokens.push(...matches);
+      window.ACTIVE_NEWS_POOL.forEach(function (art) {
+        var matches = String(art.headline || "").match(/\b[A-Z]{3,10}\b/g);
+        if (matches) searchTerms.push(...matches);
       });
     }
     
-    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "FOR", "OUT"];
-    liveSymbols = [...new Set(harvestedTokens)]
-      .filter(t => !stopWords.includes(t))
-      .map(t => t + ".NS") 
-      .slice(0, 5);
+    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "FOR", "OUT", "WHAT", "LIES", "AHEAD"];
+    var uniqueTerms = [...new Set(searchTerms)].filter(t => !stopWords.includes(t)).slice(0, 6);
+    
+    // Leverage your existing yfSearch engine to dynamically find the exact legal NSE symbols
+    for (var term of uniqueTerms) {
+      if (liveSymbols.length >= 5) break;
+      try {
+        var searchResults = await yfSearch(term);
+        if (searchResults && searchResults.length > 0) {
+          var foundSymbol = searchResults[0].symbol;
+          if (foundSymbol && !liveSymbols.includes(foundSymbol)) {
+            liveSymbols.push(foundSymbol);
+          }
+        }
+      } catch (err) {}
+    }
   }
 
-  // TRACK 3: Emergency active session node safety line
-  if (liveSymbols.length === 0) {
-    liveSymbols = [(window.activeTickerNode || "HFCL") + ".NS"];
+  // TRACK 3: 100% PURE DYNAMIC SAFETY LINE (NO HARDCODED STRINGS)
+  if (liveSymbols.length === 0 && window.activeTickerNode) {
+    liveSymbols = [window.activeTickerNode + ".NS"];
   }
 
   // FINAL RESOLUTION STEP: Convert target symbols into 100% REAL live quote metrics
   var formattedResults = [];
   for (var symbol of liveSymbols) {
     try {
-      // Connects directly to your working live validation script to scrap real data
       var q = await yfQuote(symbol.replace(".NS", ""));
       if (q) {
         var cleanTicker = String(symbol).toUpperCase().replace(".NS", "").replace(".BO", "");
@@ -276,7 +285,7 @@ async function yfMovers(forceRefresh) {
         formattedResults.push({
           ticker: cleanTicker,
           symbol: symbol.toUpperCase(),
-          price: q.price, // Maps perfectly to your formatted currency string
+          price: q.price, 
           changePct: changeValue,
           rawChangePct: changeValue,
           volume: q.volume,
