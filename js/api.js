@@ -282,7 +282,11 @@ async function yfMovers(forceRefresh) {
     });
   }
   
-  var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW"];
+ // Locate this block in your js/api.js and add more headline filter words:
+var stopWords = [
+  "NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", 
+  "JUMP", "HIGH", "VIEW", "DEMERGER", "LISTING", "NAMES", "DATE", "THINGS"
+];
   dynamicFallbackSymbols = [...new Set(dynamicFallbackSymbols)].filter(t => !stopWords.includes(t)).slice(0, 5);
   if (dynamicFallbackSymbols.length === 0) dynamicFallbackSymbols = [window.activeTickerNode || "NIFTY50"];
 
