@@ -213,67 +213,111 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CORE YAHOO FINANCE TRENDING PIPELINE (ZERO HARDCODING, CRASH-PROOF)
+// CRASH-PROOF LIVE TRENDING PIPELINE (ZERO HARDCODING)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   let results = [];
-  let targetSymbols = [];
 
-  // STEP 1: Fetch 100% Real Trending Tickers from Yahoo India
-  try {
-    const trendingUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
-    // Using AllOrigins safely by explicitly requesting JSON
-    const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(trendingUrl);
+  // 1. A self-contained, multi-proxy fetcher wrapped in strict try/catch blocks
+  async function fetchJSON(targetUrl) {
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}` // Using /raw to prevent {contents} wrapping
+    ];
     
-    const response = await fetch(proxyUrl);
-    const proxyData = await response.json();
-    
-    // AllOrigins wraps the real response inside a 'contents' string
-    const yahooData = JSON.parse(proxyData.contents);
-    const quotes = yahooData.finance.result[0].quotes || [];
-    
-    // Extract only actual Indian equities, slice top 5
-    targetSymbols = quotes
-      .map(q => q.symbol)
-      .filter(sym => sym.endsWith('.NS') || sym.endsWith('.BO'))
-      .slice(0, 5);
-
-  } catch (error) {
-    console.error("Trending Network Blocked. Your proxy or CORS is failing:", error);
-    return []; // Returns a clean empty array instead of crashing your app
+    for (let proxy of proxies) {
+      try {
+        let res = await fetch(proxy);
+        if (!res.ok) continue;
+        let text = await res.text();
+        
+        // FIX: If Yahoo sends a 403 HTML Error page, JSON.parse will fail. We now catch it safely.
+        try {
+          return JSON.parse(text);
+        } catch (parseError) {
+          continue; // Move to the next proxy instead of crashing the app
+        }
+      } catch (networkError) {
+        continue;
+      }
+    }
+    throw new Error("All proxy routes blocked or invalid JSON returned.");
   }
 
-  // STEP 2: Fetch Live Prices for the discovered tickers
-  for (let sym of targetSymbols) {
-    try {
-      const cleanTicker = sym.replace(".NS", "").replace(".BO", "");
-      const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${sym}`;
-      const quoteProxy = "https://api.allorigins.win/get?url=" + encodeURIComponent(quoteUrl);
-      
-      const qResponse = await fetch(quoteProxy);
-      const qProxyData = await qResponse.json();
-      const qYahooData = JSON.parse(qProxyData.contents);
-      
-      const quote = qYahooData.quoteResponse.result[0];
-
-      if (quote && quote.regularMarketPrice) {
-        // Mapping EXACTLY to the columns visible in your screenshot (ASSET, PRICE, INTRADAY, SIGNAL)
+  // 2. TRACK 1: Fetch Live Market Movers from Yahoo
+  try {
+    const screenerUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN";
+    const jsonData = await fetchJSON(screenerUrl);
+    
+    const quotes = jsonData?.finance?.result?.[0]?.quotes || [];
+    
+    for (let q of quotes) {
+      if (results.length >= 5) break;
+      // Filter for genuine NSE/BSE tickers
+      if (q.symbol && (q.symbol.endsWith('.NS') || q.symbol.endsWith('.BO'))) {
+        let change = q.regularMarketChangePercent || 0;
+        
+        // Exact object structure to match your UI columns
         results.push({
-          ticker: cleanTicker,
-          price: quote.regularMarketPrice,
-          intraday: quote.regularMarketChangePercent || 0,
-          changePct: quote.regularMarketChangePercent || 0, // Fallback safety
-          signal: quote.regularMarketChangePercent > 0 ? "BREAKOUT" : "WEAK",
-          sector: quote.exchange || ""
+          ticker: q.symbol.replace(".NS", "").replace(".BO", ""),
+          price: q.regularMarketPrice || 0,
+          intraday: change,
+          changePct: change,
+          signal: change > 0 ? "BREAKOUT" : "WEAK",
+          sector: q.exchange || "NSE"
         });
       }
-    } catch (error) {
-      console.error(`Failed to map live data for ${sym}:`, error);
+    }
+  } catch (error) {
+    console.warn("Track 1 Failed: Primary API Blocked. Shifting to UI DOM Extraction.");
+  }
+
+  // 3. TRACK 2: If Track 1 fails, dynamically read the active news text on your screen
+  if (results.length === 0) {
+    try {
+      const pageText = document.body.innerText || "";
+      const tokens = pageText.match(/\b[A-Z]{3,8}\b/g) || [];
+      const ignore = ["THE", "AND", "FOR", "LIVE", "FREE", "NSE", "BSE", "BANK", "NEWS", "ASSET", "PRICE", "SIGNAL", "INTRADAY", "MARKET", "TIME"];
+      
+      const cleanTokens = [...new Set(tokens)].filter(t => !ignore.includes(t));
+      
+      for (let token of cleanTokens) {
+        if (results.length >= 5) break;
+        try {
+          // Verify if the word (e.g., "IDEA", "HFCL") is a real stock
+          const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${token}&quotesCount=1`;
+          const sJson = await fetchJSON(searchUrl);
+          const match = sJson?.quotes?.[0];
+          
+          if (match && (match.symbol.endsWith('.NS') || match.symbol.endsWith('.BO'))) {
+            // It's a real company. Get its live price.
+            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${match.symbol}`;
+            const qJson = await fetchJSON(quoteUrl);
+            const quote = qJson?.quoteResponse?.result?.[0];
+            
+            if (quote) {
+              let change = quote.regularMarketChangePercent || 0;
+              results.push({
+                ticker: quote.symbol.replace(".NS", "").replace(".BO", ""),
+                price: quote.regularMarketPrice || 0,
+                intraday: change,
+                changePct: change,
+                signal: change > 0 ? "BREAKOUT" : "WEAK",
+                sector: quote.exchange || "NSE"
+              });
+            }
+          }
+        } catch (e) {
+           continue; 
+        }
+      }
+    } catch (e) {
+      console.error("DOM Extraction failed.", e);
     }
   }
 
-  // Look in your browser console (F12) to see exactly what this returns
-  console.log("LIVE TRENDING DATA DELIVERED TO UI:", results);
+  // Prints the final successful dataset so you can verify it in F12 Developer Tools
+  console.log("yfMovers API Payload Delivery:", results);
   return results;
 }
 
