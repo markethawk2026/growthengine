@@ -212,47 +212,133 @@ async function yfNews(q) {
   return masterArticles.slice(0, 30);
 }
 
-async function yfMovers(forceRefresh) {
-  // 1. Get tickers from headlines (Purely Dynamic)
-  var articles = window.ACTIVE_NEWS_POOL || (window.CACHE && window.CACHE.news) || [];
-  var tokens = [];
-  articles.forEach(function(art) {
-    var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
-    if (matches) tokens.push(...matches);
-  });
+async function yfMovers(forceRefresh = false) {
+  try {
+    // SAFE BODY EXTRACTION
+    const bodyText =
+      document?.body?.innerText || "";
 
-  var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT"];
-  var uniqueTokens = [...new Set(tokens)].filter(t => !stopWords.includes(t)).slice(0, 5);
+    // STRICT SYMBOL MATCHING
+    const rawMatches =
+      bodyText.match(/\b[A-Z]{3,10}\b/g) || [];
 
-  var formattedResults = [];
+    // COMMON FALSE POSITIVES
+    const stopWords = new Set([
+      "NEWS",
+      "INDIA",
+      "MARKET",
+      "STOCKS",
+      "TODAY",
+      "BANK",
+      "RISE",
+      "FALL",
+      "JUMP",
+      "HIGH",
+      "VIEW",
+      "BULL",
+      "BEAR",
+      "THE",
+      "FOR",
+      "OUT",
+      "NSE",
+      "BSE",
+      "SENSEX",
+      "NIFTY"
+    ]);
 
-  // 2. Fetch live data for each token
-  for (var token of uniqueTokens) {
-    try {
-      // Use your native yfQuote function
-      var q = await yfQuote(token);
-      
-      // Check if data exists - if q is null or missing price, skip this asset
-      if (q && q.price) {
-        formattedResults.push({
-          ticker: token.toUpperCase(),
-          symbol: token.toUpperCase() + ".NS",
-          name: q.name || token,
-          price: q.price,
-          changePct: q.changePct,
-          volume: q.volume || "0",
-          sector: "NSE"
-        });
-      }
-    } catch (e) {
-      continue;
+    // CLEAN TICKERS
+    const tickers = [
+      ...new Set(
+        rawMatches.filter(t =>
+          !stopWords.has(t) &&
+          /^[A-Z]+$/.test(t)
+        )
+      )
+    ].slice(0, 8);
+
+    console.log("Detected tickers:", tickers);
+
+    if (!tickers.length) {
+      return [];
     }
-  }
 
-  // 3. Return what we found. If it's an empty array [], 
-  // let the UI handle the empty state rather than forcing fake data.
-  return formattedResults;
+    // FETCH IN PARALLEL
+    const settled = await Promise.allSettled(
+      tickers.map(async ticker => {
+        try {
+          const q = await yfQuote(ticker);
+
+          // HARD VALIDATION
+          if (
+            !q ||
+            typeof q !== "object"
+          ) {
+            return null;
+          }
+
+          const price =
+            Number(q.price);
+
+          if (!Number.isFinite(price)) {
+            return null;
+          }
+
+          return {
+            ticker,
+            symbol: `${ticker}.NS`,
+            name:
+              typeof q.name === "string"
+                ? q.name
+                : ticker,
+            price,
+            changePct:
+              String(
+                q.changePct || "0.00%"
+              ),
+            volume:
+              String(
+                q.volume || "0"
+              ),
+            sector: "NSE"
+          };
+
+        } catch (err) {
+          console.debug(
+            "Quote failed:",
+            ticker,
+            err
+          );
+
+          return null;
+        }
+      })
+    );
+
+    // FILTER SUCCESSFUL RESULTS
+    const results = settled
+      .filter(r => r.status === "fulfilled")
+      .map(r => r.value)
+      .filter(Boolean);
+
+    console.log(
+      "Final movers:",
+      results
+    );
+
+    return results;
+
+  } catch (fatal) {
+
+    // NEVER ALLOW UI DEADLOCK
+    console.error(
+      "yfMovers fatal:",
+      fatal
+    );
+
+    return [];
+  }
 }
+
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
