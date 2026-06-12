@@ -213,102 +213,116 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// COMPREHENSIVE ZERO-HARDCODE MOVERS & LIVE SIGNAL PIPELINE
+// CORE LIVE TRENDING ENGINE (100% REAL EXCHANGE DATA · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
   var liveSymbols = [];
 
-  // Standalone verified public proxy circuits
+  // Standalone public proxy gateways
   var proxyCircuits = [
     (url) => "https://corsproxy.io/?url=" + encodeURIComponent(url),
-    (url) => "https://api.allorigins.win/get?url=" + encodeURIComponent(url)
+    (url) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(url)
   ];
 
-  // TRACK 1: Fetch live dynamic assets from Yahoo's regional trending feed
+  // TRACK 1: Fetch live trending assets from the official Indian market feed
   var trendingUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN?_=" + timestamp;
-  for (var proxy of proxyCircuits) {
+  for (var i = 0; i < proxyCircuits.length; i++) {
     try {
-      var response = await fetch(proxy(trendingUrl));
-      var data = await response.json();
-      if (data && data.contents) data = JSON.parse(data.contents);
+      var response = await fetch(proxyCircuits[i](trendingUrl));
+      if (!response.ok) continue;
+      var responseText = await response.text();
       
-      if (data && data.finance && data.finance.result && data.finance.result[0]) {
-        var quotes = data.finance.result[0].quotes || [];
-        liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
+      // Strict JSON parsing guard to catch HTML proxy errors safely
+      var json;
+      try { json = JSON.parse(responseText); } catch(e) { continue; }
+      if (json && json.contents) {
+        try { json = JSON.parse(json.contents); } catch(e) { continue; }
       }
-      if (liveSymbols.length > 0) break;
+      
+      if (json && json.finance && json.finance.result && json.finance.result[0]) {
+        var quotes = json.finance.result[0].quotes || [];
+        liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
+        if (liveSymbols.length > 0) break;
+      }
     } catch (e) {
-      console.debug("Trending pipeline primary circuit bypass.");
+      console.debug("Trending proxy pass skipped.");
     }
   }
 
-  // TRACK 2: Fallback text harvesting from active news headlines if feed is throttled
+  // TRACK 2: Alternate live source (Day Gainers Screener) if trending feed is offline
   if (liveSymbols.length === 0) {
-    try {
-      var articles = window.ACTIVE_NEWS_POOL || (window.CACHE && window.CACHE.news) || [];
-      var tokens = [];
-      articles.forEach(function(art) {
-        var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
-        if (matches) tokens.push(...matches);
-      });
-      var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR"];
-      liveSymbols = [...new Set(tokens)]
-        .filter(t => !stopWords.includes(t))
-        .map(t => t + ".NS");
-    } catch (err) {
-      console.debug("News context harvest bypass.");
+    var screenerUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=5&region=IN&_=" + timestamp;
+    for (var i = 0; i < proxyCircuits.length; i++) {
+      try {
+        var response = await fetch(proxyCircuits[i](screenerUrl));
+        if (!response.ok) continue;
+        var responseText = await response.text();
+        
+        var json;
+        try { json = JSON.parse(responseText); } catch(e) { continue; }
+        if (json && json.contents) {
+          try { json = JSON.parse(json.contents); } catch(e) { continue; }
+        }
+        
+        if (json && json.finance && json.finance.result && json.finance.result[0]) {
+          var quotes = json.finance.result[0].quotes || [];
+          liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
+          if (liveSymbols.length > 0) break;
+        }
+      } catch (e) {
+        console.debug("Screener proxy pass skipped.");
+      }
     }
   }
 
-  // TRACK 3: Session fallback line directly linked to current active interface node
+  // TRACK 3: Session Context (Bypass to active UI node if feeds are completely blocked)
   if (liveSymbols.length === 0 && window.activeTickerNode) {
-    liveSymbols = [window.activeTickerNode + ".NS"];
+    liveSymbols = [window.activeTickerNode.endsWith(".NS") ? window.activeTickerNode : window.activeTickerNode + ".NS"];
   }
 
-  // Deduplicate and slice down to fit layout display constraints cleanly
+  // Deduplicate and select top 5 assets to perfectly fit layout display rows
   liveSymbols = [...new Set(liveSymbols)].slice(0, 5);
   var formattedResults = [];
 
-  // STEP 2: Concurrently resolve actual real-time pricing metrics using parallel promises
-  var quotePromises = liveSymbols.map(async function(symbol) {
-    var cleanSymbol = String(symbol).toUpperCase();
-    var quoteUrl = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + encodeURIComponent(cleanSymbol) + "&_=" + timestamp;
-    
-    for (var proxy of proxyCircuits) {
+  // STEP 2: Fetch and map genuine real-time quotes for discovered assets
+  if (liveSymbols.length > 0) {
+    // Literal comma separation applied directly to prevent parameter parsing rejections
+    var quoteUrl = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + liveSymbols.join(',') + "&_=" + timestamp;
+    for (var i = 0; i < proxyCircuits.length; i++) {
       try {
-        var response = await fetch(proxy(quoteUrl));
-        var data = await response.json();
-        if (data && data.contents) data = JSON.parse(data.contents);
+        var response = await fetch(proxyCircuits[i](quoteUrl));
+        if (!response.ok) continue;
+        var responseText = await response.text();
         
-        if (data && data.quoteResponse && data.quoteResponse.result && data.quoteResponse.result[0]) {
-          var q = data.quoteResponse.result[0];
-          var changeValue = parseFloat(q.regularMarketChangePercent) || 0;
-          
-          return {
-            ticker: cleanSymbol.replace(".NS", "").replace(".BO", "").replace("^", ""),
-            symbol: cleanSymbol,
-            name: q.shortName || q.longName || cleanSymbol,
-            price: parseFloat(q.regularMarketPrice) || 0,
-            changePct: changeValue,
-            rawChangePct: changeValue,
-            volume: parseFloat(q.regularMarketVolume) || 0,
-            sector: q.industry || q.quoteType || "EQUITY"
-          };
+        var json;
+        try { json = JSON.parse(responseText); } catch(e) { continue; }
+        if (json && json.contents) {
+          try { json = JSON.parse(json.contents); } catch(e) { continue; }
+        }
+        
+        if (json && json.quoteResponse && json.quoteResponse.result) {
+          json.quoteResponse.result.forEach(function(q) {
+            var cleanTicker = String(q.symbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
+            var changeValue = parseFloat(q.regularMarketChangePercent) || 0;
+            
+            formattedResults.push({
+              ticker: cleanTicker,
+              symbol: String(q.symbol).toUpperCase(),
+              name: q.shortName || q.longName || cleanTicker,
+              price: parseFloat(q.regularMarketPrice) || 0,
+              changePct: changeValue,
+              rawChangePct: changeValue,
+              volume: parseFloat(q.regularMarketVolume) || 0,
+              sector: q.industry || q.quoteType || "EQUITY"
+            });
+          });
+          if (formattedResults.length > 0) break;
         }
       } catch (err) {
-        console.debug("Individual node resolution shifted.");
+        console.debug("Quote engine proxy pass skipped.");
       }
     }
-    return null;
-  });
-
-  try {
-    // Resolve all assets simultaneously to prevent freezing on connection timeouts
-    var resolvedQuotes = await Promise.all(quotePromises);
-    formattedResults = resolvedQuotes.filter(Boolean);
-  } catch (err) {
-    console.debug("Parallel resolution array mapping error bypassed.");
   }
 
   return formattedResults;
