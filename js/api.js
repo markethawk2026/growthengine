@@ -213,81 +213,67 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CORE YAHOO FINANCE TRENDING & SCREENER PIPELINE (100% REAL LIVE DATA)
+// CORE YAHOO FINANCE TRENDING PIPELINE (ZERO HARDCODING, CRASH-PROOF)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  var timestamp = Date.now();
-  var results = [];
+  let results = [];
+  let targetSymbols = [];
 
-  // 1. Standard public proxy routes (Pure Vanilla JS - no custom dependencies)
-  var proxies = [
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
-  ];
+  // STEP 1: Fetch 100% Real Trending Tickers from Yahoo India
+  try {
+    const trendingUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
+    // Using AllOrigins safely by explicitly requesting JSON
+    const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(trendingUrl);
+    
+    const response = await fetch(proxyUrl);
+    const proxyData = await response.json();
+    
+    // AllOrigins wraps the real response inside a 'contents' string
+    const yahooData = JSON.parse(proxyData.contents);
+    const quotes = yahooData.finance.result[0].quotes || [];
+    
+    // Extract only actual Indian equities, slice top 5
+    targetSymbols = quotes
+      .map(q => q.symbol)
+      .filter(sym => sym.endsWith('.NS') || sym.endsWith('.BO'))
+      .slice(0, 5);
 
-  // 2. Real Yahoo registries for Day Gainers, Most Active, and Trending Indian equities
-  var registries = [
-    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN&_=${timestamp}`,
-    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_active&count=10&region=IN&_=${timestamp}`,
-    `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`
-  ];
+  } catch (error) {
+    console.error("Trending Network Blocked. Your proxy or CORS is failing:", error);
+    return []; // Returns a clean empty array instead of crashing your app
+  }
 
-  // 3. Sequential evaluation stream
-  for (var targetUrl of registries) {
-    if (results.length >= 5) break;
+  // STEP 2: Fetch Live Prices for the discovered tickers
+  for (let sym of targetSymbols) {
+    try {
+      const cleanTicker = sym.replace(".NS", "").replace(".BO", "");
+      const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${sym}`;
+      const quoteProxy = "https://api.allorigins.win/get?url=" + encodeURIComponent(quoteUrl);
+      
+      const qResponse = await fetch(quoteProxy);
+      const qProxyData = await qResponse.json();
+      const qYahooData = JSON.parse(qProxyData.contents);
+      
+      const quote = qYahooData.quoteResponse.result[0];
 
-    for (var proxy of proxies) {
-      try {
-        var response = await fetch(proxy(targetUrl));
-        if (!response.ok) continue;
-        var rawText = await response.text();
-
-        // Safe JSON evaluation across standard and proxy-encapsulated nodes
-        var json = JSON.parse(rawText);
-        if (json && json.contents) json = JSON.parse(json.contents);
-
-        var resultNode = json?.finance?.result?.[0] || json?.quoteResponse?.result;
-        if (!resultNode) continue;
-
-        var quotes = resultNode.quotes || (Array.isArray(resultNode) ? resultNode : []);
-
-        for (var q of quotes) {
-          if (results.length >= 5) break;
-          if (!q || !q.symbol) continue;
-
-          // Deduplicate counters to ensure distinct rows
-          var isDuplicate = results.some(item => item.symbol === q.symbol);
-          if (isDuplicate) continue;
-
-          var livePrice = q.regularMarketPrice || q.price || 0;
-          var liveChange = q.regularMarketChangePercent || q.changePercent || 0;
-
-          // Only process active instruments containing a verifiable market transaction value
-          if (livePrice > 0) {
-            var cleanTicker = String(q.symbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
-            
-            results.push({
-              ticker: cleanTicker,
-              symbol: String(q.symbol).toUpperCase(),
-              name: q.shortName || q.longName || cleanTicker,
-              price: parseFloat(livePrice),
-              changePct: parseFloat(liveChange),
-              rawChangePct: parseFloat(liveChange),
-              intraday: parseFloat(liveChange),
-              volume: parseFloat(q.regularMarketVolume || q.volume || 0),
-              sector: q.exchange || q.market || "NSE"
-            });
-          }
-        }
-
-        if (results.length > 0) break; // Registry query successful, move forward
-      } catch (err) {
-        console.debug("Network route cleared and rotated.");
+      if (quote && quote.regularMarketPrice) {
+        // Mapping EXACTLY to the columns visible in your screenshot (ASSET, PRICE, INTRADAY, SIGNAL)
+        results.push({
+          ticker: cleanTicker,
+          price: quote.regularMarketPrice,
+          intraday: quote.regularMarketChangePercent || 0,
+          changePct: quote.regularMarketChangePercent || 0, // Fallback safety
+          signal: quote.regularMarketChangePercent > 0 ? "BREAKOUT" : "WEAK",
+          sector: quote.exchange || ""
+        });
       }
+    } catch (error) {
+      console.error(`Failed to map live data for ${sym}:`, error);
     }
   }
 
-  // Returns pure live data structures. Zero hardcoded assets or values.
+  // Look in your browser console (F12) to see exactly what this returns
+  console.log("LIVE TRENDING DATA DELIVERED TO UI:", results);
   return results;
 }
 
