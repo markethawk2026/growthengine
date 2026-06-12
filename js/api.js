@@ -213,98 +213,83 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// PERFECTED LIVE TRENDING ENGINE (ZERO HARDCODE · NO JUNK WORDS)
+// COMPREHENSIVE ZERO-HARDCODE MOVERS & LIVE SIGNAL PIPELINE
 // ====================================================================
 async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
-  var trendingUrl = `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`;
+  var liveSymbols = [];
   
+  // Use clean, working proxy assignments directly matching your global arrays
   var proxyCircuits = [
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+    (url) => "https://corsproxy.io/?url=" + encodeURIComponent(url),
+    (url) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(url)
   ];
 
+  // TRACK 1: Try to pull live global trending items from the exchange vector
+  var trendingUrl = `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`;
   for (var proxy of proxyCircuits) {
     try {
-      // Step 1: Discover Trending Tickers from the live market stream
-      var trendResponse = await fetch(proxy(trendingUrl));
-      var trendJson = await trendResponse.json();
-      if (trendJson && trendJson.contents) trendJson = JSON.parse(trendJson.contents);
-
+      var trendJson = await fetch(proxy(trendingUrl)).then(r => r.json());
       var discoveredQuotes = [];
       if (trendJson && trendJson.finance && trendJson.finance.result && trendJson.finance.result[0]) {
         discoveredQuotes = trendJson.finance.result[0].quotes || [];
       }
-
-      var liveSymbols = discoveredQuotes.map(q => q.symbol).filter(Boolean).slice(0, 8);
-
-      if (liveSymbols.length > 0) {
-        // FIX 1: Use a literal comma string here. Yahoo requires raw commas for batch queries.
-        // The outer proxy wrapper function already handles the URI safety encoding!
-        var quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${liveSymbols.join(',')}&_=${timestamp}`;
-        
-        var quoteResponse = await fetch(proxy(quoteUrl));
-        var quoteJson = await quoteResponse.json();
-        if (quoteJson && quoteJson.contents) quoteJson = JSON.parse(quoteJson.contents);
-
-        var finalQuotes = [];
-        if (quoteJson && quoteJson.quoteResponse && quoteJson.quoteResponse.result) {
-          finalQuotes = quoteJson.quoteResponse.result;
-        }
-
-        if (finalQuotes.length > 0) {
-          return finalQuotes.map(function(q) {
-            var cleanSymbol = String(q.symbol).toUpperCase();
-            var changePctValue = parseFloat(q.regularMarketChangePercent) || 0;
-            return {
-              ticker: cleanSymbol.replace(".NS", "").replace(".BO", ""),
-              symbol: cleanSymbol,
-              price: parseFloat(q.regularMarketPrice) || 0,
-              changePct: changePctValue,
-              rawChangePct: changePctValue,
-              volume: parseFloat(q.regularMarketVolume) || 0,
-              sector: q.industry || q.quoteType || "EQUITY"
-            };
-          });
-        }
-      }
+      liveSymbols = discoveredQuotes.map(q => q.symbol).filter(Boolean).slice(0, 5);
+      if (liveSymbols.length > 0) break; 
     } catch (e) {
-      console.debug("Trending proxy pipeline shift active.");
+      console.debug("Primary trending circuit shifted.");
     }
   }
 
-  // ====================================================================
-  // TRULY ZERO-HARDCODE FALLBACK: SCAN RAW CASING FOR GENUINE ACROYNYMS
-  // ====================================================================
-  var dynamicFallbackSymbols = [];
-  if (window.ACTIVE_NEWS_POOL && window.ACTIVE_NEWS_POOL.length > 0) {
-    window.ACTIVE_NEWS_POOL.forEach(function(art) {
-      // FIX 2: Scan the RAW mixed-case headline. True Indian stock tickers stand out 
-      // because they are natively fully capitalized (e.g., "HFCL", "HDFC", "PNB").
-      var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
-      if (matches) dynamicFallbackSymbols.push(...matches);
-    });
-  }
-  
-  var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL"];
-  dynamicFallbackSymbols = [...new Set(dynamicFallbackSymbols)].filter(t => !stopWords.includes(t)).slice(0, 5);
-  
-  // Ultimate backup links directly to your current session state node
-  if (dynamicFallbackSymbols.length === 0) {
-    dynamicFallbackSymbols = [window.activeTickerNode || "NIFTY50"];
+  // TRACK 2: If trending feed is offline, harvest symbols from active news elements
+  if (liveSymbols.length === 0) {
+    var harvestedTokens = [];
+    if (window.ACTIVE_NEWS_POOL && window.ACTIVE_NEWS_POOL.length > 0) {
+      window.ACTIVE_NEWS_POOL.forEach(function(art) {
+        var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
+        if (matches) harvestedTokens.push(...matches);
+      });
+    }
+    
+    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "FOR", "OUT"];
+    liveSymbols = [...new Set(harvestedTokens)]
+      .filter(t => !stopWords.includes(t))
+      .map(t => t + ".NS") 
+      .slice(0, 5);
   }
 
-  return dynamicFallbackSymbols.map(function(t) {
-    return {
-      ticker: t, symbol: t + ".NS",
-      price: Math.random() * 800 + 150,
-      changePct: (Math.random() * 4 - 2),
-      rawChangePct: 0, volume: Math.random() * 1500000,
-      sector: "HARVESTED CORE"
-    };
-  });
+  // TRACK 3: Emergency active session node safety line
+  if (liveSymbols.length === 0) {
+    liveSymbols = [(window.activeTickerNode || "HFCL") + ".NS"];
+  }
+
+  // FINAL RESOLUTION STEP: Convert target symbols into 100% REAL live quote metrics
+  var formattedResults = [];
+  for (var symbol of liveSymbols) {
+    try {
+      // Connects directly to your working live validation script to scrap real data
+      var q = await yfQuote(symbol.replace(".NS", ""));
+      if (q) {
+        var cleanTicker = String(symbol).toUpperCase().replace(".NS", "").replace(".BO", "");
+        var changeValue = parseFloat(q.changePct) || 0;
+        
+        formattedResults.push({
+          ticker: cleanTicker,
+          symbol: symbol.toUpperCase(),
+          price: q.price, // Maps perfectly to your formatted currency string
+          changePct: changeValue,
+          rawChangePct: changeValue,
+          volume: q.volume,
+          sector: q.name || "MARKET CORE"
+        });
+      }
+    } catch (err) {
+      console.debug("Quote feed skip for: " + symbol);
+    }
+  }
+
+  return formattedResults;
 }
-
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
