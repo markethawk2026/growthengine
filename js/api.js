@@ -212,140 +212,70 @@ async function yfNews(q) {
   return masterArticles.slice(0, 30);
 }
 
-// 1. ABSOLUTELY ZERO HARDCODED STOCKS OR SYMBOLS EXIST IN THIS REGISTER
-window.NSE_SECTOR_REGISTRY = null;
-
+// ====================================================================
+// 100% DYNAMIC ZERO-HARDCODE REAL-TIME TRENDING ENGINE
+// ====================================================================
 async function yfMovers(forceRefresh) {
-  var sectors = ["IT", "BANKING", "PHARMA", "AUTO", "FMCG", "ENERGY", "METAL", "REALTY", "TELECOM", "FINANCIAL SERVICES"];
+  var timestamp = Date.now();
+  // 1. Target the live geographic trending vector for Indian Markets
+  var trendingUrl = `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`;
   
-  // Dynamic map translates tracking fields to generic index lookup parameters
-  var sectorSearchKeywords = {
-    "IT": "NIFTY IT",
-    "BANKING": "NIFTY BANK",
-    "PHARMA": "NIFTY PHARMA",
-    "AUTO": "NIFTY AUTO",
-    "FMCG": "NIFTY FMCG",
-    "ENERGY": "NIFTY ENERGY",
-    "METAL": "NIFTY METAL",
-    "REALTY": "NIFTY REALTY",
-    "TELECOM": "BSE TELECOM",
-    "FINANCIAL SERVICES": "NIFTY FINANCIAL"
-  };
+  var proxyCircuits = [
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+  ];
 
-  // 2. RUNTIME DISCOVERY BOOTSTRAPPING
-  if (!window.NSE_SECTOR_REGISTRY) {
-    window.NSE_SECTOR_REGISTRY = {};
-    
-    // Attempt to hydrate from local cache layer to minimize network overhead
-    var savedRegistry = localStorage.getItem("nse_pure_dynamic_sectors");
-    if (savedRegistry) {
-      try { window.NSE_SECTOR_REGISTRY = JSON.parse(savedRegistry); } catch(e) {}
-    }
+  for (var proxy of proxyCircuits) {
+    try {
+      // Step A: Fetch the live list of trending tickers
+      var trendResponse = await fetch(proxy(trendingUrl));
+      var trendJson = await trendResponse.json();
+      if (trendJson && trendJson.contents) trendJson = JSON.parse(trendJson.contents);
 
-    // If local cache is cold, programmatically crawl indices using live search strings
-    if (Object.keys(window.NSE_SECTOR_REGISTRY).length === 0) {
-      for (var s of sectors) {
-        window.NSE_SECTOR_REGISTRY[s] = [];
-        try {
-          var term = sectorSearchKeywords[s] || (s + " INDIA");
-          var url = "https://query1.finance.yahoo.com/v1/finance/search?q=" + encodeURIComponent(term) + "&quotesCount=6";
-          var res = await proxyFetch(url, 3000);
-          
-          if (res && res.quotes) {
-            res.quotes.forEach(function(q) {
-              var sym = q.symbol ? q.symbol.toUpperCase().replace(".NS", "").replace(".BO", "").trim() : "";
-              // Sanity validation filters out currency indices or junk tokens programmatically
-              if (sym && sym.length >= 2 && sym.length <= 12 && !sym.includes("=") && !sym.includes("^") && !window.NSE_SECTOR_REGISTRY[s].includes(sym)) {
-                window.NSE_SECTOR_REGISTRY[s].push(sym);
-              }
-            });
-          }
-        } catch(e) {
-          console.warn("Search engine crawler skipped sector parameter: " + s);
+      var discoveredQuotes = [];
+      if (trendJson && trendJson.finance && trendJson.finance.result && trendJson.finance.result[0]) {
+        discoveredQuotes = trendJson.finance.result[0].quotes || [];
+      }
+
+      // Extract the raw string symbols (e.g., ["RELIANCE.NS", "TATAMOTORS.NS"])
+      var liveSymbols = discoveredQuotes.map(q => q.symbol).filter(Boolean);
+
+      if (liveSymbols.length > 0) {
+        // Step B: Batch fetch the real-time quote metrics for all discovered symbols at once
+        var quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${liveSymbols.join(',')}&_=${timestamp}`;
+        var quoteResponse = await fetch(proxy(quoteUrl));
+        var quoteJson = await quoteResponse.json();
+        if (quoteJson && quoteJson.contents) quoteJson = JSON.parse(quoteJson.contents);
+
+        var finalQuotes = [];
+        if (quoteJson && quoteJson.quoteResponse && quoteJson.quoteResponse.result) {
+          finalQuotes = quoteJson.quoteResponse.result;
         }
-        await sleep(50); // Pacer protects against browser rate-limits
-      }
 
-      // Dynamic fallback loop uses the AI stream to resolve assets if search crawls are empty
-      if (Object.values(window.NSE_SECTOR_REGISTRY).flat().length === 0) {
-        try {
-          var prompt = "Provide a clean raw JSON object mapping these exact keys to 4 active NSE stock tickers (just symbols like INFY, no suffixes): IT, BANKING, PHARMA, AUTO, FMCG, ENERGY, METAL, REALTY, TELECOM, FINANCIAL SERVICES. Output raw JSON text only.";
-          var aiRes = await freeAI(prompt);
-          var parsed = JSON.parse(aiRes.replace(/```json/g, "").replace(/```/g, "").replace(/`/g, "").trim());
-          if (parsed) {
-            Object.keys(parsed).forEach(k => {
-              window.NSE_SECTOR_REGISTRY[k.toUpperCase().trim()] = parsed[k].map(x => x.toUpperCase().replace(".NS","").trim());
-            });
-          }
-        } catch(aiErr) {}
+        if (finalQuotes.length > 0) {
+          // Step C: Map results directly to match your layout metrics structure natively
+          return finalQuotes.map(function(q) {
+            var cleanSymbol = String(q.symbol).toUpperCase();
+            var changePctValue = parseFloat(q.regularMarketChangePercent) || 0;
+            return {
+              ticker: cleanSymbol.replace(".NS", "").replace(".BO", ""),
+              symbol: cleanSymbol,
+              price: parseFloat(q.regularMarketPrice) || 0,
+              changePct: changePctValue,
+              rawChangePct: changePctValue,
+              volume: parseFloat(q.regularMarketVolume) || 0,
+              sector: q.industry || q.quoteType || "EQUITY"
+            };
+          });
+        }
       }
-
-      localStorage.setItem("nse_pure_dynamic_sectors", JSON.stringify(window.NSE_SECTOR_REGISTRY));
+    } catch (e) {
+      console.debug("Trending pipeline matrix proxy shift active.");
     }
   }
 
-  // 3. COLLATING ACTIVE WORKSPACE TICKERS
-  var masterPool = [];
-  sectors.forEach(function(sec) {
-    if (window.NSE_SECTOR_REGISTRY[sec]) {
-      masterPool = masterPool.concat(window.NSE_SECTOR_REGISTRY[sec]);
-    }
-  });
-  masterPool = [...new Set(masterPool)].filter(Boolean);
-
-  var formatted = [];
-  // Limit parsing arrays dynamically to protect background layout pipelines
-  var activeScanTargets = masterPool.slice(0, 35);
-
-  // FIXED CODE
-for (var i = 0; i < activeScanTargets.length; i++) {
-  var tickerSym = activeScanTargets[i];
-  try {
-    // If a forced refresh is ticking, clear the local cache line for this asset
-    if (forceRefresh) {
-      delete window.CACHE.prices[tickerSym];
-    }
-
-    if (window.CACHE.prices[tickerSym] && fresh(window.CACHE.prices[tickerSym].ts, window.TTL.s)) {
-      formatted.push(parseDynamicMoverItem(tickerSym, window.CACHE.prices[tickerSym].d));
-      continue;
-    }
-    var quoteObj = await yfQuote(tickerSym);
-    if (quoteObj) formatted.push(parseDynamicMoverItem(tickerSym, quoteObj));
-  } catch (err) {}
-}
-
-  // 4. ALGORITHMIC SIMULATION GENERATOR (TRIGGERS ONLY IF PROXIES BLOCKED)
-  if (formatted.length === 0) {
-    var marketIsUp = window.CACHE.prices["^NSEI"] ? window.CACHE.prices["^NSEI"].d.up : true;
-    var trendSign = marketIsUp ? 1 : -1;
-
-    sectors.forEach(function(sector) {
-      var syms = window.NSE_SECTOR_REGISTRY[sector] || [];
-      syms.forEach(function(sym, index) {
-        // Derive mathematical variance entirely from character codes to keep data active and dynamic
-        var calculatedBase = 180 + ((sym.charCodeAt(0) || 65) * 4) + (index * 25);
-        var calculatedVariance = (0.40 + (index * 0.35) + Math.random() * 0.4) * (index % 2 === 0 ? trendSign : -trendSign);
-        var calculatedPrice = calculatedBase * (1 + calculatedVariance / 100);
-        var calculatedVolume = Math.floor(1100000 + (Math.random() * 3800000));
-
-        formatted.push({
-          ticker:       sym,
-          name:         sym + " Equity India",
-          price:        "₹" + calculatedPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          rawPrice:     calculatedPrice,
-          changePct:    (calculatedVariance >= 0 ? "+" : "") + calculatedVariance.toFixed(2) + "%",
-          rawChangePct: calculatedVariance,
-          volume:       (calculatedVolume / 1000000).toFixed(2) + "M",
-          rawVolume:    calculatedVolume,
-          up:           calculatedVariance >= 0,
-          sector:       sector
-        });
-      });
-    });
-  }
-
-  return formatted;
+  // Pure abstract generic safety loop if completely disconnected from network circuits
+  return [];
 }
 
 function parseDynamicMoverItem(sym, q) {
