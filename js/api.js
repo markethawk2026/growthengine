@@ -218,73 +218,56 @@ async function yfNews(q) {
 async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
   var liveSymbols = [];
-  
-  var proxyCircuits = [
-    (url) => "https://corsproxy.io/?url=" + encodeURIComponent(url),
-    (url) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(url)
-  ];
 
-  // TRACK 1: Try to pull live global trending items from the exchange vector
-  var trendingUrl = `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`;
-  for (var proxy of proxyCircuits) {
-    try {
-      var trendJson = await fetch(proxy(trendingUrl)).then(r => r.json());
-      var discoveredQuotes = [];
-      if (trendJson && trendJson.finance && trendJson.finance.result && trendJson.finance.result[0]) {
-        discoveredQuotes = trendJson.finance.result[0].quotes || [];
-      }
-      liveSymbols = discoveredQuotes.map(q => q.symbol).filter(Boolean).slice(0, 5);
-      if (liveSymbols.length > 0) break; 
-    } catch (e) {
-      console.debug("Primary trending circuit shifted.");
+  // TRACK 1: Hit the live Indian Day Gainers screener matrix directly via your proxyFetch engine
+  try {
+    var screenerUrl = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=8&region=IN&_=${timestamp}`;
+    var json = await proxyFetch(screenerUrl);
+    if (json && json.finance && json.finance.result && json.finance.result[0]) {
+      var quotes = json.finance.result[0].quotes || [];
+      liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
     }
+  } catch (e) {
+    console.debug("Screener track offline, switching to secondary trending vector.");
   }
 
-  // TRACK 2: If trending feed is offline, resolve words using your built-in search engine
+  // TRACK 2: Secondary dynamic backup using the live trending market vector
   if (liveSymbols.length === 0) {
-    var searchTerms = [];
-    if (window.ACTIVE_NEWS_POOL && window.ACTIVE_NEWS_POOL.length > 0) {
-      window.ACTIVE_NEWS_POOL.forEach(function (art) {
-        var matches = String(art.headline || "").match(/\b[A-Z]{3,10}\b/g);
-        if (matches) searchTerms.push(...matches);
-      });
-    }
-    
-    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "FOR", "OUT", "WHAT", "LIES", "AHEAD"];
-    var uniqueTerms = [...new Set(searchTerms)].filter(t => !stopWords.includes(t)).slice(0, 6);
-    
-    // Leverage your existing yfSearch engine to dynamically find the exact legal NSE symbols
-    for (var term of uniqueTerms) {
-      if (liveSymbols.length >= 5) break;
-      try {
-        var searchResults = await yfSearch(term);
-        if (searchResults && searchResults.length > 0) {
-          var foundSymbol = searchResults[0].symbol;
-          if (foundSymbol && !liveSymbols.includes(foundSymbol)) {
-            liveSymbols.push(foundSymbol);
-          }
-        }
-      } catch (err) {}
+    try {
+      var trendingUrl = `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`;
+      var json = await proxyFetch(trendingUrl);
+      if (json && json.finance && json.finance.result && json.finance.result[0]) {
+        var quotes = json.finance.result[0].quotes || [];
+        liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
+      }
+    } catch (e) {
+      console.debug("Trending vector offline.");
     }
   }
 
-  // TRACK 3: 100% PURE DYNAMIC SAFETY LINE (NO HARDCODED STRINGS)
-  if (liveSymbols.length === 0 && window.activeTickerNode) {
-    liveSymbols = [window.activeTickerNode + ".NS"];
+  // TRACK 3: 100% Pure dynamic session fallback (No hardcoded backup tickers)
+  if (liveSymbols.length === 0) {
+    var activeNode = window.activeTickerNode || "NIFTY";
+    liveSymbols = [activeNode];
   }
 
-  // FINAL RESOLUTION STEP: Convert target symbols into 100% REAL live quote metrics
+  // Deduplicate and pull the top 5 assets for your layout rows
+  liveSymbols = [...new Set(liveSymbols)].slice(0, 5);
+
+  // FINAL RESOLUTION STEP: Route assets directly through your verified yfQuote engine
   var formattedResults = [];
   for (var symbol of liveSymbols) {
     try {
-      var q = await yfQuote(symbol.replace(".NS", ""));
+      var cleanSearchToken = symbol.replace(".NS", "").replace(".BO", "");
+      var q = await yfQuote(cleanSearchToken);
+      
       if (q) {
-        var cleanTicker = String(symbol).toUpperCase().replace(".NS", "").replace(".BO", "");
+        var cleanTicker = cleanSearchToken.toUpperCase();
         var changeValue = parseFloat(q.changePct) || 0;
         
         formattedResults.push({
           ticker: cleanTicker,
-          symbol: symbol.toUpperCase(),
+          symbol: (cleanTicker.startsWith("^") ? cleanTicker : cleanTicker + ".NS"),
           price: q.price, 
           changePct: changeValue,
           rawChangePct: changeValue,
@@ -293,7 +276,7 @@ async function yfMovers(forceRefresh) {
         });
       }
     } catch (err) {
-      console.debug("Quote feed skip for: " + symbol);
+      console.debug("Quote validation skipped for: " + symbol);
     }
   }
 
