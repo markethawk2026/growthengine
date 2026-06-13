@@ -213,106 +213,87 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// MULTI-ASSET GOOGLE FINANCE DISCOVERY ENGINE (100% LIVE · NO HARDCODE)
+// GOOGLE FINANCE DYNAMIC DISCOVERY HYBRID ENGINE (100% REAL DATA)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   let results = [];
-  
-  // 1. Dynamic target categories spanning Market Indices, Gainers, Losers, and Volume leaders
-  const categories = [
-    { url: "https://www.google.com/finance/?hl=en&gl=IN", suffix: ":(INDEXNSE|INDEXBOM)", label: "INDEX" },
-    { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=IN", suffix: ":NSE", label: "NSE" },
-    { url: "https://www.google.com/finance/markets/losers?hl=en&gl=IN", suffix: ":NSE", label: "NSE" },
-    { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", suffix: ":NSE", label: "NSE" }
+  let discoveredSymbols = [];
+
+  // 1. Multi-category feeds spanning Indices, Gainers, Losers, and Volume Leaders
+  const targetUrls = [
+    "https://www.google.com/finance/?hl=en&gl=IN",
+    "https://www.google.com/finance/markets/gainers?hl=en&gl=IN",
+    "https://www.google.com/finance/markets/losers?hl=en&gl=IN",
+    "https://www.google.com/finance/markets/most-active?hl=en&gl=IN"
   ];
 
-  // Automated fallback protection for global scopes
   const proxyList = (typeof PROXIES !== 'undefined') ? PROXIES : [
     "https://corsproxy.io/?",
     "https://api.allorigins.win/raw?url="
   ];
 
-  // 2. Loop through each specific market registry page sequentially
-  for (let cat of categories) {
-    let htmlText = "";
+  // 2. Step 1: Scan pages cleanly for raw ticker patterns (e.g., RELIANCE:NSE)
+  for (let url of targetUrls) {
+    if (discoveredSymbols.length >= 10) break;
     
-    for (let proxyPrefix of proxyList) {
+    for (let proxy of proxyList) {
       try {
-        let fullUrl = proxyPrefix + encodeURIComponent(cat.url);
-        let res = await fetch(fullUrl);
-        if (res.ok) {
-          htmlText = await res.text();
-          if (htmlText && htmlText.includes("./quote/")) break;
+        let res = await fetch(proxy + encodeURIComponent(url));
+        if (!res.ok) continue;
+        let htmlText = await res.text();
+
+        // FIX: Loose regex scans entire text stream safely, ignoring HTML structures
+        let matches = htmlText.match(/\b([A-Z0-9_#-]+):(NSE|INDEXNSE|INDEXBOM)\b/g) || [];
+        
+        for (let m of matches) {
+          let cleanTicker = m.split(":")[0].toUpperCase();
+          // Filter out generic interface words
+          if (cleanTicker && !discoveredSymbols.includes(cleanTicker)) {
+            if (!["NSE", "BSE", "INDEX", "VAL", "USD", "INR"].includes(cleanTicker)) {
+              discoveredSymbols.push(cleanTicker);
+            }
+          }
+          if (discoveredSymbols.length >= 10) break;
         }
+        if (discoveredSymbols.length > 0) break; 
       } catch (e) {
-        console.debug("Rotating request proxy routing node...");
-      }
-    }
-
-    if (!htmlText) continue;
-
-    // 3. Extract matching tokens from the raw HTML stream
-    let tickerRegex = new RegExp(`href="\\.\\/quote\\/([A-Z0-9_#-]+)${cat.suffix}"`, "g");
-    let match;
-    let pageTickers = [];
-    
-    while ((match = tickerRegex.exec(htmlText)) !== null) {
-      let fullSymbol = match[1].toUpperCase() + (cat.label === "INDEX" ? ":" + match[2] : ":NSE");
-      if (!pageTickers.includes(fullSymbol)) {
-        pageTickers.push(fullSymbol);
-      }
-      if (pageTickers.length >= 2) break; // Take up to 2 distinct row elements per view for balanced layout diversity
-    }
-
-    // 4. Isolate individual DOM data blocks to parse metrics
-    for (let sym of pageTickers) {
-      try {
-        let startIdx = htmlText.indexOf(`href="./quote/${sym}"`);
-        if (startIdx === -1) continue;
-
-        let chunk = htmlText.substring(startIdx, startIdx + 2000);
-        
-        // Extract numerical values handling currency symbols and commas seamlessly
-        let priceMatch = chunk.match(/(?:₹\s*|[>\s])([0-9,]+\.[0-9]{2})/);
-        if (!priceMatch) priceMatch = chunk.match(/([0-9,]+\.[0-9]{2})/);
-        if (!priceMatch) continue;
-        
-        let price = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
-
-        // Parse direction and percentages safely using accessibility markup attributes
-        let changePct = 0;
-        let ariaMatch = chunk.match(/aria-label="(Up|Down)\s+by\s+([0-9.]+)%"/i);
-        
-        if (ariaMatch) {
-          let direction = ariaMatch[1].toLowerCase();
-          let value = parseFloat(ariaMatch[2]) || 0;
-          changePct = direction === "down" ? -value : value;
-        } else {
-          let fallbackPct = chunk.match(/([+-]?[0-9.]+)\s*%/);
-          if (fallbackPct) changePct = parseFloat(fallbackPct[1]) || 0;
-        }
-
-        let cleanTicker = sym.split(":")[0].replace("_", " ");
-
-        // Guard against internal duplicate items cross-populating lists
-        if (price > 0 && !results.some(r => r.ticker === cleanTicker)) {
-          results.push({
-            ticker: cleanTicker,
-            price: price,
-            intraday: changePct,
-            changePct: changePct,
-            signal: changePct >= 0 ? "BREAKOUT" : "WEAK",
-            sector: cat.label
-          });
-        }
-      } catch (chunkError) {
-        console.warn("Bypassed layout segment row parsing index mapping.");
+        console.debug("Rotating network connection route...");
       }
     }
   }
 
-  console.log("Multi-Category Market Dashboard Ingestion Array:", results);
-  return results.slice(0, 6); // Deliver structured array straight to layout templates
+  // Deduplicate and isolate top unique assets for your dashboard layout panel
+  let finalSymbols = [...new Set(discoveredSymbols)].slice(0, 5);
+
+  // 3. Step 2: Pass dynamically discovered assets through your working chart quote engine
+  for (let ticker of finalSymbols) {
+    try {
+      // Pull true real-time metric updates using your working backend tool
+      let qData = await yfQuote(ticker); 
+      if (qData) {
+        let changeVal = 0;
+        if (qData.changePct) {
+          changeVal = parseFloat(String(qData.changePct).replace(/[^0-9.-]/g, '')) || 0;
+        } else if (qData.intraday) {
+          changeVal = parseFloat(String(qData.intraday).replace(/[^0-9.-]/g, '')) || 0;
+        }
+
+        results.push({
+          ticker: ticker.replace("_", " "),
+          price: qData.price || "0.00",
+          intraday: qData.intraday || qData.changePct || "0.00%",
+          changePct: changeVal,
+          signal: changeVal >= 0 ? "BREAKOUT" : "WEAK",
+          sector: qData.exchange || qData.market || "NSE"
+        });
+      }
+    } catch (err) {
+      console.warn("Mover mapping bypass for ticker asset: ", ticker);
+    }
+  }
+
+  console.log("Google Finance Engine Broadcast Delivery:", results);
+  return results;
 }
 
 function parseDynamicMoverItem(sym, q) {
