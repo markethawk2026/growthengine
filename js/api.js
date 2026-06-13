@@ -213,111 +213,78 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CRASH-PROOF LIVE TRENDING PIPELINE (ZERO HARDCODING)
+// FREE WEBSITE MOVERS DISCOVERY ENGINE (100% REAL DATA · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  let results = [];
+  let discoveredTickers = [];
+  
+  // 1. Target URL registry from Google Finance India Markets
+  const targetUrls = [
+    "https://www.google.com/finance/markets/gainers?hl=en&gl=IN",
+    "https://www.google.com/finance/markets/most-active?hl=en&gl=IN"
+  ];
 
-  // 1. A self-contained, multi-proxy fetcher wrapped in strict try/catch blocks
-  async function fetchJSON(targetUrl) {
-    const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}` // Using /raw to prevent {contents} wrapping
-    ];
-    
-    for (let proxy of proxies) {
+  // 2. Scan Google Finance pages using your global PROXIES array
+  for (let targetUrl of targetUrls) {
+    if (discoveredTickers.length >= 8) break;
+
+    for (let proxyPrefix of PROXIES) {
       try {
-        let res = await fetch(proxy);
+        let fullUrl = proxyPrefix + encodeURIComponent(targetUrl);
+        let res = await fetch(fullUrl);
         if (!res.ok) continue;
-        let text = await res.text();
-        
-        // FIX: If Yahoo sends a 403 HTML Error page, JSON.parse will fail. We now catch it safely.
-        try {
-          return JSON.parse(text);
-        } catch (parseError) {
-          continue; // Move to the next proxy instead of crashing the app
+        let htmlText = await res.text();
+
+        // Extract any uppercase symbol mapped directly to the National Stock Exchange
+        let matches = htmlText.match(/\b([A-Z0-9]{2,10}):NSE\b/g) || [];
+        for (let match of matches) {
+          let cleanTicker = match.split(":")[0].toUpperCase();
+          
+          // Filter out general market index structures
+          if (cleanTicker && !discoveredTickers.includes(cleanTicker) && !cleanTicker.includes("NIFTY")) {
+            discoveredTickers.push(cleanTicker);
+          }
         }
-      } catch (networkError) {
-        continue;
-      }
-    }
-    throw new Error("All proxy routes blocked or invalid JSON returned.");
-  }
-
-  // 2. TRACK 1: Fetch Live Market Movers from Yahoo
-  try {
-    const screenerUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN";
-    const jsonData = await fetchJSON(screenerUrl);
-    
-    const quotes = jsonData?.finance?.result?.[0]?.quotes || [];
-    
-    for (let q of quotes) {
-      if (results.length >= 5) break;
-      // Filter for genuine NSE/BSE tickers
-      if (q.symbol && (q.symbol.endsWith('.NS') || q.symbol.endsWith('.BO'))) {
-        let change = q.regularMarketChangePercent || 0;
         
-        // Exact object structure to match your UI columns
-        results.push({
-          ticker: q.symbol.replace(".NS", "").replace(".BO", ""),
-          price: q.regularMarketPrice || 0,
-          intraday: change,
-          changePct: change,
-          signal: change > 0 ? "BREAKOUT" : "WEAK",
-          sector: q.exchange || "NSE"
-        });
+        if (discoveredTickers.length > 0) break; // Asset collection verified, check next category
+      } catch (e) {
+        console.warn("Alternative network line throttled, rotating proxy...");
       }
     }
-  } catch (error) {
-    console.warn("Track 1 Failed: Primary API Blocked. Shifting to UI DOM Extraction.");
   }
 
-  // 3. TRACK 2: If Track 1 fails, dynamically read the active news text on your screen
-  if (results.length === 0) {
+  // 3. Fallback: If network access to external text fails, mine tokens from active news wires
+  if (discoveredTickers.length === 0) {
     try {
       const pageText = document.body.innerText || "";
       const tokens = pageText.match(/\b[A-Z]{3,8}\b/g) || [];
-      const ignore = ["THE", "AND", "FOR", "LIVE", "FREE", "NSE", "BSE", "BANK", "NEWS", "ASSET", "PRICE", "SIGNAL", "INTRADAY", "MARKET", "TIME"];
-      
-      const cleanTokens = [...new Set(tokens)].filter(t => !ignore.includes(t));
-      
-      for (let token of cleanTokens) {
-        if (results.length >= 5) break;
-        try {
-          // Verify if the word (e.g., "IDEA", "HFCL") is a real stock
-          const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${token}&quotesCount=1`;
-          const sJson = await fetchJSON(searchUrl);
-          const match = sJson?.quotes?.[0];
-          
-          if (match && (match.symbol.endsWith('.NS') || match.symbol.endsWith('.BO'))) {
-            // It's a real company. Get its live price.
-            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${match.symbol}`;
-            const qJson = await fetchJSON(quoteUrl);
-            const quote = qJson?.quoteResponse?.result?.[0];
-            
-            if (quote) {
-              let change = quote.regularMarketChangePercent || 0;
-              results.push({
-                ticker: quote.symbol.replace(".NS", "").replace(".BO", ""),
-                price: quote.regularMarketPrice || 0,
-                intraday: change,
-                changePct: change,
-                signal: change > 0 ? "BREAKOUT" : "WEAK",
-                sector: quote.exchange || "NSE"
-              });
-            }
-          }
-        } catch (e) {
-           continue; 
+      const ignore = ["THE", "AND", "FOR", "LIVE", "FREE", "NSE", "BSE", "BANK", "NEWS", "ASSET", "PRICE", "SIGNAL", "INTRADAY", "MARKET", "TIME", "VIEW"];
+      discoveredTickers = [...new Set(tokens)].filter(t => !ignore.includes(t));
+    } catch (e) {}
+  }
+
+  // Deduplicate and isolate exactly 5 active assets for your layout panel
+  let finalTickers = [...new Set(discoveredTickers)].slice(0, 5);
+  let results = [];
+
+  // 4. Bind discovered items directly to your internal calculation tools
+  for (let ticker of finalTickers) {
+    try {
+      // Pull real-time metric updates using your working chart engine
+      let qData = await yfQuote(ticker);
+      if (qData) {
+        // Feed straight into your structural formatter (line 296) to preserve UI alignment
+        let parsedMover = parseDynamicMoverItem(ticker, qData);
+        if (parsedMover) {
+          results.push(parsedMover);
         }
       }
-    } catch (e) {
-      console.error("DOM Extraction failed.", e);
+    } catch (err) {
+      console.warn("Mover mapping bypass for ticker asset: ", ticker);
     }
   }
 
-  // Prints the final successful dataset so you can verify it in F12 Developer Tools
-  console.log("yfMovers API Payload Delivery:", results);
+  console.log("Free Website Discovery Ingestion Complete:", results);
   return results;
 }
 
