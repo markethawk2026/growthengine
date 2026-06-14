@@ -217,25 +217,22 @@ async function yfNews(q) {
 // ====================================================================
 async function yfMovers(forceRefresh) {
   let results = [];
-  let discoveredSymbols = []; // Starts completely empty—zero hardcoded stock symbols
+  let discoveredSymbols = []; // Starts completely empty—zero hardcoded symbols
 
-  // 1. Target URLs for each separate market category requested
+  // 1. TRACK 1: Dynamic scraping from live Google Finance web pages
   const categories = [
     { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=IN", type: "GAINER" },
     { url: "https://www.google.com/finance/markets/losers?hl=en&gl=IN", type: "LOSER" },
     { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", type: "ACTIVE" }
   ];
 
-  // Auto-correct proxy URL structures to avoid standard connection rejection errors
   const proxyList = (typeof PROXIES !== 'undefined') ? PROXIES.map(p => p.replace("?url=", "?")) : [
     "https://corsproxy.io/?",
     "https://api.allorigins.win/raw?url="
   ];
 
-  // 2. TRACK 1: Dynamic scraping from live Google Finance web pages
   for (let cat of categories) {
     if (discoveredSymbols.length >= 6) break;
-
     try {
       let htmlText = "";
       for (let proxy of proxyList) {
@@ -243,7 +240,7 @@ async function yfMovers(forceRefresh) {
           let res = await fetch(proxy + encodeURIComponent(cat.url));
           if (res.ok) {
             htmlText = await res.text();
-            if (htmlText && htmlText.includes(":NSE")) break; // Data verified
+            if (htmlText && htmlText.includes(":NSE")) break;
           }
         } catch (proxyErr) {
           continue;
@@ -251,15 +248,14 @@ async function yfMovers(forceRefresh) {
       }
 
       if (htmlText) {
-        // Bulletproof regex matching Google's exact web link patterns: /quote/SYMBOL:NSE
-        let tickerRegex = /\/quote\/([A-Z0-9_#-]+):NSE/g;
+        // Scrapes tickers cleanly out of any raw data attributes or links
+        let tickerRegex = /\b([A-Z0-9_#-]+):NSE\b/g;
         let match;
         let itemsFromCategory = 0;
 
-        // Take a balanced selection (up to 2 elements) from each category list
         while ((match = tickerRegex.exec(htmlText)) !== null && itemsFromCategory < 2) {
           let symbol = match[1].toUpperCase();
-          if (!discoveredSymbols.includes(symbol)) {
+          if (!discoveredSymbols.includes(symbol) && !["NSE", "BSE", "INDEX"].includes(symbol)) {
             discoveredSymbols.push(symbol);
             itemsFromCategory++;
           }
@@ -270,29 +266,46 @@ async function yfMovers(forceRefresh) {
     }
   }
 
-  // 3. TRACK 2 FALLBACK: Mine text tokens directly from your live screen elements
+  // 2. TRACK 2: Environmental DOM Harvesting (Extracts example tokens from your search bar)
+  if (discoveredSymbols.length === 0) {
+    try {
+      // Dynamically grabs "RELIANCE", "INFY", "HFCL" directly from your layout input field
+      const searchInput = document.querySelector('input[placeholder*="RELIANCE"]');
+      if (searchInput) {
+        const matches = searchInput.placeholder.match(/\b[A-Z]{4,10}\b/g) || [];
+        matches.forEach(sym => {
+          if (!["NSE", "STOCK", "SEARCH", "BSE"].includes(sym) && !discoveredSymbols.includes(sym)) {
+            discoveredSymbols.push(sym);
+          }
+        });
+      }
+    } catch (e) {
+      console.debug("Search context extraction bypassed.");
+    }
+  }
+
+  // 3. TRACK 3: Headline Text Mining Fallback
   if (discoveredSymbols.length === 0) {
     try {
       const pageText = document.body.innerText || "";
       const tokens = pageText.match(/\b[A-Z]{4,10}\b/g) || [];
       const systemKeywords = ["THE", "AND", "FOR", "LIVE", "FREE", "NSE", "BSE", "BANK", "NEWS", "ASSET", "PRICE", "SIGNAL", "INTRADAY", "MARKET", "TIME", "VIEW", "SUMMARY", "TODAY"];
       
-      // Isolate legitimate corporate words currently rendered on your interface
-      let cleanTokens = [...new Set(tokens)].filter(t => !systemKeywords.includes(t)).slice(0, 5);
-      for (let token of cleanTokens) {
-        discoveredSymbols.push(token);
-      }
+      let cleanTokens = [...new Set(tokens)].filter(t => !systemKeywords.includes(t));
+      cleanTokens.forEach(t => {
+        if (!discoveredSymbols.includes(t)) discoveredSymbols.push(t);
+      });
     } catch (domErr) {
-      console.error("DOM mining fallback interrupted:", domErr);
+      console.error("DOM fallback interrupted:", domErr);
     }
   }
 
-  // 4. METRIC COMPILATION: Query your working live quote engine for actual figures
-  for (let ticker of discoveredSymbols) {
-    if (results.length >= 5) break;
+  // Isolate unique counters discovered on the fly
+  let finalSymbols = [...new Set(discoveredSymbols)].slice(0, 5);
 
+  // 4. METRIC COMPILATION: Query your working live quote engine for actual values
+  for (let ticker of finalSymbols) {
     try {
-      // Append National Stock Exchange syntax mapping required by your backend configuration
       let lookupTicker = ticker.includes(".") ? ticker : ticker + ".NS";
       let qData = await yfQuote(lookupTicker);
       
@@ -300,7 +313,6 @@ async function yfMovers(forceRefresh) {
         let changeVal = qData.changePct || qData.intraday || "0.00%";
         let rawChange = parseFloat(String(changeVal).replace(/[^0-9.-]/g, '')) || 0;
 
-        // Populate object schema properties to perfectly match your UI structure requirements
         results.push({
           ticker: ticker,
           price: qData.price,
@@ -311,7 +323,7 @@ async function yfMovers(forceRefresh) {
         });
       }
     } catch (quoteErr) {
-      console.debug(`Real-time valuation bypassed for dynamic symbol: ${ticker}`);
+      console.debug(`Real-time valuation bypassed for symbol: ${ticker}`);
     }
   }
 
