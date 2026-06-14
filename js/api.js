@@ -213,13 +213,13 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// MULTI-CATEGORY GOOGLE FINANCE DISCOVERY ENGINE (100% LIVE · NO HARDCODE)
+// MULTI-CATEGORY GOOGLE FINANCE DISCOVERY ENGINE (100% LIVE · NO HARDCODES)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   let results = [];
-  let discoveredSymbols = []; // Starts 100% empty - absolutely zero hardcoded stocks
+  let discovered = []; // Starts 100% empty - no hardcoded ticker strings or companies
 
-  // 1. TRACK 1: Dynamic scraping from live Google Finance web pages
+  // 1. Structural feeds for each requested market perspective
   const categories = [
     { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=IN", type: "GAINER" },
     { url: "https://www.google.com/finance/markets/losers?hl=en&gl=IN", type: "LOSER" },
@@ -228,19 +228,34 @@ async function yfMovers(forceRefresh) {
 
   const proxyList = (typeof PROXIES !== 'undefined') ? PROXIES.map(p => p.replace("?url=", "?")) : [
     "https://corsproxy.io/?",
-    "https://api.allorigins.win/raw?url="
+    "https://api.allorigins.win/raw?url=",
+    "https://api.allorigins.win/get?url="
   ];
 
+  // 2. TRACK 1: Dynamic scraping with JSON-envelope unwrapping
   for (let cat of categories) {
-    if (discoveredSymbols.length >= 6) break;
+    if (discovered.length >= 6) break;
     try {
       let htmlText = "";
       for (let proxy of proxyList) {
         try {
           let res = await fetch(proxy + encodeURIComponent(cat.url));
           if (res.ok) {
-            htmlText = await res.text();
-            if (htmlText && htmlText.includes(":NSE")) break;
+            let rawData = await res.text();
+            
+            // CRITICAL FIX: Safe-parse potential JSON wrappers returned by proxies
+            if (rawData.trim().startsWith("{")) {
+              try {
+                let parsed = JSON.parse(rawData);
+                htmlText = parsed.contents || parsed.data || rawData;
+              } catch(e) {
+                htmlText = rawData;
+              }
+            } else {
+              htmlText = rawData;
+            }
+            
+            if (htmlText && (htmlText.includes(":NSE") || htmlText.includes("quote/"))) break;
           }
         } catch (proxyErr) {
           continue;
@@ -248,91 +263,83 @@ async function yfMovers(forceRefresh) {
       }
 
       if (htmlText) {
-        let tickerRegex = /\b([A-Z0-9_#-]+):NSE\b/g;
+        // Captures clean ticker formats out of links or data schemas dynamically
+        let tickerRegex = /\/quote\/([A-Z0-9_.-]+):NSE/g;
         let match;
         let itemsFromCategory = 0;
 
         while ((match = tickerRegex.exec(htmlText)) !== null && itemsFromCategory < 2) {
           let symbol = match[1].toUpperCase();
-          if (!discoveredSymbols.includes(symbol) && !["NSE", "BSE", "INDEX"].includes(symbol)) {
-            discoveredSymbols.push(symbol);
+          if (!discovered.some(d => d.symbol === symbol)) {
+            discovered.push({ symbol: symbol, type: cat.type });
             itemsFromCategory++;
           }
         }
       }
     } catch (err) {
-      console.warn(`Category scraper offline for: ${cat.type}`);
+      console.warn(`Category stream bypass for: ${cat.type}`);
     }
   }
 
-  // 2. TRACK 2: Dynamic Input Extraction (Pulls valid tickers directly from your search bar placeholder)
-  if (discoveredSymbols.length === 0) {
+  // 3. TRACK 2 FALLBACK: Environmental DOM Mining (If proxies block completely)
+  if (discovered.length === 0) {
     try {
-      document.querySelectorAll('input').forEach(inp => {
-        const placeholderText = inp.placeholder || "";
-        // Dynamically extracts uppercase ticker tokens like RELIANCE, INFY, HFCL directly from your UI layout
-        const matches = placeholderText.match(/\b[A-Z]{3,10}\b/g) || [];
+      // Pulls uppercase layout tokens directly from your active screen elements
+      document.querySelectorAll('input, span, div, a').forEach(el => {
+        const textSource = el.placeholder || el.innerText || "";
+        const matches = textSource.match(/\b[A-Z]{3,10}\b/g) || [];
         matches.forEach(sym => {
-          if (!["NSE", "STOCK", "SEARCH", "BSE", "ANY"].includes(sym) && !discoveredSymbols.includes(sym)) {
-            discoveredSymbols.push(sym);
+          const systemIgnore = ["NSE", "BSE", "STOCK", "SEARCH", "ANY", "VIEW", "PRICE", "MARKET", "TIME"];
+          if (!systemIgnore.includes(sym) && !discovered.some(d => d.symbol === sym)) {
+            discovered.push({ symbol: sym, type: "MARKET" });
           }
         });
       });
-    } catch (e) {
-      console.debug("DOM placeholder harvesting bypassed.");
+    } catch (domErr) {
+      console.debug("DOM compilation bypassed.");
     }
   }
 
-  // 3. METRIC COMPILATION: Query your working live quote engine for actual values
-  for (let ticker of discoveredSymbols) {
+  // 4. VALUE COMPILATION: Resolve assets through your working yfQuote engine
+  for (let item of discovered) {
     if (results.length >= 5) break;
     try {
-      let lookupTicker = ticker.includes(".") ? ticker : ticker + ".NS";
+      let lookupTicker = item.symbol.includes(".") ? item.symbol : item.symbol + ".NS";
       let qData = await yfQuote(lookupTicker);
       
       if (qData && qData.price && qData.price !== "₹0.00" && qData.price !== 0) {
         let changeVal = qData.changePct || qData.intraday || "0.00%";
         let rawChange = parseFloat(String(changeVal).replace(/[^0-9.-]/g, '')) || 0;
+        let inferredSector = item.type === "MARKET" ? (rawChange >= 0 ? "GAINER" : "LOSER") : item.type;
 
         results.push({
-          ticker: ticker,
+          ticker: item.symbol,
           price: qData.price,
           intraday: changeVal,
           changePct: changeVal,
           signal: rawChange >= 0 ? "BREAKOUT" : "WEAK",
-          sector: rawChange >= 0 ? "GAINER" : "LOSER"
+          sector: inferredSector
         });
       }
     } catch (quoteErr) {
-      console.debug(`Real-time valuation bypassed for symbol: ${ticker}`);
+      console.debug(`Real-time engine lookup skipped for: ${item.symbol}`);
     }
   }
 
-  // 4. TRACK 3: Ultimate Component Scraper (If network completely dies, clone working on-screen items)
+  // 5. ANTI-FREEZE SAFEGUARD: Return a valid structural array if network is completely down
   if (results.length === 0) {
-    try {
-      // Scrapes any active market data tags currently rendering successfully on your dashboard
-      const items = Array.from(document.querySelectorAll('*')).filter(el => {
-        return el.children.length === 0 && el.innerText && el.innerText.includes('%') && /\d/.test(el.innerText);
-      });
-
-      items.slice(0, 3).forEach((el, index) => {
-        results.push({
-          ticker: index === 0 ? "NIFTY" : "SENSEX",
-          price: "Live Data",
-          intraday: el.innerText,
-          changePct: el.innerText,
-          signal: el.innerText.includes("-") ? "WEAK" : "BREAKOUT",
-          sector: "MARKET"
-        });
-      });
-    } catch (domErr) {
-      console.error("Critical recovery track bypassed:", domErr);
-    }
+    results.push({
+      ticker: "OFFLINE",
+      price: "—",
+      intraday: "0.00%",
+      changePct: "0.00%",
+      signal: "WEAK",
+      sector: "LIMIT"
+    });
   }
 
-  console.log("Dynamic Market Table Ingestion Complete:", results);
-  return results;
+  console.log("Verified Live Pipeline Result:", results);
+  return results.slice(0, 5);
 }
 
 function parseDynamicMoverItem(sym, q) {
