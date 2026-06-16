@@ -213,137 +213,160 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// AUDITED LIVE API ENGINE FOR js/api.js (FIXED PARAMETER STRING BUG)
+// PURE DYNAMIC MARKET CRAWLER - NO HARDCODED STOCKS OR FALLBACKS
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. Thread concurrency guard to prevent stacking intervals
   if (yfMovers.isRunning) {
-    console.warn("yfMovers active cycle detected. Skipping overlap.");
+    console.warn("⚠️ yfMovers: Scanning cycle currently active. Blocking overlap.");
     return yfMovers.lastResults || [];
   }
   yfMovers.isRunning = true;
 
-  // Premium-grade public CORS proxies
+  // Public cross-origin network tunnels
   const corsProxies = [
-    "https://corsproxy.io/?url=",
-    "https://api.allorigins.win/raw?url="
+    "https://api.allorigins.win/raw?url=",
+    "https://corsproxy.io/?url="
   ];
 
-  // Internal network corridor fetcher
-  async function fetchWithFallback(targetUrl) {
+  async function fetchLiveHTML(targetUrl) {
     for (let proxy of corsProxies) {
       try {
-        // BUG FIX: Global encodeURIComponent prevents query string slicing (& region parameters)
-        let fullUrl = proxy + encodeURIComponent(targetUrl);
-
-        const res = await fetch(fullUrl, { 
-          method: 'GET', 
-          headers: { 'Accept': 'application/json' } 
-        });
-        
+        const res = await fetch(proxy + encodeURIComponent(targetUrl), { method: 'GET' });
         if (!res.ok) continue;
         
-        let rawText = await res.text();
-        if (!rawText) continue;
-        
-        let data = JSON.parse(rawText);
-        
-        // Unpack AllOrigins structural JSON safety wrapper if present
-        if (data && data.contents) {
-          data = typeof data.contents === 'string' ? JSON.parse(data.contents) : data.contents;
+        let text = await res.text();
+        if (!text) continue;
+
+        // Unpack AllOrigins text stream wrappers if present
+        if (text.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(text);
+            text = parsed.contents && typeof parsed.contents === 'string' ? parsed.contents : JSON.stringify(parsed.contents || parsed);
+          } catch (e) {}
         }
         
-        if (data?.finance?.result?.[0]?.quotes) {
-          return data; // Success payload confirmed
-        }
+        if (text.includes('/quote/')) return text; 
       } catch (err) {
-        console.warn(`Proxy gateway failed over: ${proxy}`);
-        continue; // Try next fallback proxy seamlessly
+        console.warn(`Proxy wall encountered. Deflecting to fallback channel...`);
       }
     }
-    throw new Error("All active open-source CORS gateways are currently saturated.");
+    throw new Error("All public data tunnels are currently rate-limited.");
   }
 
   try {
-    const baseUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved";
-    
-    // Explicit Indian market screener targeting definitions
-    const screeners = [
-      { url: `${baseUrl}?formatted=false&scrIds=day_gainers&count=4&region=IN`, type: "GAINER" },
-      { url: `${baseUrl}?formatted=false&scrIds=day_losers&count=4&region=IN`, type: "LOSER" },
-      { url: `${baseUrl}?formatted=false&scrIds=most_actives&count=4&region=IN`, type: "ACTIVE" }
+    // Target the actual live, server-calculated category boards directly
+    const marketBoards = [
+      { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=in", type: "GAINER" },
+      { url: "https://www.google.com/finance/markets/losers?hl=en&gl=in", type: "LOSER" },
+      { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=in", type: "ACTIVE" }
     ];
 
-    let processedMovers = [];
+    let discoverPayload = [];
+    const absoluteDuplicatesGuard = new Set();
 
-    // 2. Fire concurrent API proxy tunnels simultaneously
-    const requests = screeners.map(scr => 
-      fetchWithFallback(scr.url)
-        .then(raw => ({ raw, type: scr.type }))
+    // Fire simultaneous network streams to catch the current top 5 performers
+    const boardRequests = marketBoards.map(board => 
+      fetchLiveHTML(board.url)
+        .then(html => ({ html, type: board.type }))
         .catch(() => null)
     );
     
-    const responses = await Promise.all(requests);
+    const completedStreams = await Promise.all(boardRequests);
+    const domParser = new DOMParser();
 
-    // 3. Extract quotes and normalize to the Fat Object UI standard
-    for (const item of responses) {
-      if (!item || !item.raw) continue;
-      const quotes = item.raw?.finance?.result?.[0]?.quotes;
-      if (!Array.isArray(quotes)) continue;
+    for (const stream of completedStreams) {
+      if (!stream || !stream.html) continue;
+      
+      const virtualDoc = domParser.parseFromString(stream.html, "text/html");
+      const activeTradingAnchors = virtualDoc.querySelectorAll('a[href*="/quote/"]');
 
-      for (const stock of quotes) {
-        if (processedMovers.length >= 5) break; // Hard ceiling limit for UI layout cells
+      for (const anchor of activeTradingAnchors) {
+        // Enforce tight UI layout constraints (Top 5 rows max)
+        if (discoverPayload.length >= 5) break;
 
-        const cleanTicker = String(stock.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase();
-        if (!cleanTicker) continue;
+        const webPath = anchor.getAttribute('href') || '';
+        // Match both National Stock Exchange (NSE) and Bombay Stock Exchange (BOM) assets dynamically
+        const identityMatch = webPath.match(/\/quote\/([A-Z0-9_]+):(NSE|BOM)/i);
+        if (!identityMatch) continue;
 
-        const rawPrice = stock.regularMarketPrice || 0;
-        const rawChange = stock.regularMarketChange || 0;
-        const rawPct = stock.regularMarketChangePercent || 0;
+        const liveTicker = identityMatch[1].toUpperCase();
+        if (absoluteDuplicatesGuard.has(liveTicker)) continue;
+        absoluteDuplicatesGuard.add(liveTicker);
 
-        const safePrice = `₹${rawPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const safeChange = `${rawChange >= 0 ? '+' : ''}${rawChange.toFixed(2)}`;
-        const safePct = `${rawPct >= 0 ? '+' : ''}${rawPct.toFixed(2)}%`;
-        const isNegative = rawChange < 0;
+        // Climb up the node tree to find the isolated visual row block for this specific stock
+        let stockRowContainer = anchor;
+        let scanDepth = 0;
+        while (stockRowContainer && scanDepth < 6) {
+          const textValues = stockRowContainer.textContent || '';
+          if (textValues.includes('₹') && textValues.includes('%')) {
+            break;
+          }
+          stockRowContainer = stockRowContainer.parentElement;
+          scanDepth++;
+        }
+        if (!stockRowContainer) continue;
 
-        processedMovers.push({
-          ticker: cleanTicker, symbol: cleanTicker, code: cleanTicker,
-          name: String(stock.shortName || stock.longName || cleanTicker),
-          company: String(stock.shortName || stock.longName || cleanTicker),
-          companyName: String(stock.shortName || stock.longName || cleanTicker),
-          price: safePrice, lastPrice: safePrice, close: safePrice, currentPrice: safePrice,
-          change: safeChange, netChange: safeChange, absoluteChange: safeChange,
-          changePct: safePct, percentage: safePct, pChange: safePct, pctChange: safePct, intraday: safePct,
-          signal: isNegative ? "WEAK" : "BREAKOUT", trend: isNegative ? "DOWN" : "UP",
-          direction: isNegative ? "NEGATIVE" : "POSITIVE", 
-          sector: item.type, category: item.type
+        // Pluck the inner string text out of the row's leaf elements
+        const structuralDataCells = Array.from(stockRowContainer.querySelectorAll('*'))
+          .filter(element => element.children.length === 0)
+          .map(element => element.textContent.trim())
+          .filter(cleanedText => cleanedText.length > 0);
+
+        let parsedPrice = "₹0.00";
+        let parsedChangePct = "0.00%";
+        let parsedCompanyName = liveTicker;
+        let parsedAbsoluteChange = "0.00";
+
+        // Evaluate strings dynamically using mathematical/syntax context
+        for (const cellText of structuralDataCells) {
+          if (cellText.includes('%')) {
+            parsedChangePct = cellText;
+          } else if (cellText.includes('₹')) {
+            parsedPrice = cellText;
+          } else if (cellText.toUpperCase() === liveTicker) {
+            continue;
+          } else {
+            // Check if this string is the absolute numeric change value (+12.40 / -5.10)
+            const numericStripped = cellText.replace(/[+-]/g, '').replace(/,/g, '').trim();
+            if (numericStripped !== '' && !isNaN(numericStripped)) {
+              parsedAbsoluteChange = cellText;
+            } else if (cellText.length > 2 && parsedCompanyName === liveTicker) {
+              parsedCompanyName = cellText; // Capture the real corporate name node
+            }
+          }
+        }
+
+        const marketDirectionIsNegative = parsedChangePct.includes('-');
+
+        discoverPayload.push({
+          ticker: liveTicker, symbol: liveTicker, code: liveTicker,
+          name: parsedCompanyName, company: parsedCompanyName, companyName: parsedCompanyName,
+          price: parsedPrice, lastPrice: parsedPrice, currentPrice: parsedPrice, close: parsedPrice,
+          change: parsedAbsoluteChange, netChange: parsedAbsoluteChange, absoluteChange: parsedAbsoluteChange,
+          changePct: parsedChangePct, percentage: parsedChangePct, pChange: parsedChangePct, pctChange: parsedChangePct, intraday: parsedChangePct,
+          sector: stream.type, category: stream.type,
+          signal: marketDirectionIsNegative ? "WEAK" : "BREAKOUT", 
+          trend: marketDirectionIsNegative ? "DOWN" : "UP", 
+          direction: marketDirectionIsNegative ? "NEGATIVE" : "POSITIVE"
         });
       }
     }
 
-    // 4. Interface Grid stabilizer fallback case
-    if (processedMovers.length === 0) {
-      for (let i = 1; i <= 3; i++) {
-        processedMovers.push({
-          ticker: `SYNC-${i}`, symbol: `SYNC-${i}`, code: `SYNC-${i}`,
-          name: "Synchronizing Data Exchange...", company: "Synchronizing Data Exchange...", companyName: "Synchronizing Data Exchange...",
-          price: "₹0.00", lastPrice: "₹0.00", close: "₹0.00", currentPrice: "₹0.00",
-          change: "0.00", netChange: "0.00", absoluteChange: "0.00",
-          changePct: "0.00%", percentage: "0.00%", pChange: "0.00%", pctChange: "0.00%", intraday: "0.00%",
-          signal: "BREAKOUT", trend: "UP", direction: "POSITIVE", sector: "CONNECTING", category: "CONNECTING"
-        });
-      }
+    // Clean data validation checkpoint
+    if (discoverPayload.length === 0) {
+      console.warn("⚠️ No live assets could be pulled down from the wire.");
+      return yfMovers.lastResults || [];
     }
 
-    const finalOutput = processedMovers.slice(0, 5);
-    yfMovers.lastResults = finalOutput;
-    return finalOutput;
+    const finalStructuredOutput = discoverPayload.slice(0, 5);
+    yfMovers.lastResults = finalStructuredOutput;
+    return finalStructuredOutput;
 
-  } catch (globalCrash) {
-    console.error("Critical core runtime exception caught:", globalCrash);
+  } catch (criticalCrash) {
+    console.error("❌ Core dynamic network interface failure:", criticalCrash.message);
     return yfMovers.lastResults || [];
   } finally {
-    yfMovers.isRunning = false; // Always lift execution lock flag
+    yfMovers.isRunning = false;
   }
 }
 
