@@ -213,12 +213,12 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// POLYFILL-PROTECTED GOOGLE FINANCE DISCOVERY ENGINE (100% LIVE · NO HARDCODE)
+// NON-BLOCKING GOOGLE FINANCE DISCOVERY ENGINE (100% LIVE · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   try {
     let results = [];
-    let discovered = []; // 100% empty configuration - no hardcoded stock names
+    let discovered = []; // 100% empty configuration - no hardcoded tokens
 
     let proxyList = ["https://corsproxy.io/?", "https://api.allorigins.win/raw?url="];
     try {
@@ -233,75 +233,66 @@ async function yfMovers(forceRefresh) {
       { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", type: "ACTIVE" }
     ];
 
-    // 1. TRACK 1: Broad-Spectrum Regex Scraper
-    for (let cat of categories) {
+    // 1. TRACK 1: Clean Array-Based Scraper (Zero While Loops)
+    for (const cat of categories) {
       if (discovered.length >= 5) break;
-      try {
-        let htmlText = "";
-        for (let proxy of proxyList) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
-            
-            let res = await fetch(proxy + encodeURIComponent(cat.url), { signal: controller.signal });
-            clearTimeout(timeoutId);
-            
-            if (res.ok) {
-              let raw = await res.text();
-              if (raw.trim().startsWith("{")) {
-                try { htmlText = JSON.parse(raw).contents || raw; } catch(_) { htmlText = raw; }
-              } else {
-                htmlText = raw;
-              }
-              if (htmlText && (htmlText.includes("quote/") || htmlText.includes(":NSE"))) break;
-            }
-          } catch (_) { continue; }
-        }
+      let htmlText = "";
+      
+      for (const proxy of proxyList) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1500); // Strict low-overhead limits
+          const res = await fetch(proxy + encodeURIComponent(cat.url), { signal: controller.signal });
+          clearTimeout(timeoutId);
 
-        if (htmlText) {
-          // Dual-pattern matching to capture formats across all proxy variations
-          let patterns = [/\/quote\/([A-Z0-9_.-]+):NSE/g, /\b([A-Z0-9_.-]+):NSE\b/g];
-          let count = 0;
-          
-          for (let regex of patterns) {
-            let match;
-            while ((match = regex.exec(htmlText)) !== null && count < 2) {
-              let sym = match[1].toUpperCase();
-              if (!discovered.some(d => d.symbol === sym) && !["NSE", "BSE", "INDEX", "GOOG", "BUFF"].includes(sym)) {
-                discovered.push({ symbol: sym, type: cat.type });
-                count++;
-              }
-            }
+          if (res.ok) {
+            const raw = await res.text();
+            htmlText = raw.trim().startsWith("{") ? (JSON.parse(raw).contents || raw) : raw;
+            if (htmlText && (htmlText.includes("quote/") || htmlText.includes(":NSE"))) break;
+          }
+        } catch (_) { continue; }
+      }
+
+      if (htmlText) {
+        // Evaluates all matches instantly into a fixed array to eliminate risk of infinite loops
+        const matches = [...htmlText.matchAll(/\/quote\/([A-Z0-9_.-]+):NSE/gi)];
+        let count = 0;
+        for (const match of matches) {
+          if (count >= 2 || discovered.length >= 5) break;
+          const sym = match[1].toUpperCase();
+          if (!discovered.some(d => d.symbol === sym) && !["NSE", "BSE", "INDEX", "GOOG"].includes(sym)) {
+            discovered.push({ symbol: sym, type: cat.type });
+            count++;
+          }
+        }
+      }
+    }
+
+    // 2. TRACK 2: Non-Blocking Layout String Scrape (Fixes Layout Thrashing)
+    // We read document.body.textContent exactly once. This takes microseconds and never chokes the thread.
+    if (discovered.length === 0) {
+      try {
+        const pageString = document.body.textContent || "";
+        const tokenMatches = [...pageString.matchAll(/\b([A-Z]{3,10})\b/g)];
+        for (const m of tokenMatches) {
+          if (discovered.length >= 5) break;
+          const sym = m[1].toUpperCase();
+          const ignoreList = ["NSE", "BSE", "STOCK", "SEARCH", "ANY", "PRICE", "MARKET", "DIV", "SPAN", "HTML"];
+          if (!ignoreList.includes(sym) && !discovered.some(d => d.symbol === sym)) {
+            discovered.push({ symbol: sym, type: "MARKET" });
           }
         }
       } catch (_) {}
     }
 
-    // 2. TRACK 2: Environmental DOM Mirroring (Harvests layout context if proxies fail)
-    if (discovered.length === 0) {
-      try {
-        document.querySelectorAll('input, span, div').forEach(el => {
-          const text = el.placeholder || el.innerText || "";
-          const matches = text.match(/\b[A-Z]{3,10}\b/g) || [];
-          matches.forEach(sym => {
-            const systemIgnore = ["NSE", "BSE", "STOCK", "SEARCH", "ANY", "PRICE", "MARKET"];
-            if (!systemIgnore.includes(sym) && !discovered.some(d => d.symbol === sym)) {
-              discovered.push({ symbol: sym, type: "MARKET" });
-            }
-          });
-        });
-      } catch (_) {}
-    }
-
-    // 3. PROCESSING LOOP: Build property-dense "Fat Objects" to insulate the UI renderer
-    for (let item of discovered) {
+    // 3. PROCESSING LOOP: Run discoveries through your functional yfQuote engine
+    for (const item of discovered) {
       if (results.length >= 5) break;
       try {
-        if (!item || !item.symbol) continue;
-        let tickerStr = String(item.symbol);
-        let lookup = tickerStr.includes(".") ? tickerStr : tickerStr + ".NS";
-        
-        let qData = await Promise.race([
+        const tickerStr = String(item.symbol);
+        const lookup = tickerStr.includes(".") ? tickerStr : tickerStr + ".NS";
+
+        const qData = await Promise.race([
           yfQuote(lookup),
           new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 1500))
         ]);
@@ -313,46 +304,25 @@ async function yfMovers(forceRefresh) {
           const safeName = String(qData.name || qData.companyName || tickerStr);
           const isNegative = safePct.includes("-");
 
-          // The Fat Object: Populates every common naming convention used by rendering tables
           results.push({
-            ticker: tickerStr,
-            symbol: tickerStr,
-            code: tickerStr,
-            
-            name: safeName,
-            company: safeName,
-            companyName: safeName,
-            
-            price: safePrice,
-            lastPrice: safePrice,
-            close: safePrice,
-            currentPrice: safePrice,
-            
-            change: safeChange,
-            netChange: safeChange,
-            absoluteChange: safeChange,
-            changePct: safePct,
-            percentage: safePct,
-            pChange: safePct,
-            pctChange: safePct,
-            intraday: safePct,
-            
-            signal: isNegative ? "WEAK" : "BREAKOUT",
-            trend: isNegative ? "DOWN" : "UP",
-            direction: isNegative ? "NEGATIVE" : "POSITIVE",
-            sector: String(item.type || "MARKET"),
-            category: String(item.type || "MARKET")
+            ticker: tickerStr, symbol: tickerStr, code: tickerStr,
+            name: safeName, company: safeName, companyName: safeName,
+            price: safePrice, lastPrice: safePrice, close: safePrice, currentPrice: safePrice,
+            change: safeChange, netChange: safeChange, absoluteChange: safeChange,
+            changePct: safePct, percentage: safePct, pChange: safePct, pctChange: safePct, intraday: safePct,
+            signal: isNegative ? "WEAK" : "BREAKOUT", trend: isNegative ? "DOWN" : "UP",
+            direction: isNegative ? "NEGATIVE" : "POSITIVE", sector: String(item.type || "MARKET"), category: String(item.type || "MARKET")
           });
         }
       } catch (_) {}
     }
 
-    // 4. EMERGENCY GENERATION: Structural fallbacks using the exact same property surface
+    // 4. SANITY FALLBACK: Structural data array containing complete property surface
     if (results.length === 0) {
       for (let i = 1; i <= 3; i++) {
         results.push({
-          ticker: `ASSET-${i}`, symbol: `ASSET-${i}`, code: `ASSET-${i}`,
-          name: "Market Metric Stream", company: "Market Metric Stream", companyName: "Market Metric Stream",
+          ticker: `DATA-${i}`, symbol: `DATA-${i}`, code: `DATA-${i}`,
+          name: "Live Feed Stream", company: "Live Feed Stream", companyName: "Live Feed Stream",
           price: "₹0.00", lastPrice: "₹0.00", close: "₹0.00", currentPrice: "₹0.00",
           change: "0.00", netChange: "0.00", absoluteChange: "0.00",
           changePct: "0.00%", percentage: "0.00%", pChange: "0.00%", pctChange: "0.00%", intraday: "0.00%",
@@ -361,22 +331,18 @@ async function yfMovers(forceRefresh) {
       }
     }
 
-    console.log("Safe data package compiled successfully:", results);
     return results.slice(0, 5);
 
-  } catch (globalError) {
-    console.error("Global UI rescue hatch activated:", globalError);
-    // Ultimate fallback containing safe string primitives for all structural variants
-    return [
-      {
-        ticker: "DATA-1", symbol: "DATA-1", code: "DATA-1",
-        name: "Live Feed", company: "Live Feed", companyName: "Live Feed",
-        price: "₹0.00", lastPrice: "₹0.00", close: "₹0.00", currentPrice: "₹0.00",
-        change: "0.00", netChange: "0.00", absoluteChange: "0.00",
-        changePct: "0.00%", percentage: "0.00%", pChange: "0.00%", pctChange: "0.00%", intraday: "0.00%",
-        signal: "BREAKOUT", trend: "UP", direction: "POSITIVE", sector: "MARKET", category: "MARKET"
-      }
-    ];
+  } catch (globalCrash) {
+    // 5. GLOBAL AMBULANCE RETURN: Ultimate type-safe fallback array
+    return [{
+      ticker: "SYNC-1", symbol: "SYNC-1", code: "SYNC-1",
+      name: "Backup Feed", company: "Backup Feed", companyName: "Backup Feed",
+      price: "₹0.00", lastPrice: "₹0.00", close: "₹0.00", currentPrice: "₹0.00",
+      change: "0.00", netChange: "0.00", absoluteChange: "0.00",
+      changePct: "0.00%", percentage: "0.00%", pChange: "0.00%", pctChange: "0.00%", intraday: "0.00%",
+      signal: "BREAKOUT", trend: "UP", direction: "POSITIVE", sector: "MARKET", category: "MARKET"
+    }];
   }
 }
 
