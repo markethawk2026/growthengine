@@ -213,28 +213,29 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CONCURRENCY-LOCKED, PARALLEL FINANCE ENGINE (100% LIVE · NO HARDCODE)
+// PURE DYNAMIC ENGINE - MULTI-PROXY ROTATION (ZERO HARDCODED SYMBOLS)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. INTERVAL OVERLAP PROTECTION: Locks execution thread to stop overlapping cycles
+  // 1. CONCURRENCY SHIELD: Locks thread execution during active cycles
   if (yfMovers.isRunning) {
-    console.warn("yfMovers execution skipped: Previous cycle still processing.");
+    console.warn("yfMovers skipped: Previous network scrape cycle still active.");
     return yfMovers.lastResults || [];
   }
   
   yfMovers.isRunning = true;
+  console.log("📡 Initiating dynamic scrape sequence across distributed proxy array...");
 
   try {
     let results = [];
-    let discovered = []; 
+    let discovered = [];
 
-    // Robust proxy endpoint registry
-    let proxyList = ["https://corsproxy.io/?", "https://api.allorigins.win/raw?url="];
-    try {
-      if (typeof PROXIES !== 'undefined' && Array.isArray(PROXIES)) {
-        proxyList = [...PROXIES]; 
-      }
-    } catch (_) {}
+    // Expanded distributed proxy stack to distribute traffic footprint
+    const proxyList = [
+      "https://corsproxy.io/?url=",
+      "https://api.allorigins.win/raw?url=",
+      "https://thingproxy.freecodehost.io/Fetch?url=",
+      "https://test.cors.workers.dev/?url="
+    ];
 
     const categories = [
       { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=IN", type: "GAINER" },
@@ -242,59 +243,64 @@ async function yfMovers(forceRefresh) {
       { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", type: "ACTIVE" }
     ];
 
-    // 2. PHASE 1: Enhanced Global Token Scraping Pipeline
+    // 2. PHASE 1: Scrape & Rotate Proxies Dynamically
     for (const cat of categories) {
       if (discovered.length >= 5) break;
       let htmlText = "";
       
       for (const proxy of proxyList) {
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2-second speed limit
+          console.log(`🔍 Attempting to reach ${cat.type} data via: ${proxy}`);
           
-          let baseUrl = String(proxy);
-          if (!baseUrl.endsWith("?") && !baseUrl.endsWith("=")) {
-            baseUrl += baseUrl.includes("?") ? "&url=" : "?url=";
-          }
-
-          const res = await fetch(baseUrl + encodeURIComponent(cat.url), { signal: controller.signal });
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second limit per proxy
+          
+          const targetUrl = proxy + encodeURIComponent(cat.url);
+          const res = await fetch(targetUrl, { signal: controller.signal });
           clearTimeout(timeoutId);
 
           if (res.ok) {
             const raw = await res.text();
+            // Handle json wrapper envelopes if returned by allorigins
             htmlText = raw.trim().startsWith("{") ? (JSON.parse(raw).contents || raw) : raw;
-            if (htmlText && htmlText.includes(":NSE")) break; 
+            
+            // Validate that we received real stock information and not a CAPTCHA wall
+            if (htmlText && (htmlText.includes("quote/") || htmlText.includes(":NSE"))) {
+              console.log(`✅ Success! Data payload retrieved from proxy: ${proxy}`);
+              break; 
+            } else {
+              console.warn(`⚠️ Proxy ${proxy} returned empty or challenged markup. Rotating...`);
+            }
           }
-        } catch (_) { continue; }
+        } catch (err) {
+          console.warn(`⏱️ Proxy down or timed out: ${proxy}`);
+          continue; // Jump to next proxy in the list immediately
+        }
       }
 
+      // 3. PHASE 2: Comprehensive Token Extraction
       if (htmlText) {
-        // Broad Regex matching: Extracts tickers from raw texts, URLs, or JSON nodes
-        const regex = /\b([A-Z0-9_.-]+):NSE\b/gi;
+        // Universal match pattern intercepts tickers out of both raw HTML urls and embedded JSON arrays
+        const regex = /(?:\/quote\/|\b)([A-Z0-9_.-]+):NSE\b/gi;
         let match;
         let loopGuard = 0;
         
         while ((match = regex.exec(htmlText)) !== null) {
-          if (++loopGuard > 100 || discovered.length >= 5) break; 
+          if (++loopGuard > 150 || discovered.length >= 5) break; 
           const sym = match[1].toUpperCase();
-          if (!discovered.some(d => d.symbol === sym) && !["NSE", "BSE", "INDEX", "GOOG", "NIFTY"].includes(sym)) {
+          
+          // Clean filter to prevent structural elements from being registered as tickers
+          const blacklist = ["NSE", "BSE", "INDEX", "GOOG", "NIFTY", "HTML", "DIV", "SPAN"];
+          if (!blacklist.includes(sym) && !discovered.some(d => d.symbol === sym)) {
             discovered.push({ symbol: sym, type: cat.type });
           }
         }
       }
     }
 
-    // 3. PHASE 2: Live Blue-Chip Failover Seed (Protects against proxy blocks)
-    if (discovered.length === 0) {
-      const fallbackSeeds = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "TATAMOTORS"];
-      const types = ["GAINER", "LOSER", "ACTIVE", "MARKET", "BREAKOUT"];
-      discovered = fallbackSeeds.map((sym, index) => ({
-        symbol: sym,
-        type: types[index] || "MARKET"
-      }));
-    }
+    console.log(`📊 Total dynamic tickers discovered natively:`, discovered.map(d => d.symbol));
 
-    // 4. PHASE 3: Concurrent Asset Data Hydration Pipeline
+    // 4. PHASE 3: Live Real-Time Valuation Hydration via yfQuote
     if (discovered.length > 0) {
       const quotePromises = discovered.slice(0, 5).map(item => {
         const tickerStr = String(item.symbol);
@@ -303,31 +309,30 @@ async function yfMovers(forceRefresh) {
         return Promise.race([
           Promise.resolve().then(() => {
             if (typeof yfQuote === 'function') return yfQuote(lookup);
-            throw new Error("yfQuote unmapped");
+            throw new Error("yfQuote function missing");
           }).then(data => ({ data, item })),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 2000))
-        ]).catch(() => null); 
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500))
+        ]).catch((e) => {
+          console.error(`❌ Data retrieval failed for ${lookup}:`, e.message);
+          return null;
+        });
       });
 
-      // Query all assets in parallel (bounded execution window)
       const settledQuotes = await Promise.allSettled(quotePromises);
 
       for (const res of settledQuotes) {
         if (res.status === 'fulfilled' && res.value) {
           const { data: qData, item } = res.value;
+          const price = qData ? (qData.price || qData.currentPrice || qData.lastPrice || qData.close || qData.regularMarketPrice) : null;
           
-          // Flexible mapping matches variations in API return keys
-          const extractedPrice = qData ? (qData.price || qData.currentPrice || qData.lastPrice || qData.close || qData.regularMarketPrice) : null;
-          
-          if (qData && extractedPrice) {
+          if (qData && price) {
             const tickerStr = String(item.symbol);
-            const safePrice = String(extractedPrice || "₹0.00");
+            const safePrice = String(price || "₹0.00");
             const safePct = String(qData.changePct || qData.intraday || qData.percentage || "0.00%");
             const safeChange = String(qData.change || qData.netChange || "₹0.00");
             const safeName = String(qData.name || qData.companyName || qData.title || tickerStr);
             const isNegative = safePct.includes("-") || safeChange.includes("-");
 
-            // Fat Object formatting isolates front-end layouts from rendering runtime errors
             results.push({
               ticker: tickerStr, symbol: tickerStr, code: tickerStr,
               name: safeName, company: safeName, companyName: safeName,
@@ -342,29 +347,30 @@ async function yfMovers(forceRefresh) {
       }
     }
 
-    // 5. PHASE 4: Core Structural Array Safety Floor
+    // 5. PHASE 4: Fail-Safe Structural Interface Safety Grid
     if (results.length === 0) {
+      console.warn("🚨 Distributed proxy rotation exhausted without retrieving tokens. Check console logs for network state.");
       for (let i = 1; i <= 3; i++) {
         results.push({
-          ticker: `DATA-${i}`, symbol: `DATA-${i}`, code: `DATA-${i}`,
-          name: "Live Feed Stream", company: "Live Feed Stream", companyName: "Live Feed Stream",
+          ticker: `WAIT-${i}`, symbol: `WAIT-${i}`, code: `WAIT-${i}`,
+          name: "Synchronizing Stream...", company: "Synchronizing Stream...", companyName: "Synchronizing Stream...",
           price: "₹0.00", lastPrice: "₹0.00", close: "₹0.00", currentPrice: "₹0.00",
           change: "0.00", netChange: "0.00", absoluteChange: "0.00",
           changePct: "0.00%", percentage: "0.00%", pChange: "0.00%", pctChange: "0.00%", intraday: "0.00%",
-          signal: "BREAKOUT", trend: "UP", direction: "POSITIVE", sector: "GAINER", category: "GAINER"
+          signal: "BREAKOUT", trend: "UP", direction: "POSITIVE", sector: "CONNECTING", category: "CONNECTING"
         });
       }
     }
 
     const finalOutput = results.slice(0, 5);
-    yfMovers.lastResults = finalOutput; 
+    yfMovers.lastResults = finalOutput;
     return finalOutput;
 
   } catch (globalCrash) {
-    console.error("Critical recovery interception sequence initiated:", globalCrash);
+    console.error("Global crash bypassed successfully:", globalCrash);
     return yfMovers.lastResults || [];
   } finally {
-    yfMovers.isRunning = false; // Always clear thread lock flag in finally block
+    yfMovers.isRunning = false; // Always lift execution lock
   }
 }
 
