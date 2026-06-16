@@ -213,147 +213,110 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// PURE DYNAMIC ENGINE - MULTI-PROXY ROTATION (ZERO HARDCODED SYMBOLS)
+// CLEAN API REPLACEMENT FOR js/api.js (NO SCRAPING · ALL FREE APIs)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. CONCURRENCY SHIELD: Locks thread execution during active cycles
+  // 1. Thread concurrency guard
   if (yfMovers.isRunning) {
-    console.warn("yfMovers skipped: Previous network scrape cycle still active.");
+    console.warn("yfMovers active cycle detected. Skipping overlap.");
     return yfMovers.lastResults || [];
   }
-  
   yfMovers.isRunning = true;
-  console.log("📡 Initiating dynamic scrape sequence across distributed proxy array...");
+
+  // Free robust CORS proxies array
+  const corsProxies = [
+    "https://corsproxy.io/?url=",
+    "https://api.allorigins.win/raw?url=",
+    "https://thingproxy.freeboard.io/fetch/"
+  ];
+
+  // Internal failover network fetcher
+  async function fetchWithFallback(targetUrl) {
+    for (let proxy of corsProxies) {
+      try {
+        let fullUrl = proxy.includes("allorigins") 
+          ? proxy + encodeURIComponent(targetUrl) 
+          : proxy + targetUrl;
+
+        const res = await fetch(fullUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
+        if (!res.ok) continue;
+        
+        let data = await res.json();
+        // Unwrap AllOrigins container if present
+        if (data && data.contents) {
+          data = typeof data.contents === 'string' ? JSON.parse(data.contents) : data.contents;
+        }
+        return data;
+      } catch (_) {
+        continue; // Instantly fall over to the next free proxy gateway
+      }
+    }
+    throw new Error("All free CORS API gateways are currently saturated.");
+  }
 
   try {
-    let results = [];
-    let discovered = [];
-
-    // Expanded distributed proxy stack to distribute traffic footprint
-    const proxyList = [
-      "https://corsproxy.io/?url=",
-      "https://api.allorigins.win/raw?url=",
-      "https://thingproxy.freecodehost.io/Fetch?url=",
-      "https://test.cors.workers.dev/?url="
+    const baseUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved";
+    const screeners = [
+      { url: `${baseUrl}?formatted=false&scrIds=day_gainers&count=3&region=IN`, type: "GAINER" },
+      { url: `${baseUrl}?formatted=false&scrIds=day_losers&count=3&region=IN`, type: "LOSER" },
+      { url: `${baseUrl}?formatted=false&scrIds=most_actives&count=3&region=IN`, type: "ACTIVE" }
     ];
 
-    const categories = [
-      { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=IN", type: "GAINER" },
-      { url: "https://www.google.com/finance/markets/losers?hl=en&gl=IN", type: "LOSER" },
-      { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", type: "ACTIVE" }
-    ];
+    let processedMovers = [];
 
-    // 2. PHASE 1: Scrape & Rotate Proxies Dynamically
-    for (const cat of categories) {
-      if (discovered.length >= 5) break;
-      let htmlText = "";
-      
-      for (const proxy of proxyList) {
-        try {
-          console.log(`🔍 Attempting to reach ${cat.type} data via: ${proxy}`);
-          
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second limit per proxy
-          
-          const targetUrl = proxy + encodeURIComponent(cat.url);
-          const res = await fetch(targetUrl, { signal: controller.signal });
-          clearTimeout(timeoutId);
+    // 2. Concurrently call Yahoo API Endpoints via active proxy tunnels
+    const requests = screeners.map(scr => 
+      fetchWithFallback(scr.url)
+        .then(raw => ({ raw, type: scr.type }))
+        .catch(() => null)
+    );
+    
+    const responses = await Promise.all(requests);
 
-          if (res.ok) {
-            const raw = await res.text();
-            // Handle json wrapper envelopes if returned by allorigins
-            htmlText = raw.trim().startsWith("{") ? (JSON.parse(raw).contents || raw) : raw;
-            
-            // Validate that we received real stock information and not a CAPTCHA wall
-            if (htmlText && (htmlText.includes("quote/") || htmlText.includes(":NSE"))) {
-              console.log(`✅ Success! Data payload retrieved from proxy: ${proxy}`);
-              break; 
-            } else {
-              console.warn(`⚠️ Proxy ${proxy} returned empty or challenged markup. Rotating...`);
-            }
-          }
-        } catch (err) {
-          console.warn(`⏱️ Proxy down or timed out: ${proxy}`);
-          continue; // Jump to next proxy in the list immediately
-        }
-      }
+    // 3. Parse and standardize incoming JSON payloads
+    for (const item of responses) {
+      if (!item || !item.raw) continue;
+      const quotes = item.raw?.finance?.result?.[0]?.quotes;
+      if (!Array.isArray(quotes)) continue;
 
-      // 3. PHASE 2: Comprehensive Token Extraction
-      if (htmlText) {
-        // Universal match pattern intercepts tickers out of both raw HTML urls and embedded JSON arrays
-        const regex = /(?:\/quote\/|\b)([A-Z0-9_.-]+):NSE\b/gi;
-        let match;
-        let loopGuard = 0;
-        
-        while ((match = regex.exec(htmlText)) !== null) {
-          if (++loopGuard > 150 || discovered.length >= 5) break; 
-          const sym = match[1].toUpperCase();
-          
-          // Clean filter to prevent structural elements from being registered as tickers
-          const blacklist = ["NSE", "BSE", "INDEX", "GOOG", "NIFTY", "HTML", "DIV", "SPAN"];
-          if (!blacklist.includes(sym) && !discovered.some(d => d.symbol === sym)) {
-            discovered.push({ symbol: sym, type: cat.type });
-          }
-        }
-      }
-    }
+      for (const stock of quotes) {
+        if (processedMovers.length >= 5) break; // Keep UI limited to top 5 slots
 
-    console.log(`📊 Total dynamic tickers discovered natively:`, discovered.map(d => d.symbol));
+        // Clean up Yahoo ticker symbol (.NS extension) for UI view
+        const cleanTicker = String(stock.symbol || "").replace(".NS", "").toUpperCase();
+        if (!cleanTicker) continue;
 
-    // 4. PHASE 3: Live Real-Time Valuation Hydration via yfQuote
-    if (discovered.length > 0) {
-      const quotePromises = discovered.slice(0, 5).map(item => {
-        const tickerStr = String(item.symbol);
-        const lookup = tickerStr.includes(".") ? tickerStr : tickerStr + ".NS";
-        
-        return Promise.race([
-          Promise.resolve().then(() => {
-            if (typeof yfQuote === 'function') return yfQuote(lookup);
-            throw new Error("yfQuote function missing");
-          }).then(data => ({ data, item })),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500))
-        ]).catch((e) => {
-          console.error(`❌ Data retrieval failed for ${lookup}:`, e.message);
-          return null;
+        const rawPrice = stock.regularMarketPrice || 0;
+        const rawChange = stock.regularMarketChange || 0;
+        const rawPct = stock.regularMarketChangePercent || 0;
+
+        const safePrice = `₹${rawPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const safeChange = `${rawChange >= 0 ? '+' : ''}${rawChange.toFixed(2)}`;
+        const safePct = `${rawPct >= 0 ? '+' : ''}${rawPct.toFixed(2)}%`;
+        const isNegative = rawChange < 0;
+
+        // Map directly to your frontend dashboard's precise data-binding layout schema
+        processedMovers.push({
+          ticker: cleanTicker, symbol: cleanTicker, code: cleanTicker,
+          name: String(stock.shortName || stock.longName || cleanTicker),
+          company: String(stock.shortName || stock.longName || cleanTicker),
+          companyName: String(stock.shortName || stock.longName || cleanTicker),
+          price: safePrice, lastPrice: safePrice, close: safePrice, currentPrice: safePrice,
+          change: safeChange, netChange: safeChange, absoluteChange: safeChange,
+          changePct: safePct, percentage: safePct, pChange: safePct, pctChange: safePct, intraday: safePct,
+          signal: isNegative ? "WEAK" : "BREAKOUT", trend: isNegative ? "DOWN" : "UP",
+          direction: isNegative ? "NEGATIVE" : "POSITIVE", 
+          sector: item.type, category: item.type
         });
-      });
-
-      const settledQuotes = await Promise.allSettled(quotePromises);
-
-      for (const res of settledQuotes) {
-        if (res.status === 'fulfilled' && res.value) {
-          const { data: qData, item } = res.value;
-          const price = qData ? (qData.price || qData.currentPrice || qData.lastPrice || qData.close || qData.regularMarketPrice) : null;
-          
-          if (qData && price) {
-            const tickerStr = String(item.symbol);
-            const safePrice = String(price || "₹0.00");
-            const safePct = String(qData.changePct || qData.intraday || qData.percentage || "0.00%");
-            const safeChange = String(qData.change || qData.netChange || "₹0.00");
-            const safeName = String(qData.name || qData.companyName || qData.title || tickerStr);
-            const isNegative = safePct.includes("-") || safeChange.includes("-");
-
-            results.push({
-              ticker: tickerStr, symbol: tickerStr, code: tickerStr,
-              name: safeName, company: safeName, companyName: safeName,
-              price: safePrice, lastPrice: safePrice, close: safePrice, currentPrice: safePrice,
-              change: safeChange, netChange: safeChange, absoluteChange: safeChange,
-              changePct: safePct, percentage: safePct, pChange: safePct, pctChange: safePct, intraday: safePct,
-              signal: isNegative ? "WEAK" : "BREAKOUT", trend: isNegative ? "DOWN" : "UP",
-              direction: isNegative ? "NEGATIVE" : "POSITIVE", sector: String(item.type || "MARKET"), category: String(item.type || "MARKET")
-            });
-          }
-        }
       }
     }
 
-    // 5. PHASE 4: Fail-Safe Structural Interface Safety Grid
-    if (results.length === 0) {
-      console.warn("🚨 Distributed proxy rotation exhausted without retrieving tokens. Check console logs for network state.");
+    // 4. Emergency layout stabilizer if APIs are down globally
+    if (processedMovers.length === 0) {
       for (let i = 1; i <= 3; i++) {
-        results.push({
-          ticker: `WAIT-${i}`, symbol: `WAIT-${i}`, code: `WAIT-${i}`,
-          name: "Synchronizing Stream...", company: "Synchronizing Stream...", companyName: "Synchronizing Stream...",
+        processedMovers.push({
+          ticker: `SYNC-${i}`, symbol: `SYNC-${i}`, code: `SYNC-${i}`,
+          name: "Reconnecting API Data...", company: "Reconnecting API Data...", companyName: "Reconnecting API Data...",
           price: "₹0.00", lastPrice: "₹0.00", close: "₹0.00", currentPrice: "₹0.00",
           change: "0.00", netChange: "0.00", absoluteChange: "0.00",
           changePct: "0.00%", percentage: "0.00%", pChange: "0.00%", pctChange: "0.00%", intraday: "0.00%",
@@ -362,15 +325,15 @@ async function yfMovers(forceRefresh) {
       }
     }
 
-    const finalOutput = results.slice(0, 5);
+    const finalOutput = processedMovers.slice(0, 5);
     yfMovers.lastResults = finalOutput;
     return finalOutput;
 
   } catch (globalCrash) {
-    console.error("Global crash bypassed successfully:", globalCrash);
+    console.error("Critical API bridge exception sequence:", globalCrash);
     return yfMovers.lastResults || [];
   } finally {
-    yfMovers.isRunning = false; // Always lift execution lock
+    yfMovers.isRunning = false; // Always lift execution locks
   }
 }
 
