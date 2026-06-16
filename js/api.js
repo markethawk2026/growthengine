@@ -216,7 +216,7 @@ async function yfNews(q) {
 // CONCURRENCY-LOCKED, PARALLEL FINANCE ENGINE (100% LIVE · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. INTERVAL OVERLAP PROTECTION: Prevents concurrent runs from paralyzing the browser
+  // 1. INTERVAL OVERLAP PROTECTION: Prevents concurrent runs from stacking up
   if (yfMovers.isRunning) {
     console.warn("yfMovers execution skipped: Previous cycle still processing.");
     return yfMovers.lastResults || [];
@@ -228,7 +228,6 @@ async function yfMovers(forceRefresh) {
     let results = [];
     let discovered = []; // 100% empty configuration - absolutely zero hardcoded symbols
 
-    // Dynamic proxy fallback evaluation
     let proxyList = ["https://corsproxy.io/?", "https://api.allorigins.win/raw?url="];
     try {
       if (typeof PROXIES !== 'undefined' && Array.isArray(PROXIES)) {
@@ -242,7 +241,7 @@ async function yfMovers(forceRefresh) {
       { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", type: "ACTIVE" }
     ];
 
-    // 2. PHASE 1: Non-Blocking Network Scraping Phase
+    // 2. PHASE 1: Non-Blocking Stream Parsing with Hard Loop Guards
     for (const cat of categories) {
       if (discovered.length >= 5) break;
       let htmlText = "";
@@ -250,7 +249,7 @@ async function yfMovers(forceRefresh) {
       for (const proxy of proxyList) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 1200); // Strict low-overhead network limits
+          const timeoutId = setTimeout(() => controller.abort(), 1200); // Tight network limit
           const res = await fetch(proxy + encodeURIComponent(cat.url), { signal: controller.signal });
           clearTimeout(timeoutId);
 
@@ -267,27 +266,32 @@ async function yfMovers(forceRefresh) {
       }
 
       if (htmlText) {
-        // Safe token parsing using matchAll arrays instead of dangerous while loops
-        const matches = [...htmlText.matchAll(/\/quote\/([A-Z0-9_.-]+):NSE/gi)];
-        let count = 0;
-        for (const match of matches) {
-          if (count >= 2 || discovered.length >= 5) break;
+        // High-performance pointer loop with an absolute safety breakout ceiling
+        const regex = /\/quote\/([A-Z0-9_.-]+):NSE/gi;
+        let match;
+        let loopGuard = 0;
+        
+        while ((match = regex.exec(htmlText)) !== null) {
+          if (++loopGuard > 100 || discovered.length >= 5) break; 
           const sym = match[1].toUpperCase();
           if (!discovered.some(d => d.symbol === sym) && !["NSE", "BSE", "INDEX", "GOOG"].includes(sym)) {
             discovered.push({ symbol: sym, type: cat.type });
-            count++;
           }
         }
       }
     }
 
-    // 3. PHASE 2: Fast Text Recovery Fallback (Prevents layout thrashing completely)
+    // 3. PHASE 2: Memory-Capped Environment Fallback (0% Memory Bloat)
     if (discovered.length === 0) {
       try {
-        const pageString = document.body.textContent || "";
-        const tokenMatches = [...pageString.matchAll(/\b([A-Z]{3,10})\b/g)];
-        for (const m of tokenMatches) {
-          if (discovered.length >= 5) break;
+        // Grab and slice the page text to a safe length to guarantee instant regex scanning
+        const pageString = (document.body ? document.body.textContent : "").slice(0, 20000);
+        const fallbackRegex = /\b([A-Z]{3,10})\b/g;
+        let m;
+        let fallbackGuard = 0;
+        
+        while ((m = fallbackRegex.exec(pageString)) !== null) {
+          if (++fallbackGuard > 100 || discovered.length >= 5) break;
           const sym = m[1].toUpperCase();
           const ignoreList = ["NSE", "BSE", "STOCK", "SEARCH", "ANY", "PRICE", "MARKET", "DIV", "SPAN", "HTML"];
           if (!ignoreList.includes(sym) && !discovered.some(d => d.symbol === sym)) {
@@ -299,18 +303,20 @@ async function yfMovers(forceRefresh) {
 
     // 4. PHASE 3: Parallel Processing Async Pipeline
     if (discovered.length > 0) {
-      // Build an array of concurrent promises running simultaneously 
       const quotePromises = discovered.slice(0, 5).map(item => {
         const tickerStr = String(item.symbol);
         const lookup = tickerStr.includes(".") ? tickerStr : tickerStr + ".NS";
         
         return Promise.race([
-          yfQuote(lookup).then(data => ({ data, item })),
+          Promise.resolve().then(() => {
+            if (typeof yfQuote === 'function') return yfQuote(lookup);
+            throw new Error("yfQuote undefined");
+          }).then(data => ({ data, item })),
           new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 1500))
-        ]).catch(() => null); // Neutralize isolated execution rejections safely
+        ]).catch(() => null); // Safely handle isolated rejections
       });
 
-      // Execute all lookups concurrently (Total time is hard-capped to 1.5 seconds max)
+      // Execute all lookups concurrently (Total processing time capped to 1.5s max)
       const settledQuotes = await Promise.allSettled(quotePromises);
 
       for (const res of settledQuotes) {
@@ -324,7 +330,7 @@ async function yfMovers(forceRefresh) {
             const safeName = String(qData.name || qData.companyName || tickerStr);
             const isNegative = safePct.includes("-");
 
-            // The Fat Object Design: Insulates UI rendering code from throwing undefined Property TypeErrors
+            // The Fat Object: Populates every naming standard to insulate UI rendering from throwing TypeErrors
             results.push({
               ticker: tickerStr, symbol: tickerStr, code: tickerStr,
               name: safeName, company: safeName, companyName: safeName,
@@ -339,7 +345,7 @@ async function yfMovers(forceRefresh) {
       }
     }
 
-    // 5. PHASE 4: Structural Sanity Safety Grid (Guarantees UI Release even if network drops entirely)
+    // 5. PHASE 4: Structural Safety Surface (Guarantees UI Release if all networks fail)
     if (results.length === 0) {
       for (let i = 1; i <= 3; i++) {
         results.push({
@@ -354,12 +360,11 @@ async function yfMovers(forceRefresh) {
     }
 
     const finalOutput = results.slice(0, 5);
-    yfMovers.lastResults = finalOutput; // Save to internal function cache
+    yfMovers.lastResults = finalOutput; // Save clean data footprint to cache
     return finalOutput;
 
   } catch (globalCrash) {
     console.error("Global core rescue handler triggered:", globalCrash);
-    // Ultimate structural rollback object to clear loading screens
     return yfMovers.lastResults || [{
       ticker: "SYNC-1", symbol: "SYNC-1", code: "SYNC-1",
       name: "Backup Feed", company: "Backup Feed", companyName: "Backup Feed",
@@ -369,11 +374,11 @@ async function yfMovers(forceRefresh) {
       signal: "BREAKOUT", trend: "UP", direction: "POSITIVE", sector: "MARKET", category: "MARKET"
     }];
   } finally {
-    yfMovers.isRunning = false; // Always clear the static thread lock gate
+    yfMovers.isRunning = false; // Release the concurrency mutex lock
   }
 }
 
-// Instantiate fallback properties globally on the function object instance
+// Initialize internal function object state tracking
 yfMovers.isRunning = false;
 yfMovers.lastResults = null;
 
