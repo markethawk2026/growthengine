@@ -213,180 +213,108 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CONCURRENT-SAFE DYNAMIC ENGINE (RESOLVES WIDGET OVERLAP LOCKS)
+// LIVE NSE INDUSTRIAL TRADING MATRIX (DYNAMIC INDEX RESOLVER)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // If a request is already running, return the active promise so all widgets share the same data
+  // Share active data promises across concurrent UI components (loadTrend & loadTopMovers)
   if (yfMovers.currentPromise) {
-    console.log("🔄 yfMovers: Sharing active in-flight stream with concurrent UI widget.");
     return yfMovers.currentPromise;
   }
 
-  // Wrap the entire fetching workflow in a single shared execution promise
   yfMovers.currentPromise = (async () => {
-    const heavyProxies = [
-      "https://api.allorigins.win/raw?url=",
-      "https://bypassee.mooo.com/?url="
-    ];
-
-    async function fetchHeavyHTML(targetUrl) {
-      for (let proxy of heavyProxies) {
-        try {
-          const fullUrl = proxy + encodeURIComponent(targetUrl);
-          const res = await fetch(fullUrl, { method: 'GET' });
-          if (!res.ok) continue;
-          
-          let text = await res.text();
-          if (!text) continue;
-
-          if (text.trim().startsWith('{')) {
-            try {
-              const parsed = JSON.parse(text);
-              text = parsed.contents && typeof parsed.contents === 'string' ? parsed.contents : JSON.stringify(parsed.contents || parsed);
-            } catch (e) {}
-          }
-          
-          if (text.includes('/quote/') || text.includes('ticker')) return text;
-        } catch (err) {
-          continue;
+    const proxyUrl = "https://api.allorigins.win/raw?url=";
+    
+    async function fetchPayload(url) {
+      try {
+        const res = await fetch(proxyUrl + encodeURIComponent(url));
+        if (!res.ok) return null;
+        let text = await res.text();
+        
+        if (text.trim().startsWith('{')) {
+          const wrapper = JSON.parse(text);
+          text = wrapper.contents && typeof wrapper.contents === 'string' ? wrapper.contents : JSON.stringify(wrapper.contents || wrapper);
         }
+        return JSON.parse(text);
+      } catch (e) {
+        return null;
       }
-      throw new Error("All proxy pathways are heavily throttled.");
     }
 
-    // ----------------------------------------------------------------
-    // SOURCE 1: LIVE GOOGLE FINANCE INDIA SCRAPER
-    // ----------------------------------------------------------------
     try {
-      console.log("📡 Streaming live market metrics from Google Finance India...");
-      const targets = [
-        { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=in", type: "GAINER" },
-        { url: "https://www.google.com/finance/markets/losers?hl=en&gl=in", type: "LOSER" }
-      ];
-
-      let dynamicPayload = [];
-      const duplicatesGuard = new Set();
-      const domParser = new DOMParser();
-
-      const streams = await Promise.all(targets.map(t => 
-        fetchHeavyHTML(t.url).then(html => ({ html, type: t.type })).catch(() => null)
-      ));
-
-      for (const stream of streams) {
-        if (!stream || !stream.html) continue;
-        const doc = domParser.parseFromString(stream.html, "text/html");
-        const anchors = doc.querySelectorAll('a[href*="/quote/"]');
-
-        for (const anchor of anchors) {
-          if (dynamicPayload.length >= 5) break;
-
-          const href = anchor.getAttribute('href') || '';
-          const match = href.match(/\/quote\/([A-Z0-9_]+):(NSE|BOM)/i);
-          if (!match) continue;
-
-          const ticker = match[1].toUpperCase();
-          if (duplicatesGuard.has(ticker)) continue;
-          duplicatesGuard.add(ticker);
-
-          let row = anchor;
-          let depth = 0;
-          while (row && depth < 6) {
-            if (row.textContent.includes('₹') && row.textContent.includes('%')) break;
-            row = row.parentElement;
-            depth++;
-          }
-          if (!row) continue;
-
-          const nodes = Array.from(row.querySelectorAll('*'))
-            .filter(el => el.children.length === 0)
-            .map(el => el.textContent.trim())
-            .filter(t => t.length > 0);
-
-          let price = "₹0.00", changePct = "0.00%", companyName = ticker, changeAmt = "0.00";
-
-          for (const val of nodes) {
-            if (val.includes('%')) changePct = val;
-            else if (val.includes('₹')) price = val;
-            else if (val.toUpperCase() === ticker) continue;
-            else {
-              const num = val.replace(/[+-]/g, '').replace(/,/g, '').trim();
-              if (num !== '' && !isNaN(num)) changeAmt = val;
-              else if (val.length > 2 && companyName === ticker) companyName = val;
-            }
-          }
-
-          const isNegative = changePct.includes('-');
-
-          dynamicPayload.push({
-            ticker, symbol: ticker, code: ticker,
-            name: companyName, company: companyName, companyName: companyName,
-            price, lastPrice: price, currentPrice: price, close: price,
-            change: changeAmt, netChange: changeAmt, absoluteChange: changeAmt,
-            changePct, percentage: changePct, pChange: changePct, pctChange: changePct, intraday: changePct,
-            sector: stream.type, category: stream.type,
-            signal: isNegative ? "WEAK" : "BREAKOUT", trend: isNegative ? "DOWN" : "UP", direction: isNegative ? "NEGATIVE" : "POSITIVE"
-          });
-        }
+      console.log("📡 Resolving live National Stock Exchange registry indices...");
+      
+      // Dynamically fetch the absolute active Nifty index composition tracking file
+      const indexRegistryUrl = "https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json";
+      const rawSymbols = await fetchPayload(indexRegistryUrl);
+      
+      let rawTickers = [];
+      if (Array.isArray(rawSymbols)) {
+        rawTickers = rawSymbols.map(s => typeof s === 'string' ? s : s.symbol || s.ticker);
+      } else if (rawSymbols && typeof rawSymbols === 'object') {
+        rawTickers = Object.keys(rawSymbols);
       }
 
-      if (dynamicPayload.length > 0) {
-        yfMovers.lastResults = dynamicPayload.slice(0, 5);
-        return yfMovers.lastResults;
+      // Append standard National Stock Exchange (.NS) suffixes to guarantee domestic returns
+      const explicitNseBasket = rawTickers
+        .filter(Boolean)
+        .map(sym => `${String(sym).trim().toUpperCase()}.NS`);
+
+      if (explicitNseBasket.length === 0) throw new Error("Registry array validation failed.");
+
+      console.log(`📊 Streaming synchronized quote fields across ${explicitNseBasket.length} active Indian enterprises...`);
+      const quotesUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${explicitNseBasket.join(",")}`;
+      const assetData = await fetchPayload(quotesUrl);
+      const quotesList = assetData?.quoteResponse?.result;
+
+      if (!Array.isArray(quotesList) || quotesList.length === 0) {
+        throw new Error("Target response profile empty.");
       }
+
+      // Map raw data arrays into standardized UI binding properties
+      let dynamicIndianStocks = quotesList.map(stock => {
+        const cleanTicker = String(stock.symbol || "").replace(".NS", "").toUpperCase();
+        const priceFloat = stock.regularMarketPrice || 0;
+        const changeFloat = stock.regularMarketChange || 0;
+        const pctFloat = stock.regularMarketChangePercent || 0;
+
+        const formattedPrice = `₹${priceFloat.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const formattedPct = `${pctFloat >= 0 ? '▲ +' : '▼ '}${Math.abs(pctFloat).toFixed(2)}%`;
+        const formattedChange = `${changeFloat >= 0 ? '+' : ''}${changeFloat.toFixed(2)}`;
+
+        return {
+          ticker: cleanTicker, symbol: cleanTicker, code: cleanTicker,
+          name: stock.shortName || cleanTicker, company: stock.shortName || cleanTicker, companyName: stock.shortName || cleanTicker,
+          price: formattedPrice, lastPrice: formattedPrice, currentPrice: formattedPrice, close: formattedPrice,
+          change: formattedChange, netChange: formattedChange, absoluteChange: formattedChange,
+          changePct: formattedPct, percentage: formattedPct, pChange: formattedPct, pctChange: formattedPct, intraday: formattedPct,
+          rawPct: pctFloat, rawChange: changeFloat,
+          signal: changeFloat < 0 ? "WEAK" : "BREAKOUT", trend: changeFloat < 0 ? "DOWN" : "UP", direction: changeFloat < 0 ? "NEGATIVE" : "POSITIVE"
+        };
+      });
+
+      // Compute performance rankings inside the browser to isolate the actual daily winners
+      const dynamicGainers = [...dynamicIndianStocks].sort((a, b) => b.rawPct - a.rawPct).slice(0, 2);
+      const dynamicLosers = [...dynamicIndianStocks].sort((a, b) => a.rawPct - b.rawPct).slice(0, 2);
+      const dynamicActives = [...dynamicIndianStocks].sort((a, b) => Math.abs(b.rawChange) - Math.abs(a.rawChange)).slice(0, 1);
+
+      dynamicGainers.forEach(x => { x.sector = "GAINER"; x.category = "GAINER"; });
+      dynamicLosers.forEach(x => { x.sector = "LOSER"; x.category = "LOSER"; });
+      dynamicActives.forEach(x => { x.sector = "ACTIVE"; x.category = "ACTIVE"; });
+
+      const integratedPayload = [...dynamicGainers, ...dynamicLosers, ...dynamicActives];
+      yfMovers.lastResults = integratedPayload;
+      return integratedPayload;
+
     } catch (err) {
-      console.warn("⚠️ Source 1 failed. Swapping pipelines...", err.message);
+      console.error("❌ Live Data Synapse Interrupted:", err.message);
+      return yfMovers.lastResults || [];
     }
-
-    // ----------------------------------------------------------------
-    // SOURCE 2: YAHOO FINANCE INDIAN SCREENER FALLBACK
-    // ----------------------------------------------------------------
-    try {
-      console.log("📡 Querying alternative market tickers from Yahoo India Screener...");
-      const yahooUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives&count=10&region=IN";
-      const rawJson = await fetchHeavyHTML(yahooUrl);
-      const parsed = JSON.parse(rawJson);
-      const quotes = parsed?.finance?.result?.[0]?.quotes;
-
-      if (Array.isArray(quotes) && quotes.length > 0) {
-        let yahooPayload = quotes.map(stock => {
-          const rawTicker = String(stock.symbol || "").replace(".NS", "").toUpperCase();
-          const priceFloat = stock.regularMarketPrice || 0;
-          const changeFloat = stock.regularMarketChange || 0;
-          const pctFloat = stock.regularMarketChangePercent || 0;
-
-          const price = `₹${priceFloat.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-          const changePct = `${pctFloat >= 0 ? '+' : ''}${pctFloat.toFixed(2)}%`;
-          const change = `${changeFloat >= 0 ? '+' : ''}${changeFloat.toFixed(2)}`;
-
-          return {
-            ticker: rawTicker, symbol: rawTicker, code: rawTicker,
-            name: stock.shortName || rawTicker, company: stock.shortName || rawTicker, companyName: stock.shortName || rawTicker,
-            price, lastPrice: price, currentPrice: price, close: price,
-            change, netChange: change, absoluteChange: change,
-            changePct, percentage: changePct, pChange: changePct, pctChange: changePct, intraday: changePct,
-            sector: changeFloat < 0 ? "LOSER" : "GAINER", category: changeFloat < 0 ? "LOSER" : "GAINER",
-            signal: changeFloat < 0 ? "WEAK" : "BREAKOUT", trend: changeFloat < 0 ? "DOWN" : "UP", direction: changeFloat < 0 ? "NEGATIVE" : "POSITIVE"
-          };
-        });
-
-        if (yahooPayload.length > 0) {
-          yfMovers.lastResults = yahooPayload.slice(0, 5);
-          return yfMovers.lastResults;
-        }
-      }
-    } catch (err) {
-      console.error("❌ Source 2 failed:", err.message);
-    }
-
-    return yfMovers.lastResults || [];
   })();
 
-  // Execute the shared promise, then clear the tracker when done
   try {
-    const outputs = await yfMovers.currentPromise;
-    return outputs;
+    return await yfMovers.currentPromise;
   } finally {
-    yfMovers.currentPromise = null; // Release pipeline for subsequent manual refreshes
+    yfMovers.currentPromise = null; // Instantly clear locks for future UI interactions
   }
 }
 
