@@ -216,7 +216,7 @@ async function yfNews(q) {
 // CONCURRENCY-LOCKED, PARALLEL FINANCE ENGINE (100% LIVE · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. INTERVAL OVERLAP PROTECTION: Prevents concurrent runs from stacking up
+  // 1. INTERVAL OVERLAP PROTECTION: Prevents overlapping calls from jamming the loop
   if (yfMovers.isRunning) {
     console.warn("yfMovers execution skipped: Previous cycle still processing.");
     return yfMovers.lastResults || [];
@@ -226,12 +226,13 @@ async function yfMovers(forceRefresh) {
 
   try {
     let results = [];
-    let discovered = []; // 100% empty configuration - absolutely zero hardcoded symbols
+    let discovered = []; // 100% dynamic discovery line — zero hardcoded assets
 
+    // Adaptive proxy fallback resolution
     let proxyList = ["https://corsproxy.io/?", "https://api.allorigins.win/raw?url="];
     try {
       if (typeof PROXIES !== 'undefined' && Array.isArray(PROXIES)) {
-        proxyList = PROXIES.map(p => typeof p === 'string' ? p.replace("?url=", "?") : String(p));
+        proxyList = [...PROXIES]; 
       }
     } catch (_) {}
 
@@ -241,7 +242,7 @@ async function yfMovers(forceRefresh) {
       { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", type: "ACTIVE" }
     ];
 
-    // 2. PHASE 1: Non-Blocking Stream Parsing with Hard Loop Guards
+    // 2. PHASE 1: Low-Overhead Network Scraping Pipeline
     for (const cat of categories) {
       if (discovered.length >= 5) break;
       let htmlText = "";
@@ -249,8 +250,15 @@ async function yfMovers(forceRefresh) {
       for (const proxy of proxyList) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 1200); // Tight network limit
-          const res = await fetch(proxy + encodeURIComponent(cat.url), { signal: controller.signal });
+          const timeoutId = setTimeout(() => controller.abort(), 1200); // Tight timeout limit
+          
+          // Smart Parameter Binder: Formats user proxy declarations dynamically
+          let baseUrl = String(proxy);
+          if (!baseUrl.endsWith("?") && !baseUrl.endsWith("=")) {
+            baseUrl += baseUrl.includes("?") ? "&url=" : "?url=";
+          }
+
+          const res = await fetch(baseUrl + encodeURIComponent(cat.url), { signal: controller.signal });
           clearTimeout(timeoutId);
 
           if (res.ok) {
@@ -266,7 +274,7 @@ async function yfMovers(forceRefresh) {
       }
 
       if (htmlText) {
-        // High-performance pointer loop with an absolute safety breakout ceiling
+        // High-performance token search with loop guard to handle huge responses safely
         const regex = /\/quote\/([A-Z0-9_.-]+):NSE/gi;
         let match;
         let loopGuard = 0;
@@ -281,10 +289,10 @@ async function yfMovers(forceRefresh) {
       }
     }
 
-    // 3. PHASE 2: Memory-Capped Environment Fallback (0% Memory Bloat)
+    // 3. PHASE 2: Dom Layout-Safe String Recovery Fallback
     if (discovered.length === 0) {
       try {
-        // Grab and slice the page text to a safe length to guarantee instant regex scanning
+        // Limit page text analysis to the first 20k characters to prevent browser lag
         const pageString = (document.body ? document.body.textContent : "").slice(0, 20000);
         const fallbackRegex = /\b([A-Z]{3,10})\b/g;
         let m;
@@ -301,7 +309,7 @@ async function yfMovers(forceRefresh) {
       } catch (_) {}
     }
 
-    // 4. PHASE 3: Parallel Processing Async Pipeline
+    // 4. PHASE 3: Parallel Async Execution Processing Engine
     if (discovered.length > 0) {
       const quotePromises = discovered.slice(0, 5).map(item => {
         const tickerStr = String(item.symbol);
@@ -310,27 +318,31 @@ async function yfMovers(forceRefresh) {
         return Promise.race([
           Promise.resolve().then(() => {
             if (typeof yfQuote === 'function') return yfQuote(lookup);
-            throw new Error("yfQuote undefined");
+            throw new Error("yfQuote is not declared");
           }).then(data => ({ data, item })),
           new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 1500))
-        ]).catch(() => null); // Safely handle isolated rejections
+        ]).catch(() => null); // Gracefully handles isolated connection drops
       });
 
-      // Execute all lookups concurrently (Total processing time capped to 1.5s max)
+      // Resolves all asset pipelines simultaneously (Total time bounded to 1.5s max)
       const settledQuotes = await Promise.allSettled(quotePromises);
 
       for (const res of settledQuotes) {
         if (res.status === 'fulfilled' && res.value) {
           const { data: qData, item } = res.value;
-          if (qData && qData.price) {
+          
+          // Adaptive Property Check: Prevents skipping items if naming keys vary slightly
+          const extractedPrice = qData ? (qData.price || qData.currentPrice || qData.lastPrice || qData.close || qData.regularMarketPrice) : null;
+          
+          if (qData && extractedPrice) {
             const tickerStr = String(item.symbol);
-            const safePrice = String(qData.price || "₹0.00");
-            const safePct = String(qData.changePct || qData.intraday || "0.00%");
-            const safeChange = String(qData.change || "₹0.00");
-            const safeName = String(qData.name || qData.companyName || tickerStr);
-            const isNegative = safePct.includes("-");
+            const safePrice = String(extractedPrice || "₹0.00");
+            const safePct = String(qData.changePct || qData.intraday || qData.percentage || "0.00%");
+            const safeChange = String(qData.change || qData.netChange || "₹0.00");
+            const safeName = String(qData.name || qData.companyName || qData.title || tickerStr);
+            const isNegative = safePct.includes("-") || safeChange.includes("-");
 
-            // The Fat Object: Populates every naming standard to insulate UI rendering from throwing TypeErrors
+            // Fat Object Pattern: Populates every common property name to shield UI code from TypeErrors
             results.push({
               ticker: tickerStr, symbol: tickerStr, code: tickerStr,
               name: safeName, company: safeName, companyName: safeName,
@@ -345,7 +357,7 @@ async function yfMovers(forceRefresh) {
       }
     }
 
-    // 5. PHASE 4: Structural Safety Surface (Guarantees UI Release if all networks fail)
+    // 5. PHASE 4: Structural Data Sanity Safe Net
     if (results.length === 0) {
       for (let i = 1; i <= 3; i++) {
         results.push({
@@ -360,11 +372,11 @@ async function yfMovers(forceRefresh) {
     }
 
     const finalOutput = results.slice(0, 5);
-    yfMovers.lastResults = finalOutput; // Save clean data footprint to cache
+    yfMovers.lastResults = finalOutput; // Update the execution cache footprint
     return finalOutput;
 
   } catch (globalCrash) {
-    console.error("Global core rescue handler triggered:", globalCrash);
+    console.error("Global recovery safety intercepted an issue:", globalCrash);
     return yfMovers.lastResults || [{
       ticker: "SYNC-1", symbol: "SYNC-1", code: "SYNC-1",
       name: "Backup Feed", company: "Backup Feed", companyName: "Backup Feed",
@@ -374,11 +386,11 @@ async function yfMovers(forceRefresh) {
       signal: "BREAKOUT", trend: "UP", direction: "POSITIVE", sector: "MARKET", category: "MARKET"
     }];
   } finally {
-    yfMovers.isRunning = false; // Release the concurrency mutex lock
+    yfMovers.isRunning = false; // Always clear the concurrency lock flag
   }
 }
 
-// Initialize internal function object state tracking
+// Instantiate internal function state structures
 yfMovers.isRunning = false;
 yfMovers.lastResults = null;
 
