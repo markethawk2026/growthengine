@@ -622,27 +622,26 @@ async function loadTopMovers(forceRefresh) {
       return;
     }
 
-    // Build the rows matching your table structure
-    var rowsHTML = '';
-    apiData.forEach(function(s) {
-      var color = (s.changePct >= 0) ? "#00b06a" : "#ff3b30";
-      var prefix = (s.changePct >= 0) ? "▲ +" : "▼ ";
-      
-      rowsHTML += `
-        <tr onclick="runAnalysis('${s.ticker}')" style="border-bottom: 1px solid #1e293b; cursor: pointer;">
-          <td style="padding: 10px 8px; font-weight: 800; color: #f8fafc; font-size: 11.5px;">${s.ticker}</td>
-          <td style="padding: 10px 8px; font-family: monospace; color: #cbd5e1; font-size: 11.5px; text-align: right;">${s.price}</td>
-          <td style="padding: 10px 8px; font-family: monospace; font-weight: 700; color: ${color}; font-size: 11px; text-align: right;">${prefix}${Math.abs(parseFloat(s.changePct)).toFixed(2)}%</td>
-          <td style="padding: 10px 8px; text-align: right;">
-            <span style="background: rgba(148,163,184,0.06); color: #94a3b8; padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: 800;">${s.category}</span>
-          </td>
-        </tr>
-      `;
-    });
-
-    // Directly inject into your ID - this clears the "Processing..." text
-    container.innerHTML = rowsHTML;
-
+    // Inside js/main.js, replace the rowsHTML loop with this:
+var rowsHTML = '';
+apiData.forEach(function(s) {
+  var color = (s.changePct >= 0) ? "#00b06a" : "#ff3b30";
+  
+  rowsHTML += `
+    <div onclick="runAnalysis('${s.ticker}')" style="background: #111827; border: 1px solid #1e293b; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div>
+        <div style="font-weight: 800; color: #f8fafc; font-size: 13px;">${s.ticker}</div>
+        <div style="font-size: 10px; color: #94a3b8;">${s.category}</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-family: monospace; color: #cbd5e1; font-weight: 700;">${s.price}</div>
+        <div style="color: ${color}; font-size: 11px; font-weight: 700;">${s.changePct}%</div>
+      </div>
+    </div>
+  `;
+});
+container.innerHTML = rowsHTML;
+    
   } catch (err) {
     console.error("Top Movers Render Error:", err);
   }
