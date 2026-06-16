@@ -614,6 +614,8 @@ function processIndexPayload(quotes) {
 // 6. PURE LIVE NSE TOP MOVERS FETCH ENGINE (100% DATA-DRIVEN & MEMORY-SAFE)
 // ====================================================================
 async function loadTopMovers(forceRefresh) {
+  var container = document.getElementById("trendBody"); 
+  if (!container) return;
   if (typeof yfMovers !== "function") return;
   
   try {
@@ -662,24 +664,14 @@ async function loadTopMovers(forceRefresh) {
     });
     moversHTML += `</div>`;
 
-    // Resilient Layout Target Interceptor
-    var allElements = document.querySelectorAll("div, h3, span, p, strong, h2");
-    for (var i = 0; i < allElements.length; i++) {
-      var el = allElements[i];
-      if (el.textContent.includes("NSE TOP MOVERS")) {
-        var sectionParent = el.closest('.sec') || el.parentElement;
-        if (sectionParent) {
-          var existingGrid = sectionParent.querySelector(".movers-container");
-          if (existingGrid) {
-            existingGrid.outerHTML = moversHTML;
-          } else {
-            // Drop it cleanly into place regardless of child node structures
-            el.insertAdjacentHTML('afterend', moversHTML);
-          }
-          break;
-        }
-      }
+        // Directly target your ID:
+    var container = document.getElementById("trendBody");
+    if (container) {
+        container.innerHTML = moversHTML; 
+    } else {
+        console.error("Critical Error: trendBody ID not found in DOM.");
     }
+         
   } catch (err) {
     console.debug("Movers layout render loop deferred safely.");
   }
