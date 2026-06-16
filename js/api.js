@@ -213,58 +213,70 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CLEAN API REPLACEMENT FOR js/api.js (NO SCRAPING · ALL FREE APIs)
+// AUDITED LIVE API ENGINE FOR js/api.js (FIXED PARAMETER STRING BUG)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. Thread concurrency guard
+  // 1. Thread concurrency guard to prevent stacking intervals
   if (yfMovers.isRunning) {
     console.warn("yfMovers active cycle detected. Skipping overlap.");
     return yfMovers.lastResults || [];
   }
   yfMovers.isRunning = true;
 
-  // Free robust CORS proxies array
+  // Premium-grade public CORS proxies
   const corsProxies = [
     "https://corsproxy.io/?url=",
-    "https://api.allorigins.win/raw?url=",
-    "https://thingproxy.freeboard.io/fetch/"
+    "https://api.allorigins.win/raw?url="
   ];
 
-  // Internal failover network fetcher
+  // Internal network corridor fetcher
   async function fetchWithFallback(targetUrl) {
     for (let proxy of corsProxies) {
       try {
-        let fullUrl = proxy.includes("allorigins") 
-          ? proxy + encodeURIComponent(targetUrl) 
-          : proxy + targetUrl;
+        // BUG FIX: Global encodeURIComponent prevents query string slicing (& region parameters)
+        let fullUrl = proxy + encodeURIComponent(targetUrl);
 
-        const res = await fetch(fullUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
+        const res = await fetch(fullUrl, { 
+          method: 'GET', 
+          headers: { 'Accept': 'application/json' } 
+        });
+        
         if (!res.ok) continue;
         
-        let data = await res.json();
-        // Unwrap AllOrigins container if present
+        let rawText = await res.text();
+        if (!rawText) continue;
+        
+        let data = JSON.parse(rawText);
+        
+        // Unpack AllOrigins structural JSON safety wrapper if present
         if (data && data.contents) {
           data = typeof data.contents === 'string' ? JSON.parse(data.contents) : data.contents;
         }
-        return data;
-      } catch (_) {
-        continue; // Instantly fall over to the next free proxy gateway
+        
+        if (data?.finance?.result?.[0]?.quotes) {
+          return data; // Success payload confirmed
+        }
+      } catch (err) {
+        console.warn(`Proxy gateway failed over: ${proxy}`);
+        continue; // Try next fallback proxy seamlessly
       }
     }
-    throw new Error("All free CORS API gateways are currently saturated.");
+    throw new Error("All active open-source CORS gateways are currently saturated.");
   }
 
   try {
     const baseUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved";
+    
+    // Explicit Indian market screener targeting definitions
     const screeners = [
-      { url: `${baseUrl}?formatted=false&scrIds=day_gainers&count=3&region=IN`, type: "GAINER" },
-      { url: `${baseUrl}?formatted=false&scrIds=day_losers&count=3&region=IN`, type: "LOSER" },
-      { url: `${baseUrl}?formatted=false&scrIds=most_actives&count=3&region=IN`, type: "ACTIVE" }
+      { url: `${baseUrl}?formatted=false&scrIds=day_gainers&count=4&region=IN`, type: "GAINER" },
+      { url: `${baseUrl}?formatted=false&scrIds=day_losers&count=4&region=IN`, type: "LOSER" },
+      { url: `${baseUrl}?formatted=false&scrIds=most_actives&count=4&region=IN`, type: "ACTIVE" }
     ];
 
     let processedMovers = [];
 
-    // 2. Concurrently call Yahoo API Endpoints via active proxy tunnels
+    // 2. Fire concurrent API proxy tunnels simultaneously
     const requests = screeners.map(scr => 
       fetchWithFallback(scr.url)
         .then(raw => ({ raw, type: scr.type }))
@@ -273,17 +285,16 @@ async function yfMovers(forceRefresh) {
     
     const responses = await Promise.all(requests);
 
-    // 3. Parse and standardize incoming JSON payloads
+    // 3. Extract quotes and normalize to the Fat Object UI standard
     for (const item of responses) {
       if (!item || !item.raw) continue;
       const quotes = item.raw?.finance?.result?.[0]?.quotes;
       if (!Array.isArray(quotes)) continue;
 
       for (const stock of quotes) {
-        if (processedMovers.length >= 5) break; // Keep UI limited to top 5 slots
+        if (processedMovers.length >= 5) break; // Hard ceiling limit for UI layout cells
 
-        // Clean up Yahoo ticker symbol (.NS extension) for UI view
-        const cleanTicker = String(stock.symbol || "").replace(".NS", "").toUpperCase();
+        const cleanTicker = String(stock.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase();
         if (!cleanTicker) continue;
 
         const rawPrice = stock.regularMarketPrice || 0;
@@ -295,7 +306,6 @@ async function yfMovers(forceRefresh) {
         const safePct = `${rawPct >= 0 ? '+' : ''}${rawPct.toFixed(2)}%`;
         const isNegative = rawChange < 0;
 
-        // Map directly to your frontend dashboard's precise data-binding layout schema
         processedMovers.push({
           ticker: cleanTicker, symbol: cleanTicker, code: cleanTicker,
           name: String(stock.shortName || stock.longName || cleanTicker),
@@ -311,12 +321,12 @@ async function yfMovers(forceRefresh) {
       }
     }
 
-    // 4. Emergency layout stabilizer if APIs are down globally
+    // 4. Interface Grid stabilizer fallback case
     if (processedMovers.length === 0) {
       for (let i = 1; i <= 3; i++) {
         processedMovers.push({
           ticker: `SYNC-${i}`, symbol: `SYNC-${i}`, code: `SYNC-${i}`,
-          name: "Reconnecting API Data...", company: "Reconnecting API Data...", companyName: "Reconnecting API Data...",
+          name: "Synchronizing Data Exchange...", company: "Synchronizing Data Exchange...", companyName: "Synchronizing Data Exchange...",
           price: "₹0.00", lastPrice: "₹0.00", close: "₹0.00", currentPrice: "₹0.00",
           change: "0.00", netChange: "0.00", absoluteChange: "0.00",
           changePct: "0.00%", percentage: "0.00%", pChange: "0.00%", pctChange: "0.00%", intraday: "0.00%",
@@ -330,10 +340,10 @@ async function yfMovers(forceRefresh) {
     return finalOutput;
 
   } catch (globalCrash) {
-    console.error("Critical API bridge exception sequence:", globalCrash);
+    console.error("Critical core runtime exception caught:", globalCrash);
     return yfMovers.lastResults || [];
   } finally {
-    yfMovers.isRunning = false; // Always lift execution locks
+    yfMovers.isRunning = false; // Always lift execution lock flag
   }
 }
 
