@@ -213,132 +213,132 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CONCURRENT-SAFE DOMESTIC EXCHANGE ENGINE (ZERO HARDCODE · PURE JSON)
+// 100% DYNAMIC NIFTY REAL-TIME ENGINE (NO HARDCODING & NO WEB SCRAPING)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. Resolve Concurrent Race Condition: Share the in-flight promise with all calling UI widgets
+  // Share active promises across concurrent UI components to prevent race locks (loadTrend/loadTopMovers)
   if (yfMovers.currentPromise) {
-    console.log("🔄 yfMovers: Distributing synchronized data pipeline to concurrent UI module.");
+    console.log("🔄 yfMovers: Sharing live data stream with parallel dashboard widgets.");
     return yfMovers.currentPromise;
   }
 
   yfMovers.currentPromise = (async () => {
-    // Ultra-stable open-source data tunnels
-    const proxyGateways = [
+    // Stable, open cross-origin networks
+    const proxyCorridors = [
       "https://api.allorigins.win/raw?url=",
       "https://corsproxy.io/?url="
     ];
 
-    async function fetchJsonSafely(targetUrl) {
-      for (let proxy of proxyGateways) {
+    async function fetchJsonViaProxy(targetUrl) {
+      for (let proxy of proxyCorridors) {
         try {
-          const res = await fetch(proxy + encodeURIComponent(targetUrl), { method: 'GET' });
+          const res = await fetch(proxy + encodeURIComponent(targetUrl));
           if (!res.ok) continue;
-          
           let text = await res.text();
-          if (!text) continue;
-
-          // Strip AllOrigins structural wrapper parameters if encountered
+          
           if (text.trim().startsWith('{')) {
             const parsed = JSON.parse(text);
             text = parsed.contents && typeof parsed.contents === 'string' ? parsed.contents : JSON.stringify(parsed.contents || parsed);
           }
           return JSON.parse(text);
-        } catch (e) {
-          continue; // Seamlessly try the next open corridor
-        }
+        } catch (e) { continue; }
       }
       return null;
     }
 
     try {
-      console.log("📡 Instantiating regional market tracking matrices across domestic indices...");
-
-      // Explicitly pull native Indian market screeners to prevent geographic proxy redirection
-      const baseUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved";
-      const gainersUrl = `${baseUrl}?scrIds=in_day_gainers&count=4`;
-      const losersUrl = `${baseUrl}?scrIds=in_day_losers&count=4`;
-      const activeUrl = `${baseUrl}?scrIds=in_most_actives&count=4`;
-
-      // Trigger asynchronous concurrent requests to maximize speed
-      const [gainersRaw, losersRaw, activeRaw] = await Promise.all([
-        fetchJsonSafely(gainersUrl),
-        fetchJsonSafely(losersUrl),
-        fetchJsonSafely(activeUrl)
-      ]);
-
-      let consolidatedPayload = [];
-
-      // Map Gainer Datasets
-      const gainerQuotes = gainersRaw?.finance?.result?.[0]?.quotes || [];
-      gainerQuotes.slice(0, 2).forEach(stock => {
-        consolidatedPayload.push(standardizeMarketQuote(stock, "GAINER"));
-      });
-
-      // Map Loser Datasets
-      const loserQuotes = losersRaw?.finance?.result?.[0]?.quotes || [];
-      loserQuotes.slice(0, 2).forEach(stock => {
-        consolidatedPayload.push(standardizeMarketQuote(stock, "LOSER"));
-      });
-
-      // Map Active Datasets
-      const activeQuotes = activeRaw?.finance?.result?.[0]?.quotes || [];
-      activeQuotes.slice(0, 1).forEach(stock => {
-        consolidatedPayload.push(standardizeMarketQuote(stock, "ACTIVE"));
-      });
-
-      // Defensive Checkpoint: If everything failed, extract any dynamic backup items
-      if (consolidatedPayload.length === 0) {
-        throw new Error("Dynamic query channels returned empty arrays.");
+      console.log("📡 Dynamically synchronizing the live National Stock Exchange registry...");
+      
+      // 1. Fetch the actual current Nifty index components list directly from the open source registry
+      const registryRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
+      if (!registryRes.ok) throw new Error("Index registry connection timed out.");
+      const registryData = await registryRes.json();
+      
+      let currentTickers = [];
+      if (Array.isArray(registryData)) {
+        currentTickers = registryData.map(item => typeof item === 'string' ? item : item.symbol || item.ticker);
+      } else if (registryData && typeof registryData === 'object') {
+        currentTickers = Object.keys(registryData);
       }
 
-      // De-duplicate array items dynamically by symbol reference
-      const uniquenessGuard = new Set();
-      const finalFilteredOutput = consolidatedPayload.filter(item => {
-        if (uniquenessGuard.has(item.ticker)) return false;
-        uniquenessGuard.add(item.ticker);
-        return true;
-      }).slice(0, 5);
+      // Format pure registry items into explicit National Stock Exchange (.NS) symbols
+      const dynamicNseBasket = currentTickers
+        .filter(Boolean)
+        .map(sym => `${String(sym).trim().toUpperCase()}.NS`);
 
-      console.log(`✅ Successfully synthesized ${finalFilteredOutput.length} dynamic Indian market movers.`);
-      yfMovers.lastResults = finalFilteredOutput;
-      return finalFilteredOutput;
+      if (dynamicNseBasket.length === 0) throw new Error("Index list parsing returned empty records.");
 
-    } catch (globalError) {
-      console.error("❌ Critical core stream runtime failure:", globalError.message);
-      return yfMovers.lastResults || []; // Clear hangers by safely serving the last valid cache
+      console.log(`📊 Streaming live pricing for ${dynamicNseBasket.length} dynamic index constituents...`);
+      
+      // 2. Fetch lightweight quote data fields for all 50 dynamic assets simultaneously
+      const queryUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${dynamicNseBasket.join(",")}`;
+      const apiPayload = await fetchJsonViaProxy(queryUrl);
+      const quotes = apiPayload?.quoteResponse?.result;
+
+      if (!Array.isArray(quotes) || quotes.length === 0) {
+        throw new Error("Financial data network channel returned an empty array.");
+      }
+
+      // 3. Map raw database floats into unified dashboard variables
+      const processedMatrix = quotes.map(stock => {
+        const cleanTicker = String(stock.symbol || "").replace(".NS", "").toUpperCase();
+        const price = stock.regularMarketPrice || 0;
+        const change = stock.regularMarketChange || 0;
+        const pct = stock.regularMarketChangePercent || 0;
+
+        // Formulate readable display strings matching main.js layouts
+        const uiPrice = `₹${price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const uiPct = `${pct >= 0 ? '▲ +' : '▼ '}${Math.abs(pct).toFixed(2)}%`;
+        const uiChange = `${change >= 0 ? '+' : ''}${change.toFixed(2)}`;
+
+        return {
+          // Fallback properties to safeguard main.js execution loops
+          symbol: cleanTicker,
+          shortName: stock.shortName || cleanTicker,
+          longName: stock.longName || cleanTicker,
+          regularMarketPrice: price,
+          regularMarketChange: change,
+          regularMarketChangePercent: pct,
+
+          // Object tokens bound to your custom table element properties
+          ticker: cleanTicker, code: cleanTicker, name: stock.shortName || cleanTicker, company: stock.shortName || cleanTicker, companyName: stock.shortName || cleanTicker,
+          price: uiPrice, lastPrice: uiPrice, currentPrice: uiPrice, close: uiPrice,
+          change: uiChange, netChange: uiChange, absoluteChange: uiChange,
+          changePct: uiPct, percentage: uiPct, pChange: uiPct, pctChange: uiPct, intraday: uiPct,
+          
+          rawPct: pct,
+          rawChange: change,
+          trend: change < 0 ? "DOWN" : "UP", 
+          direction: change < 0 ? "NEGATIVE" : "POSITIVE"
+        };
+      });
+
+      // 4. MATHEMATICAL REAL-TIME SORTING: Compute today's true market leaders on the fly
+      const liveGainers = [...processedMatrix].sort((a, b) => b.rawPct - a.rawPct).slice(0, 2);
+      const liveLosers = [...processedMatrix].sort((a, b) => a.rawPct - b.rawPct).slice(0, 2);
+      const liveActive = [...processedMatrix].sort((a, b) => Math.abs(b.rawChange) - Math.abs(a.rawChange)).slice(0, 1);
+
+      // Apply row labels dynamically
+      liveGainers.forEach(x => { x.sector = "GAINER"; x.category = "GAINER"; x.signal = "BREAKOUT"; });
+      liveLosers.forEach(x => { x.sector = "LOSER"; x.category = "LOSER"; x.signal = "WEAK"; });
+      liveActive.forEach(x => { x.sector = "ACTIVE"; x.category = "ACTIVE"; x.signal = "HIGH VOL"; });
+
+      const finalOutputArray = [...liveGainers, ...liveLosers, ...liveActive].slice(0, 5);
+      
+      yfMovers.lastResults = finalOutputArray;
+      return finalOutputArray;
+
+    } catch (err) {
+      console.error("❌ Live Dynamic Stream blacked out:", err.message);
+      return yfMovers.lastResults || []; // Clear the spinner cleanly using the previous update cache
     }
   })();
 
   try {
     return await yfMovers.currentPromise;
   } finally {
-    yfMovers.currentPromise = null; // Lift pipeline lock flags instantly for manual refresh clicks
+    yfMovers.currentPromise = null; // Release locks for subsequent refreshes
   }
-}
-
-// Unified structural abstraction adapter for dashboard binding layouts
-function standardizeMarketQuote(stock, elementTag) {
-  const cleanTicker = String(stock.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase();
-  const priceFloat = stock.regularMarketPrice || 0;
-  const changeFloat = stock.regularMarketChange || 0;
-  const pctFloat = stock.regularMarketChangePercent || 0;
-
-  const price = `₹${priceFloat.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const changePct = `${pctFloat >= 0 ? '▲ +' : '▼ '}${Math.abs(pctFloat).toFixed(2)}%`;
-  const change = `${changeFloat >= 0 ? '+' : ''}${changeFloat.toFixed(2)}`;
-
-  return {
-    ticker: cleanTicker, symbol: cleanTicker, code: cleanTicker,
-    name: stock.shortName || stock.longName || cleanTicker, 
-    company: stock.shortName || stock.longName || cleanTicker, 
-    companyName: stock.shortName || stock.longName || cleanTicker,
-    price, lastPrice: price, currentPrice: price, close: price,
-    change, netChange: change, absoluteChange: change,
-    changePct, percentage: changePct, pChange: changePct, pctChange: changePct, intraday: changePct,
-    sector: elementTag, category: elementTag,
-    signal: changeFloat < 0 ? "WEAK" : "BREAKOUT", trend: changeFloat < 0 ? "DOWN" : "UP", direction: changeFloat < 0 ? "NEGATIVE" : "POSITIVE"
-  };
 }
 
 yfMovers.currentPromise = null;
