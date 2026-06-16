@@ -610,72 +610,44 @@ function processIndexPayload(quotes) {
   });
 }
 
-// ====================================================================
-// 6. PURE LIVE NSE TOP MOVERS FETCH ENGINE (100% DATA-DRIVEN & MEMORY-SAFE)
-// ====================================================================
 async function loadTopMovers(forceRefresh) {
-  var container = document.getElementById("trendBody"); 
-  if (!container) return;
   if (typeof yfMovers !== "function") return;
   
   try {
-    // Read directly from the active local market stream data array
     var apiData = await yfMovers(forceRefresh);
-    if (!Array.isArray(apiData) || apiData.length === 0) return;
-
-    var stockDataArr = [];
+    var container = document.getElementById("trendBody"); // Target your specific HTML ID
     
-    apiData.forEach(function(item) {
-      var sym = String(item.ticker || item.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase().trim();
+    if (!container || !Array.isArray(apiData) || apiData.length === 0) {
+      if (container) container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">No active assets found</td></tr>';
+      return;
+    }
+
+    // Build the rows matching your table structure
+    var rowsHTML = '';
+    apiData.forEach(function(s) {
+      var color = (s.changePct >= 0) ? "#00b06a" : "#ff3b30";
+      var prefix = (s.changePct >= 0) ? "▲ +" : "▼ ";
       
-      // Handle flexible field naming definitions natively present in your stream objects
-      var rawChange = item.rawChangePct || parseFloat(String(item.changePct || "0").replace(/[^0-9.-]/g, "")) || 0;
-      var rawPrice = parseFloat(String(item.price || item.regularMarketPrice || "0").replace(/[^0-9.]/g, "")) || 0;
-
-      // Filter out broad index trackers to ensure only hot equities populate the list
-      if (sym && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(black => sym.includes(black))) {
-        stockDataArr.push({
-          name: sym,
-          price: rawPrice,
-          changePct: rawChange,
-          up: rawChange >= 0
-        });
-      }
-    });
-
-    if (stockDataArr.length === 0) return;
-
-    // Sort by momentum and slice the top 6 performers cleanly
-    var sortedMovers = stockDataArr.sort((a, b) => b.changePct - a.changePct).slice(0, 6);
-    
-    var moversHTML = `<div class="movers-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin:12px 0; width:100%;">`;
-    sortedMovers.forEach(s => {
-      var color = s.up ? "#00b06a" : "#ff3b30";
-      var arrow = s.up ? "▲" : "▼";
-      var formattedPrice = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "₹—";
-      
-      moversHTML += `
-        <div class="mover-card" onclick="runAnalysis('${s.name}')" style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; text-align:left; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'">
-          <div style="font-size:11px; color:#94a3b8; font-weight:700;">${s.name}</div>
-          <div style="font-size:14px; font-family:monospace; font-weight:800; color:#f8fafc; margin-top:2px;">${formattedPrice}</div>
-          <div style="font-size:11px; color:${color}; font-weight:600; margin-top:2px;">${arrow} ${s.changePct.toFixed(2)}%</div>
-        </div>
+      rowsHTML += `
+        <tr onclick="runAnalysis('${s.ticker}')" style="border-bottom: 1px solid #1e293b; cursor: pointer;">
+          <td style="padding: 10px 8px; font-weight: 800; color: #f8fafc; font-size: 11.5px;">${s.ticker}</td>
+          <td style="padding: 10px 8px; font-family: monospace; color: #cbd5e1; font-size: 11.5px; text-align: right;">${s.price}</td>
+          <td style="padding: 10px 8px; font-family: monospace; font-weight: 700; color: ${color}; font-size: 11px; text-align: right;">${prefix}${Math.abs(parseFloat(s.changePct)).toFixed(2)}%</td>
+          <td style="padding: 10px 8px; text-align: right;">
+            <span style="background: rgba(148,163,184,0.06); color: #94a3b8; padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: 800;">${s.category}</span>
+          </td>
+        </tr>
       `;
     });
-    moversHTML += `</div>`;
 
-        // Directly target your ID:
-    var container = document.getElementById("trendBody");
-    if (container) {
-        container.innerHTML = moversHTML; 
-    } else {
-        console.error("Critical Error: trendBody ID not found in DOM.");
-    }
-         
+    // Directly inject into your ID - this clears the "Processing..." text
+    container.innerHTML = rowsHTML;
+
   } catch (err) {
-    console.debug("Movers layout render loop deferred safely.");
+    console.error("Top Movers Render Error:", err);
   }
 }
+
 
 // ====================================================================
 // 3. INDEX CARD GRAPHICS ENGINE & INJECTOR INTERCEPTOR 
