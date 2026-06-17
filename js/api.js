@@ -217,38 +217,26 @@ async function yfMovers(forceRefresh) {
 
   yfMovers.currentPromise = (async () => {
     try {
-      // 1. Fetch the complete Nifty 50 component registry
+      // 1. Fetch the complete Nifty 50 stock registry from GitHub
       const regRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
       const tickers = await regRes.json();
-      const symbols = tickers.slice(0, 50).map(t => (t.symbol || t).toUpperCase() + ".NS");
+      const symbols = tickers.map(t => (t.symbol || t).toUpperCase() + ".NS");
 
-      // 2. Split into two parallel chunks of 25 to breeze past proxy limitations safely
-      const chunk1 = symbols.slice(0, 25).join(",");
-      const chunk2 = symbols.slice(25, 50).join(",");
+      // 2. Fetch all 50 quotes simultaneously using your working index proxy layout
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}`;
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+      const json = await res.json();
+      const data = JSON.parse(json.contents);
 
-      const fetchChunk = async (chunkString) => {
-        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunkString}`;
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-        const json = await res.json();
-        const data = JSON.parse(json.contents);
-        return data?.quoteResponse?.result || [];
-      };
+      if (!data?.quoteResponse?.result) return [];
 
-      // 3. Fire requests concurrently
-      const [batch1, batch2] = await Promise.all([
-        fetchChunk(chunk1),
-        fetchChunk(chunk2)
-      ]);
-
-      const combinedQuotes = [...batch1, ...batch2];
-
-      return combinedQuotes.map(q => ({
+      return data.quoteResponse.result.map(q => ({
         ticker: q.symbol.replace(".NS", ""),
         price: q.regularMarketPrice || 0,
         changePct: q.regularMarketChangePercent || 0
       }));
     } catch (e) {
-      console.error("Error processing full Nifty 50 data matrix:", e);
+      console.error("Core Nifty 50 data fetch error:", e);
       return [];
     }
   })();
