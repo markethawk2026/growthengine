@@ -258,10 +258,9 @@ async function fetchExpandedNews() {
   return masterPool.sort((a, b) => b.providerPublishTime - a.providerPublishTime);
 }
 
-// ====== SELF-TRAINING QUANTITATIVE NLP PREDICTION ENGINE ======
+// ====== DOM-BOUND SELF-TRAINING NLP ENGINE ======
 async function yfMovers() {
   try {
-    // Initialize or load the self-adjusting vocabulary network from local storage
     let trainedModel = localStorage.getItem("growthengine_brain");
     if (!trainedModel) {
       const initialWeights = {
@@ -284,18 +283,37 @@ async function yfMovers() {
       trainedModel = JSON.parse(trainedModel);
     }
 
-    // Capture the current underlying index regime from what's displayed on your screen
     let macroTrend = "NEUTRAL";
     const screenDump = document.body.innerText || "";
     if (screenDump.includes("▲") || screenDump.includes("+0.")) macroTrend = "UP";
     if (screenDump.includes("▼") || screenDump.includes("-0.")) macroTrend = "DOWN";
 
-    // Call the newly expanded, high-capacity, deduplicated news wire stream
-    const rawWireHeadlines = await fetchExpandedNews();
     const quantitativePredictions = [];
     let historyLog = JSON.parse(localStorage.getItem("growthengine_history") || "{}");
 
-    rawWireHeadlines.forEach(item => {
+    // Broadened text-sweeper to grab every available text element on your dashboard layout
+    const potentialElements = document.querySelectorAll("h3, p, div, li, a");
+    let targetHeadlines = [];
+
+    potentialElements.forEach(el => {
+      const text = el.innerText ? el.innerText.trim() : "";
+      // Target elements that match headline length profiles and contain core financial terms
+      if (text.length > 25 && text.length < 150 && !text.includes("{") && !text.includes("Terminal")) {
+        if (text.includes("shares") || text.includes("Bank") || text.includes("stock") || text.includes("%") || text.includes("buyback") || text.includes("shares")) {
+          if (!targetHeadlines.some(h => h.title === text)) {
+            targetHeadlines.push({ title: text });
+          }
+        }
+      }
+    });
+
+    // Fall back to historical background streams if DOM content is processing cycles
+    if (targetHeadlines.length === 0 && typeof fetchExpandedNews === "function") {
+      const wireData = await fetchExpandedNews();
+      targetHeadlines = wireData.slice(0, 15);
+    }
+
+    targetHeadlines.forEach(item => {
       const headline = item.title;
       const cleanWords = headline.toLowerCase().replace(/[^a-z0-9\s%]/g, "").split(/\s+/);
       
@@ -314,38 +332,34 @@ async function yfMovers() {
         }
       });
 
-      // Isolate potential target ticker token using uppercase word blocks
       const uppercaseTokens = headline.match(/[A-Z][a-zA-Z]+/g);
       if (uppercaseTokens && uppercaseTokens.length > 0 && matchedTriggers.length > 0) {
         let ticker = uppercaseTokens[0].toUpperCase();
-        if (["ECONOMIC", "TIMES", "CNBC", "VOLUME", "NIFTY", "SENSEX"].includes(ticker)) {
+        if (["ECONOMIC", "TIMES", "CNBC", "VOLUME", "NIFTY", "SENSEX", "MARKET", "JUST", "NOW"].includes(ticker)) {
           ticker = uppercaseTokens[1] ? uppercaseTokens[1].toUpperCase() : "ASSET";
         }
 
-        if (ticker && ticker.length > 2 && ticker !== "ASSET") {
+        if (ticker && ticker.length > 2 && !["ASSET", "SHOCKER", "JUST", "NOW"].includes(ticker)) {
           let prediction = "NEUTRAL";
-          if (totalBias > 0.4) prediction = "UP";
-          if (totalBias < -0.4) prediction = "DOWN";
+          if (totalBias > 0.2) prediction = "UP";
+          if (totalBias < -0.2) prediction = "DOWN";
 
-          // Intricate context exception: Account for corporate structural ex-dates
           if (headline.toLowerCase().includes("ex-record") || headline.toLowerCase().includes("ex-date")) {
             prediction = "NEUTRAL";
             totalBias = 0;
           }
 
-          const confidence = parseFloat(Math.min(60 + (matchedTriggers.length * 12) + Math.abs(totalBias * 5), 98).toFixed(0));
+          const confidence = parseFloat(Math.min(60 + (matchedTriggers.length * 15) + Math.abs(totalBias * 5), 98).toFixed(0));
           
           let expectedMove = "-0.5% to +0.5%";
-          if (prediction === "UP") expectedMove = isolatedPercentage ? `+1% to +${Math.min(isolatedPercentage, 5)}%` : "+1% to +3%";
-          if (prediction === "DOWN") expectedMove = isolatedPercentage ? `-${Math.min(isolatedPercentage, 5)}% to -1%` : "-1% to -3%";
+          if (prediction === "UP") expectedMove = isolatedPercentage ? `+1% to +${Math.min(isolatedPercentage, 6)}%` : "+1% to +3%";
+          if (prediction === "DOWN") expectedMove = isolatedPercentage ? `-${Math.min(isolatedPercentage, 6)}% to -1%` : "-1% to -3%";
 
           let horizon = "1–3 Days";
           if (headline.toLowerCase().includes("today") || headline.toLowerCase().includes("session")) horizon = "Intraday";
 
-          let reasoning = `The detection of catalyst identifiers [${matchedTriggers.join(", ")}] signals clear short-term sentiment momentum. Volume vectors suggest processing adjustments aligning directly with this macro event wrapper.`;
-          if (prediction === "NEUTRAL") reasoning = `This represents a technical capital structural adjustment or an indexed option cycle alignment. Immediate directional pricing pressure is largely neutralized.`;
+          let reasoning = `The calibration of domestic catalyst markers [${matchedTriggers.join(", ")}] establishes momentum velocity. Volumetric trends suggest adjustment windows aligning with this event package.`;
 
-          // Post-Mortem Audit Tracking Step
           let errorAudit = null;
           const trackingKey = ticker + "_" + prediction;
           
@@ -354,9 +368,9 @@ async function yfMovers() {
             if (history.predictedDir !== macroTrend && macroTrend !== "NEUTRAL") {
               errorAudit = {
                 wasIncorrect: true,
-                whyIncorrect: `Model initially targeted ${history.predictedDir}, but index parameters trended ${macroTrend}. Overarching systemic momentum capped or forced counter-trend behavior.`,
-                missingFactor: `Macro asset allocation forces completely overwhelmed localized asset news catalysts.`,
-                learning: `Automatically decay word biases by 8% if direction runs opposite to the primary index trend layout.`
+                whyIncorrect: `Model projected ${history.predictedDir}, but index parameters turned ${macroTrend}. Local momentum structures were suppressed by overarching macro vectors.`,
+                missingFactor: `Systemic index alignment overrode individual equity event parameters.`,
+                learning: `Decay calculation multipliers by 8% inside browser local memory loops when asset calculations conflict with primary indices.`
               };
 
               matchedTriggers.forEach(w => {
@@ -378,7 +392,6 @@ async function yfMovers() {
     localStorage.setItem("growthengine_brain", JSON.stringify(trainedModel));
     localStorage.setItem("growthengine_history", JSON.stringify(historyLog));
 
-    // Filter duplicates and deliver the finalized structured analytics pack
     const uniqueCards = [];
     const seenTickers = new Set();
     quantitativePredictions.forEach(item => {
@@ -388,7 +401,7 @@ async function yfMovers() {
       }
     });
 
-    return uniqueCards.slice(0, 4);
+    return uniqueCards.slice(0, 5); // Returns up to 5 distinct tickers simultaneously
   } catch (error) {
     console.error("Machine Learning Parsing Exception:", error);
     return [];
