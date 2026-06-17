@@ -534,6 +534,7 @@ async function loadTopMovers() {
   if (!container) return;
 
   try {
+    // Dynamic component heading transformation
     var headingElement = container.previousElementSibling;
     if (headingElement) {
       headingElement.innerHTML = `🤖 AI PREDICTIVE QUANT TERMINAL <span id="syncPulse" style="font-size:9px; background:rgba(168,85,247,0.1); color:#a855f7; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">NLP CONNECTED</span>`;
@@ -554,7 +555,7 @@ async function loadTopMovers() {
       if (card.prediction === "UP") { colorStyle = "#00b06a"; badgeBg = "rgba(0,176,106,0.06)"; }
       if (card.prediction === "DOWN") { colorStyle = "#ff3b30"; badgeBg = "rgba(255,59,48,0.06)"; }
 
-      // Fixed String Scoping: Build the row template completely within one variable layer
+      // Corrected: Enforce a single stable string compilation variable per loop iteration
       var cardMarkup = `
         <div class="quant-accordion-item" style="background:#111827; border:1px solid #1e293b; border-radius:8px; margin-bottom:8px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
           
