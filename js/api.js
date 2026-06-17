@@ -258,7 +258,7 @@ async function fetchExpandedNews() {
   return masterPool.sort((a, b) => b.providerPublishTime - a.providerPublishTime);
 }
 
-// ====== LIVE API-VALIDATED QUANT MATRIX ENGINE ======
+// ====== MULTI-CANDIDATE API VALIDATED QUANT ENGINE ======
 async function yfMovers() {
   try {
     let trainedModel = localStorage.getItem("growthengine_brain");
@@ -284,7 +284,6 @@ async function yfMovers() {
     let historyLog = JSON.parse(localStorage.getItem("growthengine_history") || "{}");
     let targetHeadlines = [];
 
-    // Sweep elements to collect target text blocks
     const elements = document.querySelectorAll("h3, p, li, a");
     elements.forEach(el => {
       let text = el.innerText ? el.innerText.trim() : "";
@@ -299,11 +298,9 @@ async function yfMovers() {
       }
     });
 
-    // Sequential loop allows us to handle your asynchronous yfSearch gatekeeper
+    // Process each headline sequentially
     for (let headlineIndex = 0; headlineIndex < targetHeadlines.length; headlineIndex++) {
       const headline = targetHeadlines[headlineIndex];
-      
-      // Clean off possessive suffixes locally so "Wipro's" can look up as "Wipro"
       const sanitizedHeadline = headline.replace(/'s/gi, "").replace(/'S/gi, "");
       
       const cleanWords = sanitizedHeadline.toLowerCase().replace(/[^a-z0-9\s%]/g, "").split(/\s+/);
@@ -324,34 +321,38 @@ async function yfMovers() {
 
       if (matchedTriggers.length === 0) continue;
 
-      // Extract the primary uppercase word token from the sentence
+      // Extract ALL potential uppercase words in the sentence to test
       const wordsArray = sanitizedHeadline.replace(/[^a-zA-Z\s]/g, "").split(/\s+/);
-      let extractedCandidate = "";
+      let candidates = [];
       
       for (let i = 0; i < wordsArray.length; i++) {
         let currentWord = wordsArray[i];
-        if (!currentWord) continue;
-        if (currentWord[0] === currentWord[0].toUpperCase() && currentWord.length > 2) {
-          extractedCandidate = currentWord;
-          // Contextual Stitcher: Join common modifiers like "PV", "BANK" or "MOTORS" for accurate lookup profiles
+        if (!currentWord || currentWord.length < 3) continue;
+        
+        if (currentWord[0] === currentWord[0].toUpperCase()) {
+          let token = currentWord;
+          // Stashing structural combinations like "Tata Motors" or "IDBI Bank"
           if (wordsArray[i+1] && ["BANK", "MOTORS", "PV", "TECH"].includes(wordsArray[i+1].toUpperCase())) {
-            extractedCandidate += " " + wordsArray[i+1];
+            token += " " + wordsArray[i+1];
           }
-          break;
+          if (!candidates.includes(token)) candidates.push(token);
         }
       }
 
-      if (!extractedCandidate) continue;
+      let ticker = null;
+      // Test each candidate word against your real yfSearch utility until one hits a valid stock
+      for (let candidate of candidates) {
+        if (["NSE", "BSE", "IPO", "VOLUME", "JEFFERIES", "MARKET", "CNBC"].includes(candidate.toUpperCase())) continue;
+        
+        var searchResults = await yfSearch(candidate);
+        if (searchResults && searchResults.length > 0) {
+          ticker = searchResults[0].symbol.replace(".NS", "").replace(".BO", "");
+          break; // Stop scanning candidates once a valid stock matches
+        }
+      }
 
-      // ====== INTEGRATING YOUR YFSEARCH FUNCTION ======
-      // Validate candidate token directly against live exchange indices
-      var searchResults = await yfSearch(extractedCandidate);
-      
-      // If the search utility returns nothing, it's a ghost ticker (e.g., IPO, MFS). Drop it instantly!
-      if (!searchResults || searchResults.length === 0) continue;
-      
-      // Extract the official, clean symbol from the search result and strip the exchange suffix (.NS / .BO)
-      let ticker = searchResults[0].symbol.replace(".NS", "").replace(".BO", "");
+      // If no valid stock ticker was found anywhere in this headline, skip it safely
+      if (!ticker) continue;
 
       // Calibrate prediction directions
       let prediction = "NEUTRAL";
@@ -362,7 +363,6 @@ async function yfMovers() {
         prediction = "UP";
       }
 
-      // Generate independent mathematical metrics for each separate listing
       const contentSalt = sanitizedHeadline.length + ticker.length + (isolatedPercentage || 0) + headlineIndex;
       const confidence = parseFloat(Math.min(75 + (matchedTriggers.length * 4) + (contentSalt % 12), 98.5).toFixed(1));
       
@@ -384,7 +384,7 @@ async function yfMovers() {
 
       let reasoning = "";
       if (prediction === "UP") {
-        reasoning = `Dynamic long setup matched for ${ticker}. Your search utility verified an active asset listing, supporting predictive volume acceleration via catalyst markers [${matchedTriggers.join(", ")}].`;
+        reasoning = `Dynamic long catalyst profile matched for ${ticker}. Your search utility verified an active asset listing, supporting predictive volume acceleration via catalyst markers [${matchedTriggers.join(", ")}].`;
       } else if (prediction === "DOWN") {
         reasoning = `Risk liquidation parameters active for ${ticker}. Negative text trends [${matchedTriggers.join(", ")}] align with short execution criteria across domestic equity order configurations.`;
       } else {
