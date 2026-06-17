@@ -536,18 +536,18 @@ async function loadTopMovers(forceRefresh) {
   var data = await yfMovers(forceRefresh);
   if (!data || data.length === 0) return;
 
-  // Mathematically extract the true leaders out of the entire 50 index components
+  // Mathematically compute the live session highlights right inside the browser
   var topGainers = [...data].sort((a, b) => b.changePct - a.changePct).slice(0, 3);
   var topLosers = [...data].sort((a, b) => a.changePct - b.changePct).slice(0, 3);
   var combinedMovers = [...topGainers, ...topLosers];
 
   var cardsHTML = "";
-  combinedMovers.forEach(function(s, idx) {
+  combinedMovers.forEach(function(s) {
     var isUp = s.changePct >= 0;
     var color = isUp ? "#00b06a" : "#ff3b30";
     var arrow = isUp ? "▲" : "▼";
     var tagText = isUp ? "TOP GAINER" : "TOP LOSER";
-    var tagBg = isUp ? "rgba(0,176,106,0.08)" : "rgba(255,59,48,0.08)";
+    var tagBg = isUp ? "rgba(0,176,106,0.06)" : "rgba(255,59,48,0.06)";
     
     cardsHTML += `
       <div class="mover-card" onclick="runAnalysis('${s.ticker}')" style="background:#111827; border:1px solid #1e293b; padding:12px; border-radius:10px; cursor:pointer; text-align:left; border-left:4px solid ${color};">
