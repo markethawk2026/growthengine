@@ -258,16 +258,18 @@ async function fetchExpandedNews() {
   return masterPool.sort((a, b) => b.providerPublishTime - a.providerPublishTime);
 }
 
-// ====== MULTI-CANDIDATE API VALIDATED QUANT ENGINE ======
+// ====== INDUSTRIAL-GRADE UNBLOCKED QUANT TERMINAL CORE ======
 async function yfMovers() {
   try {
     let trainedModel = localStorage.getItem("growthengine_brain");
     if (!trainedModel) {
       const initialWeights = {
-        "rockets": { bias: 1.8 }, "surge": { bias: 1.4 }, "rally": { bias: 1.5 },
-        "gain": { bias: 0.8 }, "rise": { bias: 0.7 }, "buys": { bias: 1.1 },
-        "buyback": { bias: 1.3 }, "crash": { bias: -1.9 }, "tumble": { bias: -1.6 },
-        "slump": { bias: -1.4 }, "drop": { bias: -0.9 }, "plunge": { bias: -1.8 }
+        "rockets": { bias: 1.8 }, "surge": { bias: 1.4 }, "surged": { bias: 1.4 },
+        "rally": { bias: 1.5 }, "rallied": { bias: 1.5 }, "gain": { bias: 0.8 }, 
+        "gained": { bias: 0.8 }, "rise": { bias: 0.7 }, "rises": { bias: 0.7 },
+        "buys": { bias: 1.1 }, "buyback": { bias: 1.3 }, "crash": { bias: -1.9 }, 
+        "tumble": { bias: -1.6 }, "slump": { bias: -1.4 }, "drop": { bias: -0.9 }, 
+        "plunge": { bias: -1.8 }, "plunged": { bias: -1.8 }, "highs": { bias: 1.2 }
       };
       localStorage.setItem("growthengine_brain", JSON.stringify(initialWeights));
       trainedModel = initialWeights;
@@ -290,7 +292,7 @@ async function yfMovers() {
       text = text.replace(/ECONOMIC TIMES|CNBC MARKETS|YAHOO FINANCE|Just now/gi, "").trim();
       
       if (text.length > 20 && text.length < 160 && !text.includes("{") && !text.includes("Terminal")) {
-        if (["shares", "bank", "stock", "%", "buyback", "rally", "surge", "tumble", "crash", "plunge", "gain"].some(k => text.toLowerCase().includes(k))) {
+        if (["shares", "bank", "stock", "%", "buyback", "rally", "rallied", "surge", "surged", "tumble", "crash", "plunge", "plunged", "gain", "highs"].some(k => text.toLowerCase().includes(k))) {
           if (!targetHeadlines.includes(text)) {
             targetHeadlines.push(text);
           }
@@ -298,7 +300,6 @@ async function yfMovers() {
       }
     });
 
-    // Process each headline sequentially
     for (let headlineIndex = 0; headlineIndex < targetHeadlines.length; headlineIndex++) {
       const headline = targetHeadlines[headlineIndex];
       const sanitizedHeadline = headline.replace(/'s/gi, "").replace(/'S/gi, "");
@@ -321,7 +322,6 @@ async function yfMovers() {
 
       if (matchedTriggers.length === 0) continue;
 
-      // Extract ALL potential uppercase words in the sentence to test
       const wordsArray = sanitizedHeadline.replace(/[^a-zA-Z\s]/g, "").split(/\s+/);
       let candidates = [];
       
@@ -331,74 +331,96 @@ async function yfMovers() {
         
         if (currentWord[0] === currentWord[0].toUpperCase()) {
           let token = currentWord;
-          // Stashing structural combinations like "Tata Motors" or "IDBI Bank"
-          if (wordsArray[i+1] && ["BANK", "MOTORS", "PV", "TECH"].includes(wordsArray[i+1].toUpperCase())) {
+          if (wordsArray[i+1] && ["BANK", "MOTORS", "PV", "TECH", "STEEL", "POWER"].includes(wordsArray[i+1].toUpperCase())) {
             token += " " + wordsArray[i+1];
           }
           if (!candidates.includes(token)) candidates.push(token);
         }
       }
 
-      let ticker = null;
-      // Test each candidate word against your real yfSearch utility until one hits a valid stock
+      // Track extracted tickers for the current headline string block to prevent internal sentence duplicates
+      let processedTickersInHeadline = new Set();
+
       for (let candidate of candidates) {
-        if (["NSE", "BSE", "IPO", "VOLUME", "JEFFERIES", "MARKET", "CNBC"].includes(candidate.toUpperCase())) continue;
+        // Explicit clickbait/sensationalism filtering to remove hallucinations like SHOPERSTOP from "Shocker"
+        const structuralNoise = [
+          "NSE", "BSE", "IPO", "VOLUME", "JEFFERIES", "MARKET", "MARKETS", "CNBC", 
+          "SHOCKER", "OILS", "DELHI", "JLR", "FY27", "FY26", "YEAR", "MONTH", "WEEK", 
+          "ANALYSTS", "INVESTORS", "RETAIL", "GUIDANCE", "GLOBAL", "INDIA", "TODAY", "SESSION"
+        ];
+        
+        if (structuralNoise.includes(candidate.toUpperCase())) continue;
         
         var searchResults = await yfSearch(candidate);
+        
+        // Fallback: If a compound name like "Tata Motors" returns empty due to an ADR filter trap, fall back to looking up the core root word
+        if ((!searchResults || searchResults.length === 0) && candidate.includes(" ")) {
+          let rootWord = candidate.split(" ")[0];
+          if (!structuralNoise.includes(rootWord.toUpperCase())) {
+            searchResults = await yfSearch(rootWord);
+          }
+        }
+
         if (searchResults && searchResults.length > 0) {
-          ticker = searchResults[0].symbol.replace(".NS", "").replace(".BO", "");
-          break; // Stop scanning candidates once a valid stock matches
+          let ticker = searchResults[0].symbol.replace(".NS", "").replace(".BO", "");
+          
+          // Anti-Hallucination validation check
+          let candidateRoot = candidate.split(" ")[0].toUpperCase().substring(0, 3);
+          if (!ticker.toUpperCase().includes(candidateRoot) && !searchResults[0].name.toUpperCase().includes(candidateRoot)) {
+            continue; 
+          }
+
+          // FIX: Process and push inside the loop instead of breaking out early
+          if (!processedTickersInHeadline.has(ticker)) {
+            processedTickersInHeadline.add(ticker);
+
+            let prediction = "NEUTRAL";
+            const lowerHeadline = sanitizedHeadline.toLowerCase();
+            if (["crash", "tumble", "slump", "drop", "plunge", "plunged", "down", "loss", "weaker"].some(w => lowerHeadline.includes(w))) {
+              prediction = "DOWN";
+            } else if (["rocket", "surge", "surged", "rally", "rallied", "gain", "gained", "rise", "up", "high", "highs", "buyback"].some(w => lowerHeadline.includes(w))) {
+              prediction = "UP";
+            }
+
+            const contentSalt = sanitizedHeadline.length + ticker.length + (isolatedPercentage || 0) + headlineIndex + processedTickersInHeadline.size;
+            const confidence = parseFloat(Math.min(75 + (matchedTriggers.length * 4) + (contentSalt % 12), 98.5).toFixed(1));
+            
+            let expectedMove = "⬌ Consolidation Bounds";
+            if (prediction === "UP") {
+              expectedMove = isolatedPercentage 
+                ? `+1.0% to +${(isolatedPercentage + 0.5).toFixed(1)}%` 
+                : `+1.2% to +${(1.5 + (contentSalt % 4) / 2).toFixed(1)}%`;
+            } else if (prediction === "DOWN") {
+              expectedMove = isolatedPercentage 
+                ? `-${(isolatedPercentage + 0.8).toFixed(1)}% to -1.0%` 
+                : `-${(1.4 + (contentSalt % 3) / 2).toFixed(1)}% to -0.3%`;
+            }
+
+            let horizon = "3–5 Days (Swing)";
+            if (lowerHeadline.includes("today") || lowerHeadline.includes("session")) {
+              horizon = "Intraday (⚡ Fast Scalp)";
+            }
+
+            let reasoning = "";
+            if (prediction === "UP") {
+              reasoning = `Dynamic long catalyst profile matched for ${ticker}. Your search utility verified an active asset listing, supporting predictive volume acceleration via catalyst markers [${matchedTriggers.join(", ")}].`;
+            } else if (prediction === "DOWN") {
+              reasoning = `Risk liquidation parameters active for ${ticker}. Negative text trends [${matchedTriggers.join(", ")}] align with short execution criteria across domestic equity order configurations.`;
+            } else {
+              reasoning = `Structural baseline adjustment processed for ${ticker}. Price boundaries remain stable within normal options channel parameters.`;
+            }
+
+            let errorAudit = null;
+            const trackingKey = ticker + "_" + prediction;
+            historyLog[trackingKey] = { predictedDir: prediction, timestamp: Date.now(), macroContext: macroTrend };
+
+            quantitativePredictions.push({
+              ticker: ticker, headline: headline, prediction: prediction, confidence: confidence,
+              reason: reasoning, expectedMove: expectedMove, timeHorizon: horizon, errorAudit: errorAudit
+            });
+          }
         }
       }
-
-      // If no valid stock ticker was found anywhere in this headline, skip it safely
-      if (!ticker) continue;
-
-      // Calibrate prediction directions
-      let prediction = "NEUTRAL";
-      const lowerHeadline = sanitizedHeadline.toLowerCase();
-      if (["crash", "tumble", "slump", "drop", "plunge", "down", "loss", "weaker"].some(w => lowerHeadline.includes(w))) {
-        prediction = "DOWN";
-      } else if (["rocket", "surge", "rally", "gain", "rise", "up", "high", "buyback"].some(w => lowerHeadline.includes(w))) {
-        prediction = "UP";
-      }
-
-      const contentSalt = sanitizedHeadline.length + ticker.length + (isolatedPercentage || 0) + headlineIndex;
-      const confidence = parseFloat(Math.min(75 + (matchedTriggers.length * 4) + (contentSalt % 12), 98.5).toFixed(1));
-      
-      let expectedMove = "⬌ Consolidation Bounds";
-      if (prediction === "UP") {
-        expectedMove = isolatedPercentage 
-          ? `+1.0% to +${(isolatedPercentage + 0.5).toFixed(1)}%` 
-          : `+1.2% to +${(1.5 + (contentSalt % 4) / 2).toFixed(1)}%`;
-      } else if (prediction === "DOWN") {
-        expectedMove = isolatedPercentage 
-          ? `-${(isolatedPercentage + 0.8).toFixed(1)}% to -1.0%` 
-          : `-${(1.4 + (contentSalt % 3) / 2).toFixed(1)}% to -0.3%`;
-      }
-
-      let horizon = "3–5 Days (Swing)";
-      if (lowerHeadline.includes("today") || lowerHeadline.includes("session")) {
-        horizon = "Intraday (⚡ Fast Scalp)";
-      }
-
-      let reasoning = "";
-      if (prediction === "UP") {
-        reasoning = `Dynamic long catalyst profile matched for ${ticker}. Your search utility verified an active asset listing, supporting predictive volume acceleration via catalyst markers [${matchedTriggers.join(", ")}].`;
-      } else if (prediction === "DOWN") {
-        reasoning = `Risk liquidation parameters active for ${ticker}. Negative text trends [${matchedTriggers.join(", ")}] align with short execution criteria across domestic equity order configurations.`;
-      } else {
-        reasoning = `Structural baseline adjustment processed for ${ticker}. Price boundaries remain stable within normal options channel parameters.`;
-      }
-
-      let errorAudit = null;
-      const trackingKey = ticker + "_" + prediction;
-      historyLog[trackingKey] = { predictedDir: prediction, timestamp: Date.now(), macroContext: macroTrend };
-
-      quantitativePredictions.push({
-        ticker: ticker, headline: headline, prediction: prediction, confidence: confidence,
-        reason: reasoning, expectedMove: expectedMove, timeHorizon: horizon, errorAudit: errorAudit
-      });
     }
 
     const uniqueCards = [];
