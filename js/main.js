@@ -533,26 +533,94 @@ async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
 
-  var data = await yfMovers();
-  
-  if (!data || data.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:15px; font-size:11px;">Fetching live NSE trends...</div>`;
-    return;
+  try {
+    // Dynamic component heading transformation
+    var headingElement = container.previousElementSibling;
+    if (headingElement) {
+      headingElement.innerHTML = `🤖 AI PREDICTIVE QUANT TERMINAL <span id="syncPulse" style="font-size:9px; background:rgba(168,85,247,0.1); color:#a855f7; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">NLP CONNECTED</span>`;
+    }
+
+    var dataPayload = await yfMovers();
+    
+    if (!dataPayload || dataPayload.length === 0) {
+      container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:25px; font-size:11px; font-family:monospace;">⚡ Initializing multi-keyword wire aggregates and mapping text schemas...</div>`;
+      return;
+    }
+
+    var compiledCards = "";
+    dataPayload.forEach(function(card) {
+      var colorStyle = "#a855f7"; 
+      var badgeBg = "rgba(168,85,247,0.06)";
+      if (card.prediction === "UP") { colorStyle = "#00b06a"; badgeBg = "rgba(0,176,106,0.06)"; }
+      if (card.prediction === "DOWN") { colorStyle = "#ff3b30"; badgeBg = "rgba(255,59,48,0.06)"; }
+
+      var cardMarkup = `
+        <div class="quant-card" style="background:#111827; border:1px solid #1e293b; padding:16px; border-radius:12px; margin-bottom:12px; text-align:left; border-top:4px solid ${colorStyle}; box-shadow:0 4px 6px -1px rgba(0,0,0,0.15);">
+          <div style="font-family:monospace; font-size:12px; line-height:1.6; color:#e2e8f0;">
+            <strong style="color:#94a3b8;">Ticker:</strong> <span style="color:#f8fafc; font-weight:800; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${card.ticker}</span><br>
+            <strong style="color:#94a3b8;">Headline:</strong> <span style="color:#cbd5e1; font-style:italic;">"${card.headline}"</span><br>
+            <strong style="color:#94a3b8;">Prediction:</strong> <span style="color:${colorStyle}; font-weight:900; background:${badgeBg}; padding:1px 6px; border-radius:4px; font-size:11px;">${card.prediction}</span><br>
+            <strong style="color:#94a3b8;">Confidence:</strong> <span style="color:#f59e0b; font-weight:700;">${card.confidence}%</span><br>
+            <strong style="color:#94a3b8;">Reason:</strong> <span style="color:#94a3b8; font-family:system-ui;">${card.reason}</span><br>
+            <strong style="color:#94a3b8;">Expected Move:</strong> <span style="color:${colorStyle}; font-weight:700;">${card.expectedMove}</span><br>
+            <strong style="color:#94a3b8;">Time Horizon:</strong> <span style="color:#38bdf8; font-weight:700;">${card.timeHorizon}</span>
+          </div>
+      `;
+
+      if (card.errorAudit) {
+        cardMarkup += `
+          <div class="error-correction-panel" style="background:rgba(239,68,68,0.02); border:1px dashed rgba(239,68,68,0.15); padding:10px; border-radius:8px; margin-top:12px; font-family:system-ui;">
+            <div style="font-size:9px; color:#ef4444; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">
+              ⚠️ AI Post-Mortem Audit & Self-Correction Log
+            </div>
+            <div style="font-size:11px; color:#cbd5e1; line-height:1.4; margin-bottom:4px;">
+              <strong>Divergence Detected:</strong> ${card.errorAudit.whyIncorrect}
+            </div>
+            <div style="font-size:11px; color:#94a3b8; line-height:1.4; margin-bottom:4px;">
+              <strong>Dominant Masking Factor:</strong> ${card.errorAudit.missingFactor}
+            </div>
+            <div style="font-size:10.5px; color:#ef4444; font-family:monospace; background:rgba(239,68,68,0.06); padding:4px 6px; border-radius:4px; margin-top:4px;">
+              <strong>Trained Learning:</strong> ${card.errorAudit.learning}
+            </div>
+          </div>
+        `;
+      }
+
+      cardMarkup += `</div>`;
+      compiledCards += cardMarkup;
+    });
+
+    container.innerHTML = compiledCards;
+
+  } catch (renderError) {
+    console.error("UI Deployment Execution Error:", renderError);
   }
+}
 
-  // Slice top 6 trending movers
-  var html = data.slice(0, 6).map(s => {
-    var isUp = s.changePct >= 0;
-    var color = isUp ? "#00b06a" : "#ff3b30";
-    return `
-      <div style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; border-left:3px solid ${color}; margin-bottom:5px;">
-        <div style="font-size:11px; color:#fff; font-weight:700;">${s.ticker}</div>
-        <div style="font-size:12px; color:${color}; font-weight:700;">₹${s.price.toFixed(2)} (${isUp ? '+' : ''}${s.changePct.toFixed(2)}%)</div>
-      </div>
-    `;
-  }).join("");
-
-  container.innerHTML = html;
+// ====== UNIFIED BACKGROUND AUTO-REFRESH ARCHITECTURE ======
+// Verify loop sequence prevents overlapping listeners or duplicate interval registrations
+if (!window.quantWireIntervalHooked) {
+  window.quantWireIntervalHooked = true;
+  
+  // Set up a silent automatic 3-minute heartbeat loop (180000 ms)
+  setInterval(async function() {
+    var pulse = document.getElementById("syncPulse");
+    if (pulse) {
+      pulse.innerText = "SYNCING WIRE...";
+      pulse.style.background = "rgba(245,158,11,0.1)";
+      pulse.style.color = "#f59e0b";
+    }
+    
+    // Execute the updated query matrix in the background layout
+    await loadTopMovers();
+    
+    pulse = document.getElementById("syncPulse");
+    if (pulse) {
+      pulse.innerText = "NLP LIVE SYNCED";
+      pulse.style.background = "rgba(0,176,106,0.1)";
+      pulse.style.color = "#00b06a";
+    }
+  }, 3 * 60 * 1000);
 }
 
 // ====================================================================
