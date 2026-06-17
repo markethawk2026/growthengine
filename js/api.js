@@ -213,78 +213,110 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// 100% DYNAMIC MARKET LIFELINE ENGINE (NO HARDCODING · NO LAYOUT FALLBACKS)
+// CHUNKED NIFTY 50 REAL-TIME SORTING MATRIX (NO HARDCODING)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   if (yfMovers.currentPromise) return yfMovers.currentPromise;
 
   yfMovers.currentPromise = (async () => {
-    try {
-      // 1. Fetch dynamic Nifty components directly from open registry source
-      var registryRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
-      if (!registryRes.ok) throw new Error("Index registry connection timed out.");
-      var registryData = await registryRes.json();
-      
-      var baseTickers = (Array.isArray(registryData) ? registryData : Object.keys(registryData))
-        .filter(Boolean)
-        .map(t => (typeof t === 'string' ? t : t.symbol || t.ticker).toUpperCase().trim())
-        .slice(0, 12); // Optimized slice prevents payload dropping over public circuits
+    const proxies = [
+      "https://corsproxy.io/?",
+      "https://api.allorigins.win/raw?url="
+    ];
 
-      var targetBasket = baseTickers.map(s => s + ".NS").join(",");
-      var queryUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${targetBasket}`;
-
-      // 2. High-performance proxy pipeline cloned from working index card system
-      var proxyCircuits = [
-        "https://corsproxy.io/?",
-        "https://api.allorigins.win/get?url="
-      ];
-      
-      var cleanQuotes = null;
-      for (var proxy of proxyCircuits) {
+    async function fetchChunkViaProxy(symbolsArray) {
+      const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsArray.join(",")}`;
+      for (let proxy of proxies) {
         try {
-          var res = await fetch(proxy + encodeURIComponent(queryUrl));
+          const res = await fetch(proxy + encodeURIComponent(targetUrl));
           if (!res.ok) continue;
-          var json = await res.json();
-          if (json && json.contents) json = JSON.parse(json.contents);
-          if (json && json.quoteResponse && json.quoteResponse.result) {
-            cleanQuotes = json.quoteResponse.result;
-            break;
+          let text = await res.text();
+          if (text.trim().startsWith('{')) {
+            const parsed = JSON.parse(text);
+            text = parsed.contents && typeof parsed.contents === 'string' ? parsed.contents : JSON.stringify(parsed.contents || parsed);
           }
-        } catch(e) { continue; }
+          const data = JSON.parse(text);
+          if (data?.quoteResponse?.result) return data.quoteResponse.result;
+        } catch (e) { continue; }
       }
-
-      if (!cleanQuotes || cleanQuotes.length === 0) throw new Error("Network data stream empty.");
-
-      // 3. Dynamic parameter calculator mapping for analyst layout loops
-      return cleanQuotes.map(stock => {
-        var ticker = stock.symbol.replace(".NS", "").toUpperCase();
-        var pct = stock.regularMarketChangePercent || 0;
-        var price = stock.regularMarketPrice || 0;
-        var volume = stock.regularMarketVolume || 0;
-
-        // Mathematical sector classification computed entirely on the fly
-        var analystSector = "BLUECHIP CORE";
-        if (volume > 4000000) analystSector = "HIGH LIQUIDITY";
-        else if (price > 2500) analystSector = "PREMIUM INDEX VALUE";
-        else if (pct > 1 || pct < -1) analystSector = "HIGH VELOCITY";
-
-        return {
-          ticker: ticker, symbol: ticker, name: stock.shortName || ticker,
-          price: price, regularMarketPrice: price,
-          changePct: pct, rawChangePct: pct,
-          volume: volume, sector: analystSector, industry: analystSector
-        };
-      });
-
-    } catch (globalCrash) {
-      console.error("❌ Live Data Synapse Error:", globalCrash.message);
       return [];
     }
-  })();
+
+  try {
+    console.log("📡 Downloading dynamic Nifty 50 component registry...");
+    const registryRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
+    if (!registryRes.ok) throw new Error("Registry network connection dropped.");
+    const currentRegistry = await registryRes.json();
+    
+    // Normalize and clean all ticker entries from source registry
+    const fullNseBasket = (Array.isArray(currentRegistry) ? currentRegistry : Object.keys(currentRegistry))
+      .filter(Boolean)
+      .map(item => `${String(item.symbol || item).trim().toUpperCase()}.NS`);
+
+    if (fullNseBasket.length === 0) throw new Error("Empty index registry array parsed.");
+
+    // CRITICAL OPERATION: Split into two light chunks under 25 elements to pass proxy bounds safely
+    const firstHalfSymbols = fullNseBasket.slice(0, 25);
+    const secondHalfSymbols = fullNseBasket.slice(25, 50);
+
+    console.log("⚡ Fetching multi-batch streaming quotes from parallel corridors...");
+    const [batch1, batch2] = await Promise.all([
+      fetchChunkViaProxy(firstHalfSymbols),
+      fetchChunkViaProxy(secondHalfSymbols)
+    ]);
+
+    const combinedQuotes = [...batch1, ...batch2];
+    if (combinedQuotes.length === 0) throw new Error("All proxy circuits returned empty metrics data.");
+
+    // Parse data floats safely for mathematical evaluation
+    const processedAssets = combinedQuotes.map(stock => {
+      const cleanTicker = stock.symbol.replace(".NS", "").toUpperCase();
+      const pct = stock.regularMarketChangePercent || 0;
+      const price = stock.regularMarketPrice || 0;
+      const vol = stock.regularMarketVolume || 0;
+
+      // Classify sectors dynamically on the fly based on pricing metrics
+      let dynamicSector = "INDEX VALUE CORE";
+      if (price > 4000) dynamicSector = "PREMIUM METRICS";
+      else if (price > 1500) dynamicSector = "LARGE CAP GROWTH";
+
+      return {
+        ticker: cleanTicker, symbol: cleanTicker, name: stock.shortName || cleanTicker,
+        price: price, regularMarketPrice: price,
+        changePct: pct, rawChangePct: pct,
+        volume: vol, sector: dynamicSector, industry: dynamicSector
+      };
+    });
+
+    // BROWSER-SIDE ANALYSIS ENGINE: Compute mathematical market leaders instantly
+    const dynamicGainers = [...processedAssets].sort((a, b) => b.rawChangePct - a.rawChangePct).slice(0, 2);
+    const dynamicLosers = [...processedAssets].sort((a, b) => a.rawChangePct - b.rawChangePct).slice(0, 2);
+    
+    // Grab the stock experiencing the largest raw intraday volatility swing
+    const dynamicActive = [...processedAssets]
+      .filter(x => !dynamicGainers.includes(x) && !dynamicLosers.includes(x))
+      .sort((a, b) => Math.abs(b.rawChangePct) - Math.abs(a.rawChangePct))
+      .slice(0, 1);
+
+    // Apply strict semantic UI markers to route them properly through main.js
+    dynamicGainers.forEach(x => { x.sector = "GAINERS"; x.category = "GAINERS"; });
+    dynamicLosers.forEach(x => { x.sector = "LOSERS"; x.category = "LOSERS"; });
+    dynamicActive.forEach(x => { x.sector = "HIGH MOMENTUM"; x.category = "MOST ACTIVE"; });
+
+    const finalIntegratedPayload = [...dynamicGainers, ...dynamicLosers, ...dynamicActive].slice(0, 5);
+    yfMovers.lastResults = finalIntegratedPayload;
+    return finalIntegratedPayload;
+
+  } catch (err) {
+    console.error("❌ High-Capacity Data Pipeline Interrupted:", err.message);
+    return yfMovers.lastResults || [];
+  }
+})();
 
   try { return await yfMovers.currentPromise; } finally { yfMovers.currentPromise = null; }
 }
 yfMovers.currentPromise = null;
+yfMovers.lastResults = null;
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
