@@ -231,90 +231,9 @@ async function loadNews(targetTicker) {
   }
 }
 
-// ====================================================================
-// 2. UNIFIED 4-QUADRANT TERMINAL DESK MATRIX (WITH PRECISION REFRESH)
-// ====================================================================
+// Comment out or neutralize loadTrend inside your script so it doesn't override the movers grid
 async function loadTrend(forceRefresh) {
-  var container = document.getElementById("moversBody") || document.getElementById("trendBody");
-  if (!container) return;
-
-  // Provide instant feedback that the click was registered
-  if (forceRefresh) {
-    container.style.opacity = "0.6";
-  }
-
-  var rawData = [];
-  var analyzerPool = [];
-  
-  window.GLOBAL_TOTAL_ADVANCES = 0;
-  window.GLOBAL_TOTAL_DECLINES = 0;
-  window.GLOBAL_NET_VOLUME_FLOW = 0;
-
-  if (typeof yfMovers === "function") {
-    try { 
-      // Passing the flag forces a clean network bypass where supported
-      var apiData = await yfMovers(forceRefresh); 
-      if (Array.isArray(apiData) && apiData.length > 0) {
-        var sectorMap = {};
-        
-        apiData.forEach(function(item) {
-          var rawSector = item.sector || item.industry || "GENERAL EQUITIES";
-          var sectorKey = String(rawSector).toUpperCase().replace(/ETF|BEES|NIFTY|INDEX/gi, "").trim();
-          if (!sectorKey) sectorKey = "GENERAL EQUITIES";
-          
-          var cleanTicker = String(item.ticker || item.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase().trim();
-          var rawChange = item.rawChangePct || parseFloat(String(item.changePct).replace(/[^0-9.-]/g, "")) || 0;
-          var rawVol = parseFloat(String(item.volume).replace(/[^0-9.]/g, "")) || 0.0;
-          var rawPrice = parseFloat(String(item.price || item.regularMarketPrice || "0").replace(/[^0-9.]/g, "")) || 0;
-          
-          window.GLOBAL_NET_VOLUME_FLOW += rawVol;
-          if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
-
-          if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
-            analyzerPool.push({
-              name: cleanTicker,
-              price: rawPrice,
-              changePct: rawChange,
-              volume: rawVol,
-              up: rawChange >= 0
-            });
-          }
-
-          if (!sectorMap[sectorKey]) {
-            sectorMap[sectorKey] = { 
-              name: sectorKey, count: 0, changeSum: 0, volSum: 0, advances: 0, declines: 0, leadTicker: cleanTicker 
-            };
-          }
-          
-          sectorMap[sectorKey].count++;
-          sectorMap[sectorKey].changeSum += rawChange;
-          sectorMap[sectorKey].volSum += rawVol;
-          if (rawChange >= 0) { sectorMap[sectorKey].advances++; } else { sectorMap[sectorKey].declines++; }
-        });
-
-        Object.keys(sectorMap).forEach(function(key) {
-          var sec = sectorMap[key];
-          var avgChange = sec.changeSum / sec.count;
-          var totalRanked = sec.advances + sec.declines || 1;
-          var advPct = Math.round((sec.advances / totalRanked) * 100);
-          
-          rawData.push({
-            sectorName: sec.name, targetTicker: sec.leadTicker, avgChangePct: (avgChange >= 0 ? "+" : "") + avgChange.toFixed(2) + "%",
-            rawChange: avgChange, flowVelocity: sec.volSum / sec.count > 0 ? parseFloat((1.0 + Math.min((sec.volSum / sec.count) / 1000000, 8.5)).toFixed(1)) : parseFloat((1.5 + (sec.count % 4) * 1.1).toFixed(1)),
-            advancesPct: advPct, declinesPct: 100 - advPct, advCount: sec.advances, decCount: sec.declines, bullishFlow: avgChange >= 0
-          });
-        });
-      }
-    } catch(e) { console.warn("Market analytics calculation deferred safely.", e); }
-  }
-
-  window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
-  window.INTRADAY_ANALYZER_POOL = analyzerPool;
-  
-  renderTrendUI();
-  
-  // Flash back to full visibility instantly once rendered
-  container.style.opacity = "1";
+  return;
 }
 
 function renderTrendUI() {
@@ -611,7 +530,7 @@ function processIndexPayload(quotes) {
 }
 
 // ====================================================================
-// 6. REAL-TIME MOMENTUM VELOCITY MATRIX (ANALYST WORKSPACE LAYER)
+// 6. REAL-TIME MOMENTUM MATRIX - DYNAMIC GAINERS & LOSERS GENERATOR
 // ====================================================================
 async function loadTopMovers(forceRefresh) {
   if (typeof yfMovers !== "function") return;
@@ -620,47 +539,64 @@ async function loadTopMovers(forceRefresh) {
   if (!container) return;
 
   try {
-    var marketData = await yfMovers(forceRefresh);
+    var fullMarketSnapshot = await yfMovers(forceRefresh);
     
-    if (!Array.isArray(marketData) || marketData.length === 0) {
-      container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:11px; font-weight:700;">⚠️ Synchronizing alternative data stream relays...</div>`;
+    if (!Array.isArray(fullMarketSnapshot) || fullMarketSnapshot.length === 0) {
+      container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 24px; font-size: 11px; font-weight: 700;">⚠️ Establishing live trading stream pathways...</div>`;
       return;
     }
 
-    // Mathematical momentum ranking computed dynamically in the browser
-    var macroVelocityAssets = [...marketData]
-      .sort((a, b) => Math.abs(b.rawChangePct) - Math.abs(a.rawChangePct))
-      .slice(0, 4);
+    // Mathematical browser-side sorting engine over all 50 components
+    var liveGainers = [...fullMarketSnapshot].sort((a, b) => b.changePct - a.changePct).slice(0, 3);
+    var liveLosers = [...fullMarketSnapshot].sort((a, b) => a.changePct - b.changePct).slice(0, 3);
 
-    var velocityHTML = "";
-    macroVelocityAssets.forEach(function(asset) {
-      var activeBull = asset.rawChangePct >= 0;
-      var labelColor = activeBull ? "#00b06a" : "#ff3b30";
-      var directionalMarker = activeBull ? "▲" : "▼";
-      var monetaryPrice = asset.price > 0 ? "₹" + asset.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
+    var matrixHTML = "";
 
-      velocityHTML += `
-        <div class="mover-card" onclick="runAnalysis('${asset.ticker}')" 
-             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; justify-content: space-between;"
+    // A. Generate Gainer Cards
+    liveGainers.forEach(function(stock) {
+      var displayPrice = stock.price > 0 ? "₹" + stock.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
+      matrixHTML += `
+        <div class="mover-card" onclick="runAnalysis('${stock.ticker}')" 
+             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.15s; border-left: 4px solid #00b06a;"
              onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateY(-1px)';" 
              onmouseout="this.style.borderColor='#1e293b'; this.style.transform='translateY(0px)';">
-          <div>
-            <div style="font-size: 11px; color: #f8fafc; font-weight: 800; letter-spacing: 0.3px;">${asset.ticker}</div>
-            <div style="font-size: 8px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 1px; letter-spacing:0.5px;">${asset.sector}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 800; color: #f8fafc; letter-spacing: 0.3px;">${stock.ticker}</span>
+            <span style="font-size: 8.5px; background: rgba(0,176,106,0.08); color: #00b06a; padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">GAINER</span>
           </div>
-          <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: baseline;">
-            <span style="font-size: 13px; font-family: monospace; font-weight: 800; color: #cbd5e1;">${monetaryPrice}</span>
-            <span style="font-size: 10.5px; color: ${labelColor}; font-weight: 800; font-family: monospace;">${directionalMarker} ${Math.abs(asset.rawChangePct).toFixed(2)}%</span>
+          <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline; font-family: monospace;">
+            <span style="font-size: 13px; font-weight: 800; color: #cbd5e1;">${displayPrice}</span>
+            <span style="font-size: 11px; color: #00b06a; font-weight: 800;">▲ +${stock.changePct.toFixed(2)}%</span>
           </div>
         </div>
       `;
     });
 
-    // Directly updates the grid layout container, stripping away the old processing loader row
-    container.innerHTML = velocityHTML;
+    // B. Generate Loser Cards
+    liveLosers.forEach(function(stock) {
+      var displayPrice = stock.price > 0 ? "₹" + stock.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
+      matrixHTML += `
+        <div class="mover-card" onclick="runAnalysis('${stock.ticker}')" 
+             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.15s; border-left: 4px solid #ff3b30;"
+             onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateY(-1px)';" 
+             onmouseout="this.style.borderColor='#1e293b'; this.style.transform='translateY(0px)';">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 800; color: #f8fafc; letter-spacing: 0.3px;">${stock.ticker}</span>
+            <span style="font-size: 8.5px; background: rgba(255,59,48,0.08); color: #ff3b30; padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">LOSER</span>
+          </div>
+          <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline; font-family: monospace;">
+            <span style="font-size: 13px; font-weight: 800; color: #cbd5e1;">${displayPrice}</span>
+            <span style="font-size: 11px; color: #ff3b30; font-weight: 800;">▼ ${stock.changePct.toFixed(2)}%</span>
+          </div>
+        </div>
+      `;
+    });
+
+    // Clean up placeholder row elements and replace with real-time grid
+    container.innerHTML = matrixHTML;
 
   } catch (err) {
-    console.error("Analyst Matrix rendering halted:", err);
+    console.error("Top Movers Display Exception:", err);
   }
 }
 
