@@ -217,70 +217,43 @@ async function yfMovers(forceRefresh) {
 
   yfMovers.currentPromise = (async () => {
     try {
-      // 1. Pull the 100% dynamic component index registry from GitHub
-      const regRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
-      if (!regRes.ok) throw new Error("Dynamic registry is currently offline.");
-      const tickers = await regRes.json();
-      
-      // 2. Map and encode each ticker individually to neutralize character bugs like 'M&M'
-      const symbols = tickers.map(t => {
-        const name = (typeof t === 'string' ? t : t.symbol || t.ticker || "").toUpperCase().trim();
-        return encodeURIComponent(name + ".NS");
-      }).filter(s => s && s !== ".NS");
+      // 1. URLs for Yahoo Finance's native live Indian gainers and losers trackers
+      const gainersUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=5&region=IN";
+      const losersUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_losers&count=5&region=IN";
 
-      // 3. Chunk the array into blocks of 15 dynamically to protect proxy bandwidth limits
-      const chunkSize = 15;
-      const chunks = [];
-      for (let i = 0; i < symbols.length; i += chunkSize) {
-        chunks.push(symbols.slice(i, i + chunkSize).join(","));
-      }
-
-      // 4. Parallel fetcher wrapper with automatic network failover routing
-      const fetchChunk = async (chunkString) => {
-        if (!chunkString) return [];
-        const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunkString}`;
-        
-        // Channel A: Fast raw JSON gateway
-        try {
-          const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.quoteResponse?.result) return data.quoteResponse.result;
-          }
-        } catch (e) {}
-
-        // Channel B: Fallback string wrapper gateway
+      const fetchCategory = async (targetUrl) => {
         try {
           const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-          if (res.ok) {
-            const json = await res.json();
-            if (json?.contents && json.contents.trim().startsWith("{")) {
-              const data = JSON.parse(json.contents);
-              return data?.quoteResponse?.result || [];
-            }
-          }
-        } catch (e) {}
-
-        return [];
+          if (!res.ok) return [];
+          const json = await res.json();
+          
+          if (!json?.contents || !json.contents.trim().startsWith("{")) return [];
+          const data = JSON.parse(json.contents);
+          
+          return data?.finance?.result?.[0]?.quotes || [];
+        } catch (e) {
+          return [];
+        }
       };
 
-      // 5. Execute all dynamic batch slices concurrently
-      const results = await Promise.all(chunks.map(fetchChunk));
-      const combinedQuotes = results.flat();
+      // 2. Concurrently fetch live top gainers and losers arrays
+      const [gainersRaw, losersRaw] = await Promise.all([
+        fetchCategory(gainersUrl),
+        fetchCategory(losersUrl)
+      ]);
 
-      if (!combinedQuotes || combinedQuotes.length === 0) {
-        throw new Error("Network gateways timed out returning dataset chunks.");
-      }
+      const combinedQuotes = [...gainersRaw, ...losersRaw];
+      if (combinedQuotes.length === 0) return [];
 
-      // Decode the encoded values back into clean ticker text for your UI layout
+      // 3. Map values cleanly for your dashboard cards
       return combinedQuotes.map(q => ({
-        ticker: decodeURIComponent(q.symbol).replace(".NS", ""),
+        ticker: q.symbol.replace(".NS", ""),
         price: q.regularMarketPrice || 0,
         changePct: q.regularMarketChangePercent || 0
       }));
 
     } catch (e) {
-      console.error("Dynamic Pipeline Process Failure:", e.message);
+      console.error("Dynamic stream failure:", e);
       return [];
     }
   })();
@@ -288,7 +261,6 @@ async function yfMovers(forceRefresh) {
   try { return await yfMovers.currentPromise; } finally { yfMovers.currentPromise = null; }
 }
 yfMovers.currentPromise = null;
-
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
