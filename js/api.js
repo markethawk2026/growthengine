@@ -213,74 +213,72 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// 100% DYNAMIC REAL-TIME NSE MARKET SYNAPSE (ZERO HARDCODED VALUES)
+// 100% DYNAMIC MARKET LIFELINE ENGINE (NO HARDCODING · NO LAYOUT FALLBACKS)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   if (yfMovers.currentPromise) return yfMovers.currentPromise;
 
   yfMovers.currentPromise = (async () => {
-    const proxyCorridors = [
-      "https://api.allorigins.win/raw?url=",
-      "https://corsproxy.io/?url="
-    ];
-
-    async function fetchJsonViaProxy(targetUrl) {
-      for (let proxy of proxyCorridors) {
-        try {
-          const res = await fetch(proxy + encodeURIComponent(targetUrl));
-          if (!res.ok) continue;
-          let text = await res.text();
-          if (text.trim().startsWith('{')) {
-            const parsed = JSON.parse(text);
-            text = parsed.contents && typeof parsed.contents === 'string' ? parsed.contents : JSON.stringify(parsed.contents || parsed);
-          }
-          return JSON.parse(text);
-        } catch (e) { continue; }
-      }
-      return null;
-    }
-
     try {
-      console.log("📡 Querying open-source index registry for dynamic components...");
-      const registryRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
-      if (!registryRes.ok) throw new Error("Registry connection dropped.");
-      const currentRegistry = await registryRes.json();
+      // 1. Fetch dynamic Nifty components directly from open registry source
+      var registryRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
+      if (!registryRes.ok) throw new Error("Index registry connection timed out.");
+      var registryData = await registryRes.json();
       
-      // Dynamically extract and slice symbols to optimize header network load sizes
-      const activeSymbols = currentRegistry
-        .slice(0, 15)
-        .map(item => `${String(item.symbol || item).trim().toUpperCase()}.NS`);
+      var baseTickers = (Array.isArray(registryData) ? registryData : Object.keys(registryData))
+        .filter(Boolean)
+        .map(t => (typeof t === 'string' ? t : t.symbol || t.ticker).toUpperCase().trim())
+        .slice(0, 12); // Optimized slice prevents payload dropping over public circuits
 
-      console.log(`📊 Streaming real-time data metrics for ${activeSymbols.length} dynamic registry assets...`);
-      const queryUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${activeSymbols.join(",")}`;
-      const payload = await fetchJsonViaProxy(queryUrl);
-      const quotes = payload?.quoteResponse?.result || [];
+      var targetBasket = baseTickers.map(s => s + ".NS").join(",");
+      var queryUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${targetBasket}`;
 
-      if (!Array.isArray(quotes) || quotes.length === 0) throw new Error("Empty data stream profile.");
+      // 2. High-performance proxy pipeline cloned from working index card system
+      var proxyCircuits = [
+        "https://corsproxy.io/?",
+        "https://api.allorigins.win/get?url="
+      ];
+      
+      var cleanQuotes = null;
+      for (var proxy of proxyCircuits) {
+        try {
+          var res = await fetch(proxy + encodeURIComponent(queryUrl));
+          if (!res.ok) continue;
+          var json = await res.json();
+          if (json && json.contents) json = JSON.parse(json.contents);
+          if (json && json.quoteResponse && json.quoteResponse.result) {
+            cleanQuotes = json.quoteResponse.result;
+            break;
+          }
+        } catch(e) { continue; }
+      }
 
-      return quotes.map(stock => {
-        const cleanTicker = stock.symbol.replace(".NS", "").toUpperCase();
-        const pct = stock.regularMarketChangePercent || 0;
-        const price = stock.regularMarketPrice || 0;
-        const vol = stock.regularMarketVolume || 0;
+      if (!cleanQuotes || cleanQuotes.length === 0) throw new Error("Network data stream empty.");
 
-        // Auto-assign sector markers dynamically based on trading price bounds to create real UI flow groups
-        let inferredSector = "BLUECHIP ALPHA";
-        if (price > 3000) inferredSector = "PREMIUM INFRA";
-        else if (price > 1000) inferredSector = "TECH & GROWTH";
+      // 3. Dynamic parameter calculator mapping for analyst layout loops
+      return cleanQuotes.map(stock => {
+        var ticker = stock.symbol.replace(".NS", "").toUpperCase();
+        var pct = stock.regularMarketChangePercent || 0;
+        var price = stock.regularMarketPrice || 0;
+        var volume = stock.regularMarketVolume || 0;
+
+        // Mathematical sector classification computed entirely on the fly
+        var analystSector = "BLUECHIP CORE";
+        if (volume > 4000000) analystSector = "HIGH LIQUIDITY";
+        else if (price > 2500) analystSector = "PREMIUM INDEX VALUE";
+        else if (pct > 1 || pct < -1) analystSector = "HIGH VELOCITY";
 
         return {
-          ticker: cleanTicker, symbol: cleanTicker,
-          price, regularMarketPrice: price,
+          ticker: ticker, symbol: ticker, name: stock.shortName || ticker,
+          price: price, regularMarketPrice: price,
           changePct: pct, rawChangePct: pct,
-          volume: vol,
-          sector: inferredSector, industry: inferredSector
+          volume: volume, sector: analystSector, industry: analystSector
         };
       });
 
-    } catch (err) {
-      console.error("❌ Pure Dynamic Stream Interrupted:", err.message);
-      return []; // Return clean empty collection to prevent component layout hangs
+    } catch (globalCrash) {
+      console.error("❌ Live Data Synapse Error:", globalCrash.message);
+      return [];
     }
   })();
 
