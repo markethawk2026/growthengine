@@ -212,69 +212,43 @@ async function yfNews(q) {
   return masterArticles.slice(0, 30);
 }
 
-// ====================================================================
-// 100% DYNAMIC NIFTY 50 REAL-TIME EXCHANGE BRIDGE (ZERO HARDCODING)
-// ====================================================================
 async function yfMovers(forceRefresh) {
   if (yfMovers.currentPromise) return yfMovers.currentPromise;
 
   yfMovers.currentPromise = (async () => {
-    const proxyGateways = [
-      "https://api.allorigins.win/raw?url=",
-      "https://corsproxy.io/?url="
-    ];
-
-    async function fetchPayload(targetUrl) {
-      for (let proxy of proxyGateways) {
-        try {
-          const res = await fetch(proxy + encodeURIComponent(targetUrl));
-          if (!res.ok) continue;
-          let text = await res.text();
-          if (text.trim().startsWith('{')) {
-            const parsed = JSON.parse(text);
-            text = parsed.contents && typeof parsed.contents === 'string' ? parsed.contents : JSON.stringify(parsed.contents || parsed);
-          }
-          const parsedJson = JSON.parse(text);
-          if (parsedJson?.quoteResponse?.result) return parsedJson.quoteResponse.result;
-        } catch (e) {
-          continue;
-        }
-      }
-      return null;
-    }
-
     try {
-      // 1. Grab the 100% dynamic Nifty 50 component index array
-      const registryRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
-      if (!registryRes.ok) throw new Error("Index registry configuration offline.");
-      const registryData = await registryRes.json();
-      
-      const cleanSymbols = (Array.isArray(registryData) ? registryData : Object.keys(registryData))
-        .filter(Boolean)
-        .map(t => (typeof t === 'string' ? t : t.symbol || t.ticker).toUpperCase().trim() + ".NS");
+      // 1. Fetch the complete Nifty 50 component registry
+      const regRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
+      const tickers = await regRes.json();
+      const symbols = tickers.slice(0, 50).map(t => (t.symbol || t).toUpperCase() + ".NS");
 
-      // 2. Query all 50 active quotes in a single network transaction
-      const queryUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${cleanSymbols.join(",")}`;
-      const assetQuotes = await fetchPayload(queryUrl);
+      // 2. Split into two parallel chunks of 25 to breeze past proxy limitations safely
+      const chunk1 = symbols.slice(0, 25).join(",");
+      const chunk2 = symbols.slice(25, 50).join(",");
 
-      if (!Array.isArray(assetQuotes) || assetQuotes.length === 0) {
-        throw new Error("Proxy infrastructure returned an empty collection.");
-      }
+      const fetchChunk = async (chunkString) => {
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunkString}`;
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        const json = await res.json();
+        const data = JSON.parse(json.contents);
+        return data?.quoteResponse?.result || [];
+      };
 
-      // 3. Map values to raw numbers for client-side sorting
-      return assetQuotes.map(q => {
-        const ticker = q.symbol.replace(".NS", "").toUpperCase();
-        return {
-          ticker: ticker,
-          name: q.shortName || ticker,
-          price: q.regularMarketPrice || 0,
-          changePct: q.regularMarketChangePercent || 0,
-          volume: q.regularMarketVolume || 0
-        };
-      });
+      // 3. Fire requests concurrently
+      const [batch1, batch2] = await Promise.all([
+        fetchChunk(chunk1),
+        fetchChunk(chunk2)
+      ]);
 
-    } catch (err) {
-      console.error("❌ Live Data Engine synchronization failure:", err.message);
+      const combinedQuotes = [...batch1, ...batch2];
+
+      return combinedQuotes.map(q => ({
+        ticker: q.symbol.replace(".NS", ""),
+        price: q.regularMarketPrice || 0,
+        changePct: q.regularMarketChangePercent || 0
+      }));
+    } catch (e) {
+      console.error("Error processing full Nifty 50 data matrix:", e);
       return [];
     }
   })();
