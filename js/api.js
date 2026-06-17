@@ -217,17 +217,16 @@ async function yfMovers(forceRefresh) {
 
   yfMovers.currentPromise = (async () => {
     try {
-      // Direct call to Yahoo's official India Trending endpoint
-      const targetUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
+      // Direct screener link for Indian Active stocks
+      const targetUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives&count=10&region=IN&lang=en-IN";
+      
       const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+      if (!res.ok) throw new Error("Proxy connection failed");
       
-      if (!res.ok) throw new Error("Connection failed");
       const json = await res.json();
-      
-      if (!json?.contents) return [];
       const data = JSON.parse(json.contents);
       
-      // Extract the dynamic list of quotes
+      // Navigate the screener result tree to reach the quote array
       const quotes = data?.finance?.result?.[0]?.quotes || [];
       
       return quotes
@@ -239,7 +238,7 @@ async function yfMovers(forceRefresh) {
         }));
 
     } catch (e) {
-      console.error("Pipeline failure:", e);
+      console.error("API Pipeline Error:", e);
       return [];
     }
   })();
@@ -247,6 +246,7 @@ async function yfMovers(forceRefresh) {
   try { return await yfMovers.currentPromise; } finally { yfMovers.currentPromise = null; }
 }
 yfMovers.currentPromise = null;
+
 
 
 function parseDynamicMoverItem(sym, q) {
