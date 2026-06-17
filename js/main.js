@@ -536,11 +536,11 @@ async function loadTopMovers(forceRefresh) {
   var data = await yfMovers(forceRefresh);
   
   if (!data || data.length === 0) {
-    container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:12px;">⚠️ Connecting to live NSE stream components...</div>`;
+    container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:12px;">⚠️ Awaiting live NSE data channel feed...</div>`;
     return;
   }
 
-  // Sort out top 3 gainers and top 3 losers dynamically inside the client engine
+  // Extract the top 3 performing gainers and top 3 losers dynamically inside the user's browser
   var topGainers = data.filter(s => s.changePct >= 0).sort((a, b) => b.changePct - a.changePct).slice(0, 3);
   var topLosers = data.filter(s => s.changePct < 0).sort((a, b) => a.changePct - b.changePct).slice(0, 3);
   var dynamicMovers = [...topGainers, ...topLosers];
