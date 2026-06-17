@@ -548,63 +548,40 @@ async function loadTopMovers() {
     }
 
     var compiledAccordionHTML = "";
-    
-    dataPayload.forEach(function(card, index) {
-      var colorStyle = "#a855f7"; 
-      var badgeBg = "rgba(168,85,247,0.06)";
-      if (card.prediction === "UP") { colorStyle = "#00b06a"; badgeBg = "rgba(0,176,106,0.06)"; }
-      if (card.prediction === "DOWN") { colorStyle = "#ff3b30"; badgeBg = "rgba(255,59,48,0.06)"; }
 
-      // Corrected: Enforce a single stable string compilation variable per loop iteration
-      var cardMarkup = `
-        <div class="quant-accordion-item" style="background:#111827; border:1px solid #1e293b; border-radius:8px; margin-bottom:8px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-          
-          <div class="accordion-header" onclick="toggleQuantAccordion(${index})" style="padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; background:#111827; border-left:4px solid ${colorStyle}; transition:background 0.2s;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#111827'">
-            <div style="display:flex; align-items:center; gap:10px; width:100%; justify-content:space-between; padding-right:10px;">
-              <span style="font-family:monospace; font-size:13px; color:#f8fafc; font-weight:800; letter-spacing:0.5px;">${card.ticker}</span>
-              <span style="font-family:monospace; color:${colorStyle}; font-weight:900; background:${badgeBg}; padding:2px 8px; border-radius:4px; font-size:10px; letter-spacing:0.3px;">PREDICTIVE ${card.prediction}</span>
-              <span style="font-family:monospace; font-size:11px; color:#f59e0b; font-weight:700; margin-left:auto; margin-right:15px;">Confidence: ${card.confidence}%</span>
-            </div>
-            <span id="accordion-arrow-${index}" style="color:#64748b; font-size:11px;">➕</span>
-          </div>
+dataPayload.forEach(function(card, index) {
+  var colorStyle = "#a855f7"; 
+  var badgeBg = "rgba(168,85,247,0.06)";
+  if (card.prediction === "UP") { colorStyle = "#00b06a"; badgeBg = "rgba(0,176,106,0.06)"; }
+  if (card.prediction === "DOWN") { colorStyle = "#ff3b30"; badgeBg = "rgba(255,59,48,0.06)"; }
 
-          <div id="accordion-body-${index}" style="display:none; padding:16px; border-top:1px solid #1e293b; background:rgba(15,23,42,0.4); font-family:monospace; font-size:12px; line-height:1.6; color:#e2e8f0;">
-            <strong style="color:#94a3b8;">Headline:</strong> <span style="color:#cbd5e1; font-style:italic;">"${card.headline}"</span><br>
-            <strong style="color:#94a3b8;">Prediction:</strong> <span style="color:${colorStyle}; font-weight:900;">${card.prediction}</span><br>
-            <strong style="color:#94a3b8;">Confidence:</strong> <span style="color:#f59e0b; font-weight:700;">${card.confidence}%</span><br>
-            <strong style="color:#94a3b8;">Reason:</strong> <span style="color:#94a3b8; font-family:system-ui;">${card.reason}</span><br>
-            <strong style="color:#94a3b8;">Expected Move:</strong> <span style="color:${colorStyle}; font-weight:700;">${card.expectedMove}</span><br>
-            <strong style="color:#94a3b8;">Time Horizon:</strong> <span style="color:#38bdf8; font-weight:700;">${card.timeHorizon}</span>
-      `;
-
-      if (card.errorAudit) {
-        cardMarkup += `
-          <div class="error-correction-panel" style="background:rgba(239,68,68,0.02); border:1px dashed rgba(239,68,68,0.15); padding:10px; border-radius:8px; margin-top:12px; font-family:system-ui;">
-            <div style="font-size:9px; color:#ef4444; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">
-              ⚠️ AI Post-Mortem Audit & Self-Correction Log
-            </div>
-            <div style="font-size:11px; color:#cbd5e1; line-height:1.4; margin-bottom:4px;">
-              <strong>Divergence Detected:</strong> ${card.errorAudit.whyIncorrect}
-            </div>
-            <div style="font-size:11px; color:#94a3b8; line-height:1.4; margin-bottom:4px;">
-              <strong>Dominant Masking Factor:</strong> ${card.errorAudit.missingFactor}
-            </div>
-            <div style="font-size:10.5px; color:#ef4444; font-family:monospace; background:rgba(239,68,68,0.06); padding:4px 6px; border-radius:4px; margin-top:4px;">
-              <strong>Trained Learning:</strong> ${card.errorAudit.learning}
-            </div>
-          </div>
-        `;
-      }
-
-      cardMarkup += `
-          </div>
+  // Unified loop block updates cardMarkup directly
+  var cardMarkup = `
+    <div class="quant-accordion-item" style="background:#111827; border:1px solid #1e293b; border-radius:8px; margin-bottom:8px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-align:left;">
+      <div class="accordion-header" onclick="toggleQuantAccordion(${index})" style="padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; background:#111827; border-left:4px solid ${colorStyle}; transition:background 0.2s;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#111827'">
+        <div style="display:flex; align-items:center; gap:10px; width:100%; justify-content:space-between; padding-right:10px;">
+          <span style="font-family:monospace; font-size:13px; color:#f8fafc; font-weight:800; letter-spacing:0.5px;">${card.ticker}</span>
+          <span style="font-family:monospace; color:${colorStyle}; font-weight:900; background:${badgeBg}; padding:2px 8px; border-radius:4px; font-size:10px;">PREDICTIVE ${card.prediction}</span>
+          <span style="font-family:monospace; font-size:11px; color:#f59e0b; font-weight:700; margin-left:auto; margin-right:15px;">Confidence: ${card.confidence}%</span>
         </div>
-      `;
-      
-      compiledAccordionHTML += cardMarkup;
-    });
+        <span id="accordion-arrow-${index}" style="color:#64748b; font-size:11px;">➕</span>
+      </div>
+      <div id="accordion-body-${index}" style="display:none; padding:16px; border-top:1px solid #1e293b; background:rgba(15,23,42,0.4); font-family:monospace; font-size:12px; line-height:1.6; color:#e2e8f0;">
+        <strong style="color:#94a3b8;">Headline:</strong> <span style="color:#cbd5e1; font-style:italic;">"${card.headline}"</span><br>
+        <strong style="color:#94a3b8;">Prediction:</strong> <span style="color:${colorStyle}; font-weight:900;">${card.prediction}</span><br>
+        <strong style="color:#94a3b8;">Confidence:</strong> <span style="color:#f59e0b; font-weight:700;">${card.confidence}%</span><br>
+        <strong style="color:#94a3b8;">Reason:</strong> <span style="color:#94a3b8; font-family:system-ui;">${card.reason}</span><br>
+        <strong style="color:#94a3b8;">Expected Move:</strong> <span style="color:${colorStyle}; font-weight:700;">${card.expectedMove}</span><br>
+        <strong style="color:#94a3b8;">Time Horizon:</strong> <span style="color:#38bdf8; font-weight:700;">${card.timeHorizon}</span>
+      </div>
+    </div>
+  `;
+  
+  compiledAccordionHTML += cardMarkup;
+});
 
-    container.innerHTML = compiledAccordionHTML;
+container.innerHTML = compiledAccordionHTML;
+   
 
   } catch (renderError) {
     console.error("UI Deployment Execution Error:", renderError);
