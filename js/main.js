@@ -610,43 +610,60 @@ function processIndexPayload(quotes) {
   });
 }
 
+// ====================================================================
+// 6. REAL-TIME MARKET VELOCITY ENGINE (DIRECT LAYOUT INJECTION)
+// ====================================================================
 async function loadTopMovers(forceRefresh) {
   if (typeof yfMovers !== "function") return;
   
+  // Directly grab your template element container
+  var container = document.getElementById("trendBody");
+  if (!container) return;
+
   try {
-    var apiData = await yfMovers(forceRefresh);
-    var container = document.getElementById("trendBody"); // Target your specific HTML ID
+    var rawDataStream = await yfMovers(forceRefresh);
     
-    if (!container || !Array.isArray(apiData) || apiData.length === 0) {
-      if (container) container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">No active assets found</td></tr>';
+    if (!Array.isArray(rawDataStream) || rawDataStream.length === 0) {
+      container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 20px; font-size: 12px; font-weight: 600;">⚠️ Establishing secure data channel proxies...</div>`;
       return;
     }
 
-    // Inside js/main.js, replace the rowsHTML loop with this:
-var rowsHTML = '';
-apiData.forEach(function(s) {
-  var color = (s.changePct >= 0) ? "#00b06a" : "#ff3b30";
-  
-  rowsHTML += `
-    <div onclick="runAnalysis('${s.ticker}')" style="background: #111827; border: 1px solid #1e293b; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <div>
-        <div style="font-weight: 800; color: #f8fafc; font-size: 13px;">${s.ticker}</div>
-        <div style="font-size: 10px; color: #94a3b8;">${s.category}</div>
-      </div>
-      <div style="text-align: right;">
-        <div style="font-family: monospace; color: #cbd5e1; font-weight: 700;">${s.price}</div>
-        <div style="color: ${color}; font-size: 11px; font-weight: 700;">${s.changePct}%</div>
-      </div>
-    </div>
-  `;
-});
-container.innerHTML = rowsHTML;
-    
-  } catch (err) {
-    console.error("Top Movers Render Error:", err);
+    // Sort the registry basket dynamically to isolate market momentum highlights
+    var dynamicPerformers = [...rawDataStream]
+      .sort((a, b) => b.rawChangePct - a.rawChangePct)
+      .slice(0, 4);
+
+    var velocityHTML = "";
+    dynamicPerformers.forEach(function(stock) {
+      var isPositive = stock.rawChangePct >= 0;
+      var signalColor = isPositive ? "#00b06a" : "#ff3b30";
+      var directionalArrow = isPositive ? "▲" : "▼";
+      var localizedPrice = stock.price > 0 ? "₹" + stock.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
+
+      velocityHTML += `
+        <div class="mover-card" onclick="runAnalysis('${stock.ticker}')" 
+             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; justify-content: space-between;"
+             onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateY(-1px)';" 
+             onmouseout="this.style.borderColor='#1e293b'; this.style.transform='translateY(0px)';">
+          <div>
+            <div style="font-size: 11px; color: #f8fafc; font-weight: 800; letter-spacing: 0.4px;">${stock.ticker}</div>
+            <div style="font-size: 8.5px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 1px;">${stock.sector}</div>
+          </div>
+          <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline;">
+            <span style="font-size: 13px; font-family: monospace; font-weight: 800; color: #cbd5e1;">${localizedPrice}</span>
+            <span style="font-size: 10.5px; color: ${signalColor}; font-weight: 700; font-family: monospace;">${directionalArrow} ${Math.abs(stock.rawChangePct).toFixed(2)}%</span>
+          </div>
+        </div>
+      `;
+    });
+
+    // Instantly purge the "Processing..." state and inject the dynamic grid
+    container.innerHTML = velocityHTML;
+
+  } catch (renderError) {
+    console.error("Velocity Render Matrix crash caught:", renderError);
   }
 }
-
 
 // ====================================================================
 // 3. INDEX CARD GRAPHICS ENGINE & INJECTOR INTERCEPTOR 
