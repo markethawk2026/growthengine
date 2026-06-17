@@ -529,75 +529,39 @@ function processIndexPayload(quotes) {
   });
 }
 
-// ====================================================================
-// 6. REAL-TIME MOMENTUM MATRIX - DYNAMIC GAINERS & LOSERS GENERATOR
-// ====================================================================
 async function loadTopMovers(forceRefresh) {
-  if (typeof yfMovers !== "function") return;
-  
   var container = document.getElementById("trendBody");
   if (!container) return;
 
-  try {
-    var fullMarketSnapshot = await yfMovers(forceRefresh);
+  var data = await yfMovers(forceRefresh);
+  if (!data || data.length === 0) return;
+
+  // Mathematically extract the true leaders out of the entire 50 index components
+  var topGainers = [...data].sort((a, b) => b.changePct - a.changePct).slice(0, 3);
+  var topLosers = [...data].sort((a, b) => a.changePct - b.changePct).slice(0, 3);
+  var combinedMovers = [...topGainers, ...topLosers];
+
+  var cardsHTML = "";
+  combinedMovers.forEach(function(s, idx) {
+    var isUp = s.changePct >= 0;
+    var color = isUp ? "#00b06a" : "#ff3b30";
+    var arrow = isUp ? "▲" : "▼";
+    var tagText = isUp ? "TOP GAINER" : "TOP LOSER";
+    var tagBg = isUp ? "rgba(0,176,106,0.08)" : "rgba(255,59,48,0.08)";
     
-    if (!Array.isArray(fullMarketSnapshot) || fullMarketSnapshot.length === 0) {
-      container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 24px; font-size: 11px; font-weight: 700;">⚠️ Establishing live trading stream pathways...</div>`;
-      return;
-    }
-
-    // Mathematical browser-side sorting engine over all 50 components
-    var liveGainers = [...fullMarketSnapshot].sort((a, b) => b.changePct - a.changePct).slice(0, 3);
-    var liveLosers = [...fullMarketSnapshot].sort((a, b) => a.changePct - b.changePct).slice(0, 3);
-
-    var matrixHTML = "";
-
-    // A. Generate Gainer Cards
-    liveGainers.forEach(function(stock) {
-      var displayPrice = stock.price > 0 ? "₹" + stock.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
-      matrixHTML += `
-        <div class="mover-card" onclick="runAnalysis('${stock.ticker}')" 
-             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.15s; border-left: 4px solid #00b06a;"
-             onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateY(-1px)';" 
-             onmouseout="this.style.borderColor='#1e293b'; this.style.transform='translateY(0px)';">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 12px; font-weight: 800; color: #f8fafc; letter-spacing: 0.3px;">${stock.ticker}</span>
-            <span style="font-size: 8.5px; background: rgba(0,176,106,0.08); color: #00b06a; padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">GAINER</span>
-          </div>
-          <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline; font-family: monospace;">
-            <span style="font-size: 13px; font-weight: 800; color: #cbd5e1;">${displayPrice}</span>
-            <span style="font-size: 11px; color: #00b06a; font-weight: 800;">▲ +${stock.changePct.toFixed(2)}%</span>
-          </div>
+    cardsHTML += `
+      <div class="mover-card" onclick="runAnalysis('${s.ticker}')" style="background:#111827; border:1px solid #1e293b; padding:12px; border-radius:10px; cursor:pointer; text-align:left; border-left:4px solid ${color};">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11px; color:#94a3b8; font-weight:700;">${s.ticker}</span>
+          <span style="font-size:8.5px; background:${tagBg}; color:${color}; padding:2px 6px; border-radius:4px; font-weight:800; letter-spacing:0.3px;">${tagText}</span>
         </div>
-      `;
-    });
+        <div style="font-size:14px; font-weight:800; color:#f8fafc; margin:6px 0 4px 0; font-family:monospace;">₹${s.price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+        <div style="font-size:11px; color:${color}; font-weight:700; font-family:monospace;">${arrow} ${isUp ? '+' : ''}${s.changePct.toFixed(2)}%</div>
+      </div>
+    `;
+  });
 
-    // B. Generate Loser Cards
-    liveLosers.forEach(function(stock) {
-      var displayPrice = stock.price > 0 ? "₹" + stock.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
-      matrixHTML += `
-        <div class="mover-card" onclick="runAnalysis('${stock.ticker}')" 
-             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.15s; border-left: 4px solid #ff3b30;"
-             onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateY(-1px)';" 
-             onmouseout="this.style.borderColor='#1e293b'; this.style.transform='translateY(0px)';">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 12px; font-weight: 800; color: #f8fafc; letter-spacing: 0.3px;">${stock.ticker}</span>
-            <span style="font-size: 8.5px; background: rgba(255,59,48,0.08); color: #ff3b30; padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">LOSER</span>
-          </div>
-          <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline; font-family: monospace;">
-            <span style="font-size: 13px; font-weight: 800; color: #cbd5e1;">${displayPrice}</span>
-            <span style="font-size: 11px; color: #ff3b30; font-weight: 800;">▼ ${stock.changePct.toFixed(2)}%</span>
-          </div>
-        </div>
-      `;
-    });
-
-    // Clean up placeholder row elements and replace with real-time grid
-    container.innerHTML = matrixHTML;
-
-  } catch (err) {
-    console.error("Top Movers Display Exception:", err);
-  }
+  container.innerHTML = cardsHTML;
 }
 
 // ====================================================================
