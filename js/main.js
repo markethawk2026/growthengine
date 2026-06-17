@@ -611,57 +611,56 @@ function processIndexPayload(quotes) {
 }
 
 // ====================================================================
-// 6. REAL-TIME MARKET VELOCITY ENGINE (DIRECT LAYOUT INJECTION)
+// 6. REAL-TIME MOMENTUM VELOCITY MATRIX (ANALYST WORKSPACE LAYER)
 // ====================================================================
 async function loadTopMovers(forceRefresh) {
   if (typeof yfMovers !== "function") return;
   
-  // Directly grab your template element container
   var container = document.getElementById("trendBody");
   if (!container) return;
 
   try {
-    var rawDataStream = await yfMovers(forceRefresh);
+    var marketData = await yfMovers(forceRefresh);
     
-    if (!Array.isArray(rawDataStream) || rawDataStream.length === 0) {
-      container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 20px; font-size: 12px; font-weight: 600;">⚠️ Establishing secure data channel proxies...</div>`;
+    if (!Array.isArray(marketData) || marketData.length === 0) {
+      container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:11px; font-weight:700;">⚠️ Synchronizing alternative data stream relays...</div>`;
       return;
     }
 
-    // Sort the registry basket dynamically to isolate market momentum highlights
-    var dynamicPerformers = [...rawDataStream]
-      .sort((a, b) => b.rawChangePct - a.rawChangePct)
+    // Mathematical momentum ranking computed dynamically in the browser
+    var macroVelocityAssets = [...marketData]
+      .sort((a, b) => Math.abs(b.rawChangePct) - Math.abs(a.rawChangePct))
       .slice(0, 4);
 
     var velocityHTML = "";
-    dynamicPerformers.forEach(function(stock) {
-      var isPositive = stock.rawChangePct >= 0;
-      var signalColor = isPositive ? "#00b06a" : "#ff3b30";
-      var directionalArrow = isPositive ? "▲" : "▼";
-      var localizedPrice = stock.price > 0 ? "₹" + stock.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
+    macroVelocityAssets.forEach(function(asset) {
+      var activeBull = asset.rawChangePct >= 0;
+      var labelColor = activeBull ? "#00b06a" : "#ff3b30";
+      var directionalMarker = activeBull ? "▲" : "▼";
+      var monetaryPrice = asset.price > 0 ? "₹" + asset.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
 
       velocityHTML += `
-        <div class="mover-card" onclick="runAnalysis('${stock.ticker}')" 
+        <div class="mover-card" onclick="runAnalysis('${asset.ticker}')" 
              style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; justify-content: space-between;"
              onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateY(-1px)';" 
              onmouseout="this.style.borderColor='#1e293b'; this.style.transform='translateY(0px)';">
           <div>
-            <div style="font-size: 11px; color: #f8fafc; font-weight: 800; letter-spacing: 0.4px;">${stock.ticker}</div>
-            <div style="font-size: 8.5px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 1px;">${stock.sector}</div>
+            <div style="font-size: 11px; color: #f8fafc; font-weight: 800; letter-spacing: 0.3px;">${asset.ticker}</div>
+            <div style="font-size: 8px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 1px; letter-spacing:0.5px;">${asset.sector}</div>
           </div>
-          <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline;">
-            <span style="font-size: 13px; font-family: monospace; font-weight: 800; color: #cbd5e1;">${localizedPrice}</span>
-            <span style="font-size: 10.5px; color: ${signalColor}; font-weight: 700; font-family: monospace;">${directionalArrow} ${Math.abs(stock.rawChangePct).toFixed(2)}%</span>
+          <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: baseline;">
+            <span style="font-size: 13px; font-family: monospace; font-weight: 800; color: #cbd5e1;">${monetaryPrice}</span>
+            <span style="font-size: 10.5px; color: ${labelColor}; font-weight: 800; font-family: monospace;">${directionalMarker} ${Math.abs(asset.rawChangePct).toFixed(2)}%</span>
           </div>
         </div>
       `;
     });
 
-    // Instantly purge the "Processing..." state and inject the dynamic grid
+    // Directly updates the grid layout container, stripping away the old processing loader row
     container.innerHTML = velocityHTML;
 
-  } catch (renderError) {
-    console.error("Velocity Render Matrix crash caught:", renderError);
+  } catch (err) {
+    console.error("Analyst Matrix rendering halted:", err);
   }
 }
 
