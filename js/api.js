@@ -217,32 +217,49 @@ async function yfMovers(forceRefresh) {
 
   yfMovers.currentPromise = (async () => {
     try {
-      // 1. Grab the full Nifty 50 asset list from the registry
+      // 1. Dynamic fetch from the repository registry
       const regRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
+      if (!regRes.ok) throw new Error("Registry could not be reached");
       const tickers = await regRes.json();
-      const symbols = tickers.slice(0, 50).map(t => (t.symbol || t).toUpperCase() + ".NS");
+      
+      // 2. Safely encode tickers individually to neutralize characters like '&'
+      const symbols = tickers.slice(0, 50).map(t => {
+        const rawSymbol = (t.symbol || t).toUpperCase() + ".NS";
+        return encodeURIComponent(rawSymbol);
+      });
 
-      // 2. Slice into two smaller chunks of 25 to stay safely under proxy URL limits
+      // 3. Batch into groups of 25 to remain safely under proxy limits
       const chunk1 = symbols.slice(0, 25).join(",");
       const chunk2 = symbols.slice(25, 50).join(",");
 
       const fetchBatch = async (chunkString) => {
         if (!chunkString) return [];
-        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunkString}`;
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-        const json = await res.json();
+        const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunkString}`;
         
-        // CRITICAL GUARD: Ensure the proxy returned an actual JSON string before parsing
-        if (!json || !json.contents || typeof json.contents !== "string" || !json.contents.trim().startsWith("{")) {
-          console.warn("Proxy bypassed or returned text error payload instead of JSON.");
-          return [];
-        }
-        
-        const data = JSON.parse(json.contents);
-        return data?.quoteResponse?.result || [];
+        // Primary raw high-speed lane
+        try {
+          const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.quoteResponse?.result) return data.quoteResponse.result;
+          }
+        } catch (e) {}
+
+        // Fallback lane
+        try {
+          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json?.contents && json.contents.trim().startsWith("{")) {
+              const data = JSON.parse(json.contents);
+              return data?.quoteResponse?.result || [];
+            }
+          }
+        } catch (e) {}
+
+        return [];
       };
 
-      // 3. Fire both requests concurrently in parallel fractions of a second
       const [batch1, batch2] = await Promise.all([
         fetchBatch(chunk1),
         fetchBatch(chunk2)
@@ -256,7 +273,7 @@ async function yfMovers(forceRefresh) {
         changePct: q.regularMarketChangePercent || 0
       }));
     } catch (e) {
-      console.error("Core Nifty 50 data fetch error:", e);
+      console.error("Data pipeline error:", e);
       return [];
     }
   })();
@@ -264,6 +281,7 @@ async function yfMovers(forceRefresh) {
   try { return await yfMovers.currentPromise; } finally { yfMovers.currentPromise = null; }
 }
 yfMovers.currentPromise = null;
+
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
