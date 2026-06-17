@@ -217,50 +217,29 @@ async function yfMovers(forceRefresh) {
 
   yfMovers.currentPromise = (async () => {
     try {
-      // 1. Target Yahoo's native Indian Equity pre-defined live screeners
-      const activeUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives&count=15&region=IN";
-      const gainersUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=15&region=IN";
-
-      const fetchScreener = async (targetUrl) => {
-        try {
-          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-          if (!res.ok) return [];
-          const json = await res.json();
-          if (!json?.contents) return [];
-          
-          const data = JSON.parse(json.contents);
-          return data?.finance?.result?.[0]?.quotes || [];
-        } catch (e) {
-          return [];
-        }
-      };
-
-      // 2. Fetch screeners in parallel
-      const [activesRaw, gainersRaw] = await Promise.all([
-        fetchScreener(activeUrl),
-        fetchScreener(gainersUrl)
-      ]);
-
-      // Combine arrays and filter out anything that isn't explicitly an Indian National Stock Exchange symbol
-      const rawQuotes = [...activesRaw, ...gainersRaw];
-      const indianQuotes = rawQuotes.filter(q => q && q.symbol && q.symbol.endsWith(".NS"));
-
-      if (indianQuotes.length === 0) return [];
-
-      // 3. De-duplicate assets and map fields cleanly for the UI layout cards
-      const uniqueMap = new Map();
-      indianQuotes.forEach(q => {
-        uniqueMap.set(q.symbol, {
+      // Direct call to Yahoo's official India Trending endpoint
+      const targetUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+      
+      if (!res.ok) throw new Error("Connection failed");
+      const json = await res.json();
+      
+      if (!json?.contents) return [];
+      const data = JSON.parse(json.contents);
+      
+      // Extract the dynamic list of quotes
+      const quotes = data?.finance?.result?.[0]?.quotes || [];
+      
+      return quotes
+        .filter(q => q.symbol && q.symbol.endsWith(".NS"))
+        .map(q => ({
           ticker: q.symbol.replace(".NS", ""),
           price: q.regularMarketPrice || 0,
           changePct: q.regularMarketChangePercent || 0
-        });
-      });
-
-      return Array.from(uniqueMap.values());
+        }));
 
     } catch (e) {
-      console.error("Dynamic Indian market screener pipeline error:", e);
+      console.error("Pipeline failure:", e);
       return [];
     }
   })();
@@ -268,6 +247,7 @@ async function yfMovers(forceRefresh) {
   try { return await yfMovers.currentPromise; } finally { yfMovers.currentPromise = null; }
 }
 yfMovers.currentPromise = null;
+
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
