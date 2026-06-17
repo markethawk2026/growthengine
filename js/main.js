@@ -529,50 +529,64 @@ function processIndexPayload(quotes) {
   });
 }
 
-async function loadTopMovers() {
-  // 🔍 CHANGE THIS ID to match the exact wrapper element where your skeletons live
-  const container = document.getElementById("movers-container") || 
-                    document.getElementById("moversBody") || 
-                    document.getElementById("topMovers");
+async function loadTopMovers(forceRefresh) {
+  // 1. Smart DOM Selector: Automatically find where your skeletons are hidden
+  var container = document.getElementById("moversBody") || 
+                  document.getElementById("movers-container") || 
+                  document.getElementById("trendBody");
 
+  // Fallback: Scan headers to find the container right below "NSE Top Movers"
   if (!container) {
-    console.warn("UI container for Top Movers not found. Check your element ID in index.html");
+    var headings = document.querySelectorAll("h5, h6, div, span");
+    for (var i = 0; i < headings.length; i++) {
+      if (headings[i].textContent.toUpperCase().includes("NSE TOP MOVERS")) {
+        container = headings[i].closest(".card, .sec, .box")?.querySelector(".grid, .tbody, div");
+        break;
+      }
+    }
+  }
+
+  // If the script still can't find the element, log it clearly to the console
+  if (!container) {
+    console.error("❌ UI Target Error: Could not find the HTML container holding the Top Movers skeletons.");
     return;
   }
 
-  const movers = await yfMovers();
-  if (!movers || movers.length === 0) return;
+  var data = await yfMovers(forceRefresh);
+  
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:12px;">⚠️ Market data link busy. Please refresh.</div>`;
+    return;
+  }
 
-  // Sort by highest absolute percentage movement and take the top 4
-  const sortedMovers = [...movers]
-    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
-    .slice(0, 4);
+  // 2. Sort the complete dynamic 50-asset basket right in the browser
+  var topGainers = [...data].sort((a, b) => b.changePct - a.changePct).slice(0, 3);
+  var topLosers = [...data].sort((a, b) => a.changePct - b.changePct).slice(0, 3);
+  var combinedMovers = [...topGainers, ...topLosers];
 
-  // Replace skeletons with live data cards
-  container.innerHTML = sortedMovers.map(stock => {
-    const isPositive = stock.changePct >= 0;
-    const colorClass = isPositive ? "text-success" : "text-danger";
-    const sign = isPositive ? "+" : "";
-
-    return `
-      <div class="d-flex justify-content-between align-items-center p-3 mb-2 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
-        <div>
-          <h6 class="mb-0 fw-bold text-white">${stock.ticker}</h6>
-          <small class="text-muted" style="font-size: 0.75rem;">NSE India</small>
+  var cardsHTML = "";
+  combinedMovers.forEach(function(s) {
+    var isUp = s.changePct >= 0;
+    var color = isUp ? "#00b06a" : "#ff3b30";
+    var arrow = isUp ? "▲" : "▼";
+    var tagText = isUp ? "TOP GAINER" : "TOP LOER";
+    var tagBg = isUp ? "rgba(0,176,106,0.06)" : "rgba(255,59,48,0.06)";
+    
+    cardsHTML += `
+      <div class="mover-card" onclick="runAnalysis('${s.ticker}')" style="background:#111827; border:1px solid #1e293b; padding:12px; border-radius:10px; cursor:pointer; text-align:left; border-left:4px solid ${color}; margin-bottom:8px; transition: transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11px; color:#94a3b8; font-weight:700;">${s.ticker}</span>
+          <span style="font-size:8.5px; background:${tagBg}; color:${color}; padding:2px 6px; border-radius:4px; font-weight:800; letter-spacing:0.3px;">${tagText}</span>
         </div>
-        <div class="text-end">
-          <div class="fw-bold text-white">₹${stock.price.toFixed(2)}</div>
-          <span class="${colorClass} fw-bold" style="font-size: 0.85rem;">
-            ${sign}${stock.changePct.toFixed(2)}%
-          </span>
-        </div>
+        <div style="font-size:14px; font-weight:800; color:#f8fafc; margin:6px 0 4px 0; font-family:monospace;">₹${s.price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+        <div style="font-size:11px; color:${color}; font-weight:700; font-family:monospace;">${arrow} ${isUp ? '+' : ''}${s.changePct.toFixed(2)}%</div>
       </div>
     `;
-  }).join("");
-}
+  });
 
-// Make sure it runs right after the indices load
-window.addEventListener("DOMContentLoaded", loadTopMovers);
+  // 3. Wipe out the skeletons and render the live data
+  container.innerHTML = cardsHTML;
+}
 
 // ====================================================================
 // 3. INDEX CARD GRAPHICS ENGINE & INJECTOR INTERCEPTOR 
