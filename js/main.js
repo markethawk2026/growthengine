@@ -536,17 +536,17 @@ async function loadTopMovers(forceRefresh) {
   var data = await yfMovers(forceRefresh);
   
   if (!data || data.length === 0) {
-    container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:12px;">⚠️ Syncing real-time market data paths...</div>`;
+    container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:12px;">⚠️ Connecting to live NSE stream components...</div>`;
     return;
   }
 
-  // Mathematically sort all items extracted live from the index repository registry
-  var topGainers = [...data].sort((a, b) => b.changePct - a.changePct).slice(0, 3);
-  var topLosers = [...data].sort((a, b) => a.changePct - b.changePct).slice(0, 3);
-  var combinedMovers = [...topGainers, ...topLosers];
+  // Sort out top 3 gainers and top 3 losers dynamically inside the client engine
+  var topGainers = data.filter(s => s.changePct >= 0).sort((a, b) => b.changePct - a.changePct).slice(0, 3);
+  var topLosers = data.filter(s => s.changePct < 0).sort((a, b) => a.changePct - b.changePct).slice(0, 3);
+  var dynamicMovers = [...topGainers, ...topLosers];
 
   var cardsHTML = "";
-  combinedMovers.forEach(function(s) {
+  dynamicMovers.forEach(function(s) {
     var isUp = s.changePct >= 0;
     var color = isUp ? "#00b06a" : "#ff3b30";
     var arrow = isUp ? "▲" : "▼";
@@ -554,7 +554,7 @@ async function loadTopMovers(forceRefresh) {
     var tagBg = isUp ? "rgba(0,176,106,0.06)" : "rgba(255,59,48,0.06)";
     
     cardsHTML += `
-      <div class="mover-card" onclick="runAnalysis('${s.ticker}')" style="background:#111827; border:1px solid #1e293b; padding:12px; border-radius:10px; cursor:pointer; text-align:left; border-left:4px solid ${color}; transition: transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+      <div class="mover-card" onclick="runAnalysis('${s.ticker}')" style="background:#111827; border:1px solid #1e293b; padding:12px; border-radius:10px; cursor:pointer; text-align:left; border-left:4px solid ${color}; transition: transform 0.15s;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:11px; color:#94a3b8; font-weight:700;">${s.ticker}</span>
           <span style="font-size:8.5px; background:${tagBg}; color:${color}; padding:2px 6px; border-radius:4px; font-weight:800; letter-spacing:0.3px;">${tagText}</span>
