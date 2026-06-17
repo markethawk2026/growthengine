@@ -217,43 +217,70 @@ async function yfMovers(forceRefresh) {
 
   yfMovers.currentPromise = (async () => {
     try {
-      // 1. Fetch dynamic Nifty components from the registry
+      // 1. Pull the 100% dynamic component index registry from GitHub
       const regRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
+      if (!regRes.ok) throw new Error("Dynamic registry is currently offline.");
       const tickers = await regRes.json();
       
-      // 2. Clean tickers and filter out any items with spaces or ampersands ('M&M') to protect query syntax
-      const cleanSymbols = tickers
-        .map(t => (typeof t === 'string' ? t : t.symbol || t.ticker || ""))
-        .filter(sym => sym && !sym.includes("&") && !sym.includes(" "))
-        .map(sym => sym.toUpperCase().trim() + ".NS")
-        .slice(0, 40); // 40 items in a single request keeps the URL short and prevents proxy rate limits
+      // 2. Map and encode each ticker individually to neutralize character bugs like 'M&M'
+      const symbols = tickers.map(t => {
+        const name = (typeof t === 'string' ? t : t.symbol || t.ticker || "").toUpperCase().trim();
+        return encodeURIComponent(name + ".NS");
+      }).filter(s => s && s !== ".NS");
 
-      // 3. Request the entire basket via a single proxy transaction
-      const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${cleanSymbols.join(",")}`;
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-      
-      if (!res.ok) throw new Error("Proxy channel dropped connection.");
-      const json = await res.json();
-      
-      // Validate that the proxy returned a valid JSON format string
-      if (!json || !json.contents || !json.contents.trim().startsWith("{")) {
-        throw new Error("Proxy payload truncated or malformed.");
-      }
-      
-      const data = JSON.parse(json.contents);
-      const quotes = data?.quoteResponse?.result;
-      
-      if (!Array.isArray(quotes) || quotes.length === 0) {
-        throw new Error("Yahoo Finance returned an empty asset array.");
+      // 3. Chunk the array into blocks of 15 dynamically to protect proxy bandwidth limits
+      const chunkSize = 15;
+      const chunks = [];
+      for (let i = 0; i < symbols.length; i += chunkSize) {
+        chunks.push(symbols.slice(i, i + chunkSize).join(","));
       }
 
-      return quotes.map(q => ({
-        ticker: q.symbol.replace(".NS", ""),
+      // 4. Parallel fetcher wrapper with automatic network failover routing
+      const fetchChunk = async (chunkString) => {
+        if (!chunkString) return [];
+        const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunkString}`;
+        
+        // Channel A: Fast raw JSON gateway
+        try {
+          const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.quoteResponse?.result) return data.quoteResponse.result;
+          }
+        } catch (e) {}
+
+        // Channel B: Fallback string wrapper gateway
+        try {
+          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json?.contents && json.contents.trim().startsWith("{")) {
+              const data = JSON.parse(json.contents);
+              return data?.quoteResponse?.result || [];
+            }
+          }
+        } catch (e) {}
+
+        return [];
+      };
+
+      // 5. Execute all dynamic batch slices concurrently
+      const results = await Promise.all(chunks.map(fetchChunk));
+      const combinedQuotes = results.flat();
+
+      if (!combinedQuotes || combinedQuotes.length === 0) {
+        throw new Error("Network gateways timed out returning dataset chunks.");
+      }
+
+      // Decode the encoded values back into clean ticker text for your UI layout
+      return combinedQuotes.map(q => ({
+        ticker: decodeURIComponent(q.symbol).replace(".NS", ""),
         price: q.regularMarketPrice || 0,
         changePct: q.regularMarketChangePercent || 0
       }));
+
     } catch (e) {
-      console.warn("Core Nifty movers data stream error:", e.message);
+      console.error("Dynamic Pipeline Process Failure:", e.message);
       return [];
     }
   })();
