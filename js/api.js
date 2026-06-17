@@ -258,7 +258,7 @@ async function fetchExpandedNews() {
   return masterPool.sort((a, b) => b.providerPublishTime - a.providerPublishTime);
 }
 
-// ====== DOM-BOUND SELF-TRAINING NLP ENGINE ======
+// ====== OMNIDIRECTIONAL UN-CAPPED NLP CORE ENGINE ======
 async function yfMovers() {
   try {
     let trainedModel = localStorage.getItem("growthengine_brain");
@@ -290,33 +290,23 @@ async function yfMovers() {
 
     const quantitativePredictions = [];
     let historyLog = JSON.parse(localStorage.getItem("growthengine_history") || "{}");
-
-    // Broadened text-sweeper to grab every available text element on your dashboard layout
-    const potentialElements = document.querySelectorAll("h3, p, div, li, a");
     let targetHeadlines = [];
 
-    potentialElements.forEach(el => {
+    // Sweep all visible news elements rendered on your active dashboard page
+    const elements = document.querySelectorAll("h3, p, li, div, a");
+    elements.forEach(el => {
       const text = el.innerText ? el.innerText.trim() : "";
-      // Target elements that match headline length profiles and contain core financial terms
       if (text.length > 25 && text.length < 150 && !text.includes("{") && !text.includes("Terminal")) {
-        if (text.includes("shares") || text.includes("Bank") || text.includes("stock") || text.includes("%") || text.includes("buyback") || text.includes("shares")) {
-          if (!targetHeadlines.some(h => h.title === text)) {
-            targetHeadlines.push({ title: text });
+        if (text.includes("shares") || text.includes("Bank") || text.includes("stock") || text.includes("%") || text.includes("buyback") || text.includes("rally") || text.includes("surge")) {
+          if (!targetHeadlines.includes(text)) {
+            targetHeadlines.push(text);
           }
         }
       }
     });
 
-    // Fall back to historical background streams if DOM content is processing cycles
-    if (targetHeadlines.length === 0 && typeof fetchExpandedNews === "function") {
-      const wireData = await fetchExpandedNews();
-      targetHeadlines = wireData.slice(0, 15);
-    }
-
-    targetHeadlines.forEach(item => {
-      const headline = item.title;
+    targetHeadlines.forEach(headline => {
       const cleanWords = headline.toLowerCase().replace(/[^a-z0-9\s%]/g, "").split(/\s+/);
-      
       let totalBias = 0;
       let matchedTriggers = [];
       let isolatedPercentage = null;
@@ -332,17 +322,20 @@ async function yfMovers() {
         }
       });
 
-      const uppercaseTokens = headline.match(/[A-Z][a-zA-Z]+/g);
+      // FIX: Force the regex parser to read a temporary uppercase block so it extracts sentence-cased names easily
+      const uppercaseTokens = headline.toUpperCase().match(/[A-Z]+/g);
       if (uppercaseTokens && uppercaseTokens.length > 0 && matchedTriggers.length > 0) {
-        let ticker = uppercaseTokens[0].toUpperCase();
+        let ticker = uppercaseTokens[0];
+        
+        // Skip common phrase noise tokens safely
         if (["ECONOMIC", "TIMES", "CNBC", "VOLUME", "NIFTY", "SENSEX", "MARKET", "JUST", "NOW"].includes(ticker)) {
-          ticker = uppercaseTokens[1] ? uppercaseTokens[1].toUpperCase() : "ASSET";
+          ticker = uppercaseTokens[1] ? uppercaseTokens[1] : "ASSET";
         }
 
         if (ticker && ticker.length > 2 && !["ASSET", "SHOCKER", "JUST", "NOW"].includes(ticker)) {
           let prediction = "NEUTRAL";
-          if (totalBias > 0.2) prediction = "UP";
-          if (totalBias < -0.2) prediction = "DOWN";
+          if (totalBias > 0.15) prediction = "UP";
+          if (totalBias < -0.15) prediction = "DOWN";
 
           if (headline.toLowerCase().includes("ex-record") || headline.toLowerCase().includes("ex-date")) {
             prediction = "NEUTRAL";
@@ -358,7 +351,7 @@ async function yfMovers() {
           let horizon = "1–3 Days";
           if (headline.toLowerCase().includes("today") || headline.toLowerCase().includes("session")) horizon = "Intraday";
 
-          let reasoning = `The calibration of domestic catalyst markers [${matchedTriggers.join(", ")}] establishes momentum velocity. Volumetric trends suggest adjustment windows aligning with this event package.`;
+          let reasoning = `The detection of domestic momentum markers [${matchedTriggers.join(", ")}] signals directional adjustments. Systemic trading parameters align directly with this news asset configuration wrapper.`;
 
           let errorAudit = null;
           const trackingKey = ticker + "_" + prediction;
@@ -368,9 +361,9 @@ async function yfMovers() {
             if (history.predictedDir !== macroTrend && macroTrend !== "NEUTRAL") {
               errorAudit = {
                 wasIncorrect: true,
-                whyIncorrect: `Model projected ${history.predictedDir}, but index parameters turned ${macroTrend}. Local momentum structures were suppressed by overarching macro vectors.`,
-                missingFactor: `Systemic index alignment overrode individual equity event parameters.`,
-                learning: `Decay calculation multipliers by 8% inside browser local memory loops when asset calculations conflict with primary indices.`
+                whyIncorrect: `Model initially projected ${history.predictedDir}, but core indices trended ${macroTrend}. Individual asset drivers were capped by broader system variables.`,
+                missingFactor: `Systemic index momentum entirely overwhelmed isolated technical catalysts.`,
+                learning: `Decay internal multipliers by 8% inside browser local storage logs if asset signals conflict with active index profiles.`
               };
 
               matchedTriggers.forEach(w => {
@@ -401,12 +394,14 @@ async function yfMovers() {
       }
     });
 
-    return uniqueCards.slice(0, 5); // Returns up to 5 distinct tickers simultaneously
+    // FIX: Removed the .slice(0, 5) limit entirely to unpack the full accordion list
+    return uniqueCards;
   } catch (error) {
     console.error("Machine Learning Parsing Exception:", error);
     return [];
   }
 }
+
 
 function parseDynamicMoverItem(sym, q) {
   var pct = parseFloat(q.changePct) || 0;
