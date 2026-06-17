@@ -536,25 +536,23 @@ async function loadTopMovers() {
   var data = await yfMovers();
   
   if (!data || data.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:20px; font-size:12px;">No active trends detected.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:15px; font-size:11px;">Fetching live NSE trends...</div>`;
     return;
   }
 
   // Slice top 6 trending movers
-  var topMovers = data.slice(0, 6);
-  
-  var cardsHTML = topMovers.map(s => {
+  var html = data.slice(0, 6).map(s => {
     var isUp = s.changePct >= 0;
     var color = isUp ? "#00b06a" : "#ff3b30";
     return `
-      <div class="mover-card" style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; border-left:3px solid ${color}; margin-bottom:5px;">
+      <div style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; border-left:3px solid ${color}; margin-bottom:5px;">
         <div style="font-size:11px; color:#fff; font-weight:700;">${s.ticker}</div>
-        <div style="font-size:12px; color:${color}; font-weight:700;">${isUp ? '+' : ''}${s.changePct.toFixed(2)}%</div>
+        <div style="font-size:12px; color:${color}; font-weight:700;">₹${s.price.toFixed(2)} (${isUp ? '+' : ''}${s.changePct.toFixed(2)}%)</div>
       </div>
     `;
   }).join("");
 
-  container.innerHTML = cardsHTML;
+  container.innerHTML = html;
 }
 
 // ====================================================================
