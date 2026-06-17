@@ -529,41 +529,30 @@ function processIndexPayload(quotes) {
   });
 }
 
-async function loadTopMovers(forceRefresh) {
+async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
 
-  var data = await yfMovers(forceRefresh);
+  var data = await yfMovers();
   
   if (!data || data.length === 0) {
-    container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:24px; font-size:12px;">⚠️ Awaiting live NSE data channel feed...</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#64748b; padding:20px; font-size:12px;">No active trends detected.</div>`;
     return;
   }
 
-  // Extract the top 3 performing gainers and top 3 losers dynamically inside the user's browser
-  var topGainers = data.filter(s => s.changePct >= 0).sort((a, b) => b.changePct - a.changePct).slice(0, 3);
-  var topLosers = data.filter(s => s.changePct < 0).sort((a, b) => a.changePct - b.changePct).slice(0, 3);
-  var dynamicMovers = [...topGainers, ...topLosers];
-
-  var cardsHTML = "";
-  dynamicMovers.forEach(function(s) {
+  // Slice top 6 trending movers
+  var topMovers = data.slice(0, 6);
+  
+  var cardsHTML = topMovers.map(s => {
     var isUp = s.changePct >= 0;
     var color = isUp ? "#00b06a" : "#ff3b30";
-    var arrow = isUp ? "▲" : "▼";
-    var tagText = isUp ? "TOP GAINER" : "TOP LOSER";
-    var tagBg = isUp ? "rgba(0,176,106,0.06)" : "rgba(255,59,48,0.06)";
-    
-    cardsHTML += `
-      <div class="mover-card" onclick="runAnalysis('${s.ticker}')" style="background:#111827; border:1px solid #1e293b; padding:12px; border-radius:10px; cursor:pointer; text-align:left; border-left:4px solid ${color}; transition: transform 0.15s;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:11px; color:#94a3b8; font-weight:700;">${s.ticker}</span>
-          <span style="font-size:8.5px; background:${tagBg}; color:${color}; padding:2px 6px; border-radius:4px; font-weight:800; letter-spacing:0.3px;">${tagText}</span>
-        </div>
-        <div style="font-size:14px; font-weight:800; color:#f8fafc; margin:6px 0 4px 0; font-family:monospace;">₹${s.price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-        <div style="font-size:11px; color:${color}; font-weight:700; font-family:monospace;">${arrow} ${isUp ? '+' : ''}${s.changePct.toFixed(2)}%</div>
+    return `
+      <div class="mover-card" style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; border-left:3px solid ${color}; margin-bottom:5px;">
+        <div style="font-size:11px; color:#fff; font-weight:700;">${s.ticker}</div>
+        <div style="font-size:12px; color:${color}; font-weight:700;">${isUp ? '+' : ''}${s.changePct.toFixed(2)}%</div>
       </div>
     `;
-  });
+  }).join("");
 
   container.innerHTML = cardsHTML;
 }
