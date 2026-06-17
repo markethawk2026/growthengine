@@ -534,7 +534,6 @@ async function loadTopMovers() {
   if (!container) return;
 
   try {
-    // Dynamic component heading transformation
     var headingElement = container.previousElementSibling;
     if (headingElement) {
       headingElement.innerHTML = `🤖 AI PREDICTIVE QUANT TERMINAL <span id="syncPulse" style="font-size:9px; background:rgba(168,85,247,0.1); color:#a855f7; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">NLP CONNECTED</span>`;
@@ -543,28 +542,38 @@ async function loadTopMovers() {
     var dataPayload = await yfMovers();
     
     if (!dataPayload || dataPayload.length === 0) {
-      container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:25px; font-size:11px; font-family:monospace;">⚡ Initializing multi-keyword wire aggregates and mapping text schemas...</div>`;
+      container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:25px; font-size:11px; font-family:monospace;">⚡ Extracting current page headline vectors and calibrating dictionary models...</div>`;
       return;
     }
 
-    var compiledCards = "";
-    dataPayload.forEach(function(card) {
+    var compiledAccordionHTML = "";
+    
+    dataPayload.forEach(function(card, index) {
       var colorStyle = "#a855f7"; 
       var badgeBg = "rgba(168,85,247,0.06)";
       if (card.prediction === "UP") { colorStyle = "#00b06a"; badgeBg = "rgba(0,176,106,0.06)"; }
       if (card.prediction === "DOWN") { colorStyle = "#ff3b30"; badgeBg = "rgba(255,59,48,0.06)"; }
 
+      // Fixed String Scoping: Build the row template completely within one variable layer
       var cardMarkup = `
-        <div class="quant-card" style="background:#111827; border:1px solid #1e293b; padding:16px; border-radius:12px; margin-bottom:12px; text-align:left; border-top:4px solid ${colorStyle}; box-shadow:0 4px 6px -1px rgba(0,0,0,0.15);">
-          <div style="font-family:monospace; font-size:12px; line-height:1.6; color:#e2e8f0;">
-            <strong style="color:#94a3b8;">Ticker:</strong> <span style="color:#f8fafc; font-weight:800; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${card.ticker}</span><br>
+        <div class="quant-accordion-item" style="background:#111827; border:1px solid #1e293b; border-radius:8px; margin-bottom:8px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          
+          <div class="accordion-header" onclick="toggleQuantAccordion(${index})" style="padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; background:#111827; border-left:4px solid ${colorStyle}; transition:background 0.2s;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#111827'">
+            <div style="display:flex; align-items:center; gap:10px; width:100%; justify-content:space-between; padding-right:10px;">
+              <span style="font-family:monospace; font-size:13px; color:#f8fafc; font-weight:800; letter-spacing:0.5px;">${card.ticker}</span>
+              <span style="font-family:monospace; color:${colorStyle}; font-weight:900; background:${badgeBg}; padding:2px 8px; border-radius:4px; font-size:10px; letter-spacing:0.3px;">PREDICTIVE ${card.prediction}</span>
+              <span style="font-family:monospace; font-size:11px; color:#f59e0b; font-weight:700; margin-left:auto; margin-right:15px;">Confidence: ${card.confidence}%</span>
+            </div>
+            <span id="accordion-arrow-${index}" style="color:#64748b; font-size:11px;">➕</span>
+          </div>
+
+          <div id="accordion-body-${index}" style="display:none; padding:16px; border-top:1px solid #1e293b; background:rgba(15,23,42,0.4); font-family:monospace; font-size:12px; line-height:1.6; color:#e2e8f0;">
             <strong style="color:#94a3b8;">Headline:</strong> <span style="color:#cbd5e1; font-style:italic;">"${card.headline}"</span><br>
-            <strong style="color:#94a3b8;">Prediction:</strong> <span style="color:${colorStyle}; font-weight:900; background:${badgeBg}; padding:1px 6px; border-radius:4px; font-size:11px;">${card.prediction}</span><br>
+            <strong style="color:#94a3b8;">Prediction:</strong> <span style="color:${colorStyle}; font-weight:900;">${card.prediction}</span><br>
             <strong style="color:#94a3b8;">Confidence:</strong> <span style="color:#f59e0b; font-weight:700;">${card.confidence}%</span><br>
             <strong style="color:#94a3b8;">Reason:</strong> <span style="color:#94a3b8; font-family:system-ui;">${card.reason}</span><br>
             <strong style="color:#94a3b8;">Expected Move:</strong> <span style="color:${colorStyle}; font-weight:700;">${card.expectedMove}</span><br>
             <strong style="color:#94a3b8;">Time Horizon:</strong> <span style="color:#38bdf8; font-weight:700;">${card.timeHorizon}</span>
-          </div>
       `;
 
       if (card.errorAudit) {
@@ -586,16 +595,36 @@ async function loadTopMovers() {
         `;
       }
 
-      cardMarkup += `</div>`;
-      compiledCards += cardMarkup;
+      cardMarkup += `
+          </div>
+        </div>
+      `;
+      
+      compiledAccordionHTML += cardMarkup;
     });
 
-    container.innerHTML = compiledCards;
+    container.innerHTML = compiledAccordionHTML;
 
   } catch (renderError) {
     console.error("UI Deployment Execution Error:", renderError);
   }
 }
+
+// ====== INTERACTIVE ROW TOGGLE UTILITY FUNCTION ======
+window.toggleQuantAccordion = function(index) {
+  var targetBody = document.getElementById(`accordion-body-${index}`);
+  var targetArrow = document.getElementById(`accordion-arrow-${index}`);
+  
+  if (!targetBody) return;
+
+  if (targetBody.style.display === "none") {
+    targetBody.style.display = "block";
+    if (targetArrow) targetArrow.innerText = "➖";
+  } else {
+    targetBody.style.display = "none";
+    if (targetArrow) targetArrow.innerText = "➕";
+  }
+};
 
 // ====== UNIFIED BACKGROUND AUTO-REFRESH ARCHITECTURE ======
 // Verify loop sequence prevents overlapping listeners or duplicate interval registrations
