@@ -217,20 +217,40 @@ async function yfMovers(forceRefresh) {
 
   yfMovers.currentPromise = (async () => {
     try {
-      // 1. Fetch the complete Nifty 50 stock registry from GitHub
+      // 1. Grab the full Nifty 50 asset list from the registry
       const regRes = await fetch("https://raw.githubusercontent.com/sanishc/nifty50-stocks/master/stocks.json");
       const tickers = await regRes.json();
-      const symbols = tickers.map(t => (t.symbol || t).toUpperCase() + ".NS");
+      const symbols = tickers.slice(0, 50).map(t => (t.symbol || t).toUpperCase() + ".NS");
 
-      // 2. Fetch all 50 quotes simultaneously using your working index proxy layout
-      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}`;
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-      const json = await res.json();
-      const data = JSON.parse(json.contents);
+      // 2. Slice into two smaller chunks of 25 to stay safely under proxy URL limits
+      const chunk1 = symbols.slice(0, 25).join(",");
+      const chunk2 = symbols.slice(25, 50).join(",");
 
-      if (!data?.quoteResponse?.result) return [];
+      const fetchBatch = async (chunkString) => {
+        if (!chunkString) return [];
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunkString}`;
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        const json = await res.json();
+        
+        // CRITICAL GUARD: Ensure the proxy returned an actual JSON string before parsing
+        if (!json || !json.contents || typeof json.contents !== "string" || !json.contents.trim().startsWith("{")) {
+          console.warn("Proxy bypassed or returned text error payload instead of JSON.");
+          return [];
+        }
+        
+        const data = JSON.parse(json.contents);
+        return data?.quoteResponse?.result || [];
+      };
 
-      return data.quoteResponse.result.map(q => ({
+      // 3. Fire both requests concurrently in parallel fractions of a second
+      const [batch1, batch2] = await Promise.all([
+        fetchBatch(chunk1),
+        fetchBatch(chunk2)
+      ]);
+
+      const combinedQuotes = [...batch1, ...batch2];
+
+      return combinedQuotes.map(q => ({
         ticker: q.symbol.replace(".NS", ""),
         price: q.regularMarketPrice || 0,
         changePct: q.regularMarketChangePercent || 0
