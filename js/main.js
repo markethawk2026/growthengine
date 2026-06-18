@@ -1078,8 +1078,6 @@ async function bootDashboard() {
   await new Promise(r => setTimeout(r, 300));
   try { await loadTrend(); } catch(e) {}
   await new Promise(r => setTimeout(r, 300));
-  try { await loadTopMovers(); } catch(e) {} // Fires top movers during boot initialization
-  await new Promise(r => setTimeout(r, 300));
   try { await loadNews(); } catch(e) {}
 }
 
@@ -1265,7 +1263,6 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function () {
   if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 15000) {
     loadIdx().catch(() => {});
     loadTrend(true).catch(() => {});
-    loadTopMovers(true).catch(() => {}); 
     window.LAST_IDX_REFRESH_TS = Date.now();
   }
 
