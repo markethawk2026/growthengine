@@ -7,32 +7,45 @@ window.TTL = { s: 2 * 60 * 1000, m: 5 * 60 * 1000, l: 30 * 60 * 1000 };
 
 var YF_QUOTE  = "https://query1.finance.yahoo.com/v8/finance/chart/";
 var YF_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
+var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
+
+var PROXIES = [
+  "https://corsproxy.io/?url=",
+  "https://api.allorigins.win/raw?url=",
+  "https://thingproxy.freeboard.io/fetch/"
+];
 
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 /**
- * Direct API fetch with AbortController timeout
- * No CORS proxy workarounds - direct to source
+ * Proxy fetch for CORS bypass - kept for API access
  */
-async function fetchDirectAPI(url, timeoutMs = 5000) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+async function proxyFetch(url, timeoutMs = 2500) {
+  let lastError = null;
   
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+  for (var i = 0; i < PROXIES.length; i++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
-    if (response.ok) {
-      return await response.json();
+    try {
+      var targetUrl = PROXIES[i] + encodeURIComponent(url);
+      var r = await fetch(targetUrl, { signal: controller.signal });
+      
+      clearTimeout(timeoutId);
+      
+      if (r.ok) {
+        var text = await r.text();
+        return JSON.parse(text);
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      lastError = e;
+      console.warn(`Proxy channel ${i} timed out or failed. Shifting to alternative line...`);
     }
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
-  } catch (e) {
-    clearTimeout(timeoutId);
-    console.error(`API fetch failed for ${url}:`, e.message);
-    throw e;
   }
+  throw lastError || new Error("All available proxy pathways deadlocked.");
 }
 
 async function yfQuote(ticker) {
@@ -51,7 +64,7 @@ async function yfQuote(ticker) {
 
   try {
     var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
-    var cJson = await fetchDirectAPI(chartUrl);
+    var cJson = await proxyFetch(chartUrl);
     var cResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
     if (!cResult) return null;
 
@@ -106,17 +119,13 @@ async function yfQuote(ticker) {
 async function yfSearch(q) {
   try {
     var url = YF_SEARCH + encodeURIComponent(q) + "&quotesCount=10&newsCount=0&enableFuzzyQuery=true&region=IN";
-    var j = await fetchDirectAPI(url);
+    var j = await proxyFetch(url);
     return (j.quotes || []).filter(function(r){
       return r.quoteType === "EQUITY" && (r.exchange === "NSI" || r.exchange === "BOM" || r.symbol.endsWith(".NS") || r.symbol.endsWith(".BO"));
     }).slice(0, 8);
   } catch(e) { return []; }
 }
 
-/**
- * Get financial news from multiple RSS sources
- * Returns real articles only - no fake data fallback
- */
 async function yfNews(q) {
   var queryStr = (q && typeof q === "string") ? q.toUpperCase().trim() : "";
   var masterArticles = [];
@@ -170,7 +179,6 @@ async function yfNews(q) {
     }
   }
 
-  // Return empty array if no articles found (not fake data)
   if (masterArticles.length === 0) {
     console.log("No news articles available for " + queryStr);
   }
