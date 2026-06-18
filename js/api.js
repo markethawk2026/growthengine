@@ -7,51 +7,32 @@ window.TTL = { s: 2 * 60 * 1000, m: 5 * 60 * 1000, l: 30 * 60 * 1000 };
 
 var YF_QUOTE  = "https://query1.finance.yahoo.com/v8/finance/chart/";
 var YF_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
-var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
-
-var PROXIES = [
-  "https://corsproxy.io/?url=",
-  "https://api.allorigins.win/raw?url=",
-  "https://thingproxy.freeboard.io/fetch/"
-];
 
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-
-// 1. DYNAMIC TIME UTILITY: Calculates organic, relative times for fallback states
-function generateDynamicTime(index) {
-  var baseMinutes = (index * 15) + Math.floor(Math.random() * 8) + 2;
-  return baseMinutes + "m ago";
-}
-
-
-async function proxyFetch(url, timeoutMs = 2500) {
-  let lastError = null;
+/**
+ * Direct API fetch with AbortController timeout
+ * No CORS proxy workarounds - direct to source
+ */
+async function fetchDirectAPI(url, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
-  for (var i = 0; i < PROXIES.length; i++) {
-    // Inject an AbortController circuit breaker to kill hanging connections
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
     
-    try {
-      var targetUrl = PROXIES[i] + encodeURIComponent(url);
-      var r = await fetch(targetUrl, { signal: controller.signal });
-      
-      clearTimeout(timeoutId); // Clear timeout instantly if server answers
-      
-      if (r.ok) {
-        var text = await r.text();
-        return JSON.parse(text);
-      }
-    } catch (e) {
-      clearTimeout(timeoutId);
-      lastError = e;
-      console.warn(`Proxy channel ${i} timed out or failed. Shifting to alternative line...`);
+    if (response.ok) {
+      return await response.json();
     }
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  } catch (e) {
+    clearTimeout(timeoutId);
+    console.error(`API fetch failed for ${url}:`, e.message);
+    throw e;
   }
-  throw lastError || new Error("All available proxy pathways deadlocked.");
 }
 
 async function yfQuote(ticker) {
@@ -70,7 +51,7 @@ async function yfQuote(ticker) {
 
   try {
     var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
-    var cJson = await proxyFetch(chartUrl);
+    var cJson = await fetchDirectAPI(chartUrl);
     var cResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
     if (!cResult) return null;
 
@@ -84,7 +65,6 @@ async function yfQuote(ticker) {
 
     if(!cleanCloses.length) cleanCloses = [price, price];
 
-    // FIX: Compare historical arrays against live feed price to capture the real yesterday daily close
     var prevClose = m.previousClose || m.chartPreviousClose || price;
     if (cleanCloses.length >= 2) {
       if (Math.abs(cleanCloses[cleanCloses.length - 1] - price) < 0.05) {
@@ -126,26 +106,28 @@ async function yfQuote(ticker) {
 async function yfSearch(q) {
   try {
     var url = YF_SEARCH + encodeURIComponent(q) + "&quotesCount=10&newsCount=0&enableFuzzyQuery=true&region=IN";
-    var j = await proxyFetch(url);
+    var j = await fetchDirectAPI(url);
     return (j.quotes || []).filter(function(r){
       return r.quoteType === "EQUITY" && (r.exchange === "NSI" || r.exchange === "BOM" || r.symbol.endsWith(".NS") || r.symbol.endsWith(".BO"));
     }).slice(0, 8);
   } catch(e) { return []; }
 }
 
+/**
+ * Get financial news from multiple RSS sources
+ * Returns real articles only - no fake data fallback
+ */
 async function yfNews(q) {
   var queryStr = (q && typeof q === "string") ? q.toUpperCase().trim() : "";
   var masterArticles = [];
   var seenTitles = new Set();
 
-  // 1. OPEN MULTI-SOURCE FINANCIAL WIRES
   var feedSources = [
     { name: "Economic Times", url: "https://economictimes.indiatimes.com/markets/rssfeeds/2146842.cms" },
     { name: "CNBC Markets", url: "https://www.cnbc.com/id/15839069/device/rss/rss.html" },
     { name: "Business Standard", url: "https://www.business-standard.com/rss/markets-106.rss" }
   ];
 
-  // 2. FETCH AND CONVERT FEED ASSETS SIMULTANEOUSLY
   var fetchPromises = feedSources.map(async function(source) {
     try {
       var endpoint = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(source.url);
@@ -160,13 +142,13 @@ async function yfNews(q) {
             
             var summaryClean = item.description 
               ? item.description.replace(/<[^>]*>/g, '').trim() 
-              : "Live trading metric configurations tracking volume distributions across core asset baskets.";
+              : "";
 
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
               headline: title,
               source: source.name.toUpperCase(),
-              time: "Just now",
+              time: new Date().toLocaleTimeString(),
               summary: summaryClean
             });
           }
@@ -179,7 +161,6 @@ async function yfNews(q) {
 
   await Promise.allSettled(fetchPromises);
 
-  // 3. TARGETED CONTEXT FILTER MATCHING
   if (queryStr && queryStr !== "NSE INDIA" && queryStr !== "NSE") {
     var filtered = masterArticles.filter(function(art) {
       return art.headline.toUpperCase().includes(queryStr) || art.summary.toUpperCase().includes(queryStr);
@@ -189,24 +170,9 @@ async function yfNews(q) {
     }
   }
 
-  // 4. FAIL-SAFE FALLBACK MATRIX
+  // Return empty array if no articles found (not fake data)
   if (masterArticles.length === 0) {
-    masterArticles = [
-      {
-        id: "local_seed_1",
-        headline: "Exchange Volume Spikes Indicate Clear Near-Month Options Hedging Clusters",
-        source: "CNBC MARKETS",
-        time: "4m ago",
-        summary: "Intraday technical wave arrays show steady accumulation positioning at primary validation baselines, signaling key breakout extensions."
-      },
-      {
-        id: "local_seed_2",
-        headline: "Thematic Basket Reallocations Spark Defensive Flow Swaps Across Institutional Desks",
-        source: "ECONOMIC TIMES",
-        time: "14m ago",
-        summary: "Portfolio risk maps indicate broad capital reallocation moves toward stable-yield corporate assets to preserve structural lines."
-      }
-    ];
+    console.log("No news articles available for " + queryStr);
   }
 
   return masterArticles.slice(0, 30);
@@ -249,17 +215,20 @@ function calcRSI(closes, p) {
   var ag = g / p, al = l / p; if (al === 0) return "100.0";
   return (100 - (100 / (1 + ag / al))).toFixed(1);
 }
+
 function calcEMA(closes, p) {
   if (!closes || closes.length < p) return null;
   var k = 2 / (p + 1), ema = closes.slice(0, p).reduce(function(a, b){ return a + b; }, 0) / p;
   for (var i = p; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
   return ema.toFixed(2);
 }
+
 function calcMACD(closes) {
   var e12 = calcEMA(closes, 12), e26 = calcEMA(closes, 26);
   if (!e12 || !e26) return "0.125";
   return (parseFloat(e12) - parseFloat(e26)).toFixed(3);
 }
+
 function calcSR(closes) {
   if (!closes || closes.length < 5) return { sup: "—", res: "—" };
   var sorted = [].concat(closes).sort(function(a, b){ return a - b; });
