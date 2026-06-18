@@ -134,7 +134,8 @@ async function yfNews(q) {
   var feedSources = [
     { name: "Economic Times", url: "https://economictimes.indiatimes.com/markets/rssfeeds/2146842.cms" },
     { name: "CNBC Markets", url: "https://www.cnbc.com/id/15839069/device/rss/rss.html" },
-    { name: "Business Standard", url: "https://www.business-standard.com/rss/markets-106.rss" }
+    { name: "Business Standard", url: "https://www.business-standard.com/rss/markets-106.rss" },
+    { name: "NSE Corporate Info", url: "https://www.nseindia.com/static/rss-feed" }
   ];
 
   var fetchPromises = feedSources.map(async function(source) {
