@@ -529,46 +529,50 @@ function processIndexPayload(quotes) {
   });
 }
 
+/**
+ * NanduChandu Markets Terminal Engine
+ * Clean Production Build: 100% Dynamic API Feed
+ * Legacy Modules Removed: yfMovers, loadTopMovers, and hardcoded arrays.
+ */
+
 async function loadIPOTracker() {
-    var container = document.getElementById("trendBody"); 
+    const container = document.getElementById("trendBody"); 
     if (!container) return; 
     
-    // 1. Set Active Loading State
+    // 1. Render Active Network Loading State
     container.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 50px; font-size: 11px; font-family: monospace;">
             <span style="display: inline-block; animation: spin 1s linear infinite; margin-bottom: 10px;">🔄</span><br>
-            CONNECTING TO LIVE IPO AGGREGATOR ENGINE... FETCHING LIVE DATA PIPELINES AND GMP REAL-TIME VECTOR STREAMS...
+            CONNECTING TO LIVE IPO AGGREGATOR ENGINE... FETCHING LIVE DATA PIPELINES...
         </div>`;
 
     try {
         // 2. Dynamically Update Section Heading & Status Badge
-        var headingElement = container.previousElementSibling; 
+        const headingElement = container.previousElementSibling; 
         if (headingElement) {
             headingElement.innerHTML = `📅 LIVE & UPCOMING INDIAN IPO TRACKER <span id="syncPulse" style="font-size:9px; background:rgba(34,197,94,0.1); color:#22c55e; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">100% DYNAMIC API SYNC</span>`; 
         } 
         
-        // 3. Connect to a Live Public Open-Source IPO Aggregator API
-        // This endpoint aggregates current Chittorgarh/IPO-Watch streams dynamically
+        // 3. Fetch from Open Public IPO Aggregator
         const API_ENDPOINT = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api.ipoalerts.in/v1/public/ipos"); 
         
         const response = await fetch(API_ENDPOINT);
-        if (!response.ok) throw new Error(`Upstream Server Error: ${response.status}`);
+        if (!response.ok) throw new Error(`Upstream Server responded with status: ${response.status}`);
         
-        let ipoData = await response.json();
-        
-        // If response arrives wrapped inside an object property (e.g., ipoData.data)
-        if (ipoData && ipoData.data) {
-            ipoData = ipoData.data;
-        }
+        let result = await response.json();
+        let ipoData = result.data || result;
 
-        // Handle empty arrays or API downtime gracefully
+        // 4. Handle Empty Streams Gracefully
         if (!ipoData || ipoData.length === 0) {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#94a3b8; padding:30px; font-size:11px; font-family:monospace;">⚠️ Stream active, but no live Mainboard or SME listings are currently open in the market.</div>`;
+            container.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; border: 1px dashed #334155; padding: 40px; font-size: 11px; font-family: monospace; border-radius: 6px;">
+                    ⚠️ Stream active, but no live Mainboard or SME listings are currently open in the market.
+                </div>`;
             return;
         }
 
-        // 4. Construct Data Grid Table Structure
-        var tableHTML = `
+        // 5. Construct Table Framework
+        let tableHTML = `
             <div style="grid-column: 1 / -1; overflow-x: auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; margin-top: 10px; font-family: monospace; font-size: 11px; color: #f8fafc;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 1300px;">
                     <thead>
@@ -588,34 +592,32 @@ async function loadIPOTracker() {
                     <tbody>
         `;
 
-        // 5. Run Object Normalizer to Handle Dynamic External Schema Variants
+        // 6. Loop and Map the Dynamic Fields JSON Schema dynamically
         ipoData.forEach(function(row) {
-            var name = row.name || row.companyName || row.company || "Unknown Entity";
-            var type = row.type || row.ipoType || (name.toLowerCase().includes("sme") ? "SME" : "Mainboard");
-            var exchange = row.exchange || "NSE / BSE";
-            var openDate = row.openDate || row.open_date || "TBD";
-            var closeDate = row.closeDate || row.close_date || "TBD";
-            var listingDate = row.listingDate || row.listing_date || "TBD";
-            var priceBand = row.priceBand || row.price || "TBD";
-            var lotSize = row.lotSize || row.lot || "-";
-            var issueSize = row.issueSize || row.size || "-";
+            let name = row.name || row.companyName || "Unknown Entity";
+            let type = row.type || row.ipoType || "Mainboard";
+            let exchange = row.exchange || "NSE / BSE";
+            let openDate = row.openDate || row.open_date || "TBD";
+            let closeDate = row.closeDate || row.close_date || "TBD";
+            let listingDate = row.listingDate || row.listing_date || "TBD";
+            let priceBand = row.priceBand || row.price || "TBD";
+            let lotSize = row.lotSize || "-";
+            let issueSize = row.issueSize || "-";
             
-            // Format dynamic GMP numbers elegantly
-            var rawGmp = row.gmp || row.greyMarketPremium || "0";
-            var gmp = rawGmp.toString().startsWith("₹") ? rawGmp : `₹${rawGmp}`;
-            var gain = row.estimatedGain || row.gain || row.percentage || "~0.0%";
+            let rawGmp = row.gmp || row.greyMarketPremium || "0";
+            let gmp = rawGmp.toString().startsWith("₹") ? rawGmp : `₹${rawGmp}`;
+            let gain = row.gain || row.estimatedGain || "0.0%";
             
-            var status = row.subscriptionStatus || row.subscription || "Open";
-            var registrar = row.registrar || "TBD";
-            var leadManager = row.leadManager || row.manager || "N/A";
-            var sector = row.sector || "General Industry";
+            let status = row.status || row.subscriptionStatus || "Open";
+            let registrar = row.registrar || "TBD";
+            let leadManager = row.leadManager || "N/A";
+            let sector = row.sector || "General Industry";
             
-            // Auto-calculate recommendation engine based on live GMP threshold if API leaves it blank
-            var recommendation = row.recommendation || (parseFloat(rawGmp) > 40 ? "Apply" : parseFloat(rawGmp) > 10 ? "Watch" : "Avoid");
-            var reason = row.reason || `Automated analysis: System tracking GMP premium delta of ${gain} over target price ceiling.`;
+            let recommendation = row.recommendation || (parseFloat(rawGmp) > 30 ? "Apply" : parseFloat(rawGmp) > 10 ? "Watch" : "Avoid");
+            let reason = row.reason || `System Analysis: Tracking a grey market premium delta of ${gain}.`;
 
-            var badgeColor = recommendation === "Apply" ? "#22c55e" : recommendation === "Watch" ? "#eab308" : "#ef4444";
-            var badgeBg = recommendation === "Apply" ? "rgba(34,197,94,0.1)" : recommendation === "Watch" ? "rgba(234,179,8,0.1)" : "rgba(239,68,68,0.1)";
+            let badgeColor = recommendation === "Apply" ? "#22c55e" : recommendation === "Watch" ? "#eab308" : "#ef4444";
+            let badgeBg = recommendation === "Apply" ? "rgba(34,197,94,0.1)" : recommendation === "Watch" ? "rgba(234,179,8,0.1)" : "rgba(239,68,68,0.1)";
 
             tableHTML += `
                 <tr style="border-bottom: 1px solid #1e293b; transition: background 0.2s;">
@@ -645,20 +647,21 @@ async function loadIPOTracker() {
 
         tableHTML += `</tbody></table></div>`;
         container.innerHTML = tableHTML; 
-    } catch (renderError) {
-        console.error("IPO Live Sync Engine Error:", renderError); 
+    } catch (apiError) {
+        console.error("Live Sync Error Details:", apiError);
         container.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; color: #ef4444; background: rgba(239,68,68,0.05); border: 1px dashed #ef4444; padding: 30px; font-size: 11px; font-family: monospace; border-radius: 6px;">
+            <div style="grid-column: 1 / -1; text-align: center; color: #ef4444; background: rgba(239,68,68,0.02); border: 1px dashed rgba(239,68,68,0.3); padding: 40px; font-size: 11px; font-family: monospace; border-radius: 6px;">
                 ❌ Live Sync Error: Unable to fetch real-time data from the upstream API aggregator. Network stream temporarily unresponsive.
             </div>`;
     } 
 }
 
-// Keyframe animation wrapper inject for the loading wheel icon
+// Global CSS animation injection for loading spinner icon
 const styleSheet = document.createElement("style");
 styleSheet.innerText = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
 document.head.appendChild(styleSheet);
 
+// Single clean DOM lifecycle listener
 document.addEventListener("DOMContentLoaded", loadIPOTracker);
 
 
