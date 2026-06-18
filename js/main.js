@@ -529,105 +529,129 @@ function processIndexPayload(quotes) {
   });
 }
 
-async function loadTopMovers() {
-  var container = document.getElementById("trendBody");
-  if (!container) return;
-
-  try {
-    var headingElement = container.previousElementSibling;
-    if (headingElement) {
-      headingElement.innerHTML = `🤖 AI PREDICTIVE QUANT TERMINAL <span id="syncPulse" style="font-size:9px; background:rgba(168,85,247,0.1); color:#a855f7; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">NLP CONNECTED</span>`;
-    }
-
-    var dataPayload = await yfMovers();
+async function loadIPOTracker() {
+    var container = document.getElementById("trendBody"); 
+    if (!container) return; 
     
-    if (!dataPayload || dataPayload.length === 0) {
-      container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:25px; font-size:11px; font-family:monospace;">⚡ Extracting current page headline vectors and calibrating dictionary models...</div>`;
-      return;
-    }
+    // 1. Render an active network loading state inside the terminal container
+    container.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 40px; font-size: 11px; font-family: monospace;">
+            🔄 Connecting to market aggregator... Fetching live IPO data pipelines and GMP sentiment streams...
+        </div>`;
 
-    var compiledAccordionHTML = "";
-    
-    dataPayload.forEach(function(card, index) {
-      var colorStyle = "#a855f7"; 
-      var badgeBg = "rgba(168,85,247,0.06)";
-      if (card.prediction === "UP") { colorStyle = "#00b06a"; badgeBg = "rgba(0,176,106,0.06)"; }
-      if (card.prediction === "DOWN") { colorStyle = "#ff3b30"; badgeBg = "rgba(255,59,48,0.06)"; }
+    try {
+        // 2. Dynamically update Section Heading & Pulse Status Badge
+        var headingElement = container.previousElementSibling; 
+        if (headingElement) {
+            headingElement.innerHTML = `📅 LIVE & UPCOMING INDIAN IPO TRACKER <span id="syncPulse" style="font-size:9px; background:rgba(34,197,94,0.1); color:#22c55e; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">DYNAMIC API SYNC</span>`; 
+        } 
+        
+        // 3. Dynamic HTTP API Fetch Execution
+        // Swap this URL string with your dedicated API endpoint, serverless proxy, or RapidAPI path
+        const API_ENDPOINT = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api.indian-ipo-tracker.com/v1/live"); 
+        
+        const response = await fetch(API_ENDPOINT);
+        if (!response.ok) throw new Error(`HTTP network execution fault: ${response.status}`);
+        
+        const ipoData = await response.json();
+        
+        // Safety guard for empty database or API downtime
+        if (!ipoData || ipoData.length === 0) {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#94a3b8; padding:30px; font-size:11px; font-family:monospace;">⚠️ Connection online, but no active mainboard or SME issues returned from the stream.</div>`;
+            return;
+        }
 
-      var cardMarkup = `
-        <div class="quant-accordion-item" style="background:#111827; border:1px solid #1e293b; border-radius:8px; margin-bottom:8px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-align:left;">
-          
-          <div class="accordion-header" onclick="toggleQuantAccordion(${index})" style="padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; background:#111827; border-left:4px solid ${colorStyle}; transition:background 0.2s;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#111827'">
-            <div style="display:flex; align-items:center; gap:10px; width:100%; justify-content:space-between; padding-right:10px;">
-              <span style="font-family:monospace; font-size:13px; color:#f8fafc; font-weight:800; letter-spacing:0.5px;">${card.ticker}</span>
-              <span style="font-family:monospace; color:${colorStyle}; font-weight:900; background:${badgeBg}; padding:2px 8px; border-radius:4px; font-size:10px; letter-spacing:0.3px;">PREDICTIVE ${card.prediction}</span>
-              <span style="font-family:monospace; font-size:11px; color:#f59e0b; font-weight:700; margin-left:auto; margin-right:15px;">Confidence: ${card.confidence}%</span>
+        // 4. Construct Responsive Interface Shell
+        var tableHTML = `
+            <div style="grid-column: 1 / -1; overflow-x: auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; margin-top: 10px; font-family: monospace; font-size: 11px; color: #f8fafc;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 1300px;">
+                    <thead>
+                        <tr style="background: #1e293b; color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <th style="padding: 12px 14px;">Company Name & Registrar</th>
+                            <th style="padding: 12px 14px;">Type</th>
+                            <th style="padding: 12px 14px;">Exchange</th>
+                            <th style="padding: 12px 14px;">Timeline (O / C / L)</th>
+                            <th style="padding: 12px 14px;">Price Band</th>
+                            <th style="padding: 12px 14px;">Lot / Issue Size</th>
+                            <th style="padding: 12px 14px;">GMP (Est. Gain %)</th>
+                            <th style="padding: 12px 14px;">Subscription</th>
+                            <th style="padding: 12px 14px;">Sector & Lead Managers</th>
+                            <th style="padding: 12px 14px;">Action / Metric Analysis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        // 5. Dynamic Object Matrix Mapping Loop
+        ipoData.forEach(function(row) {
+            // Flexible fallbacks map parameters dynamically regardless of upstream key configurations
+            var name = row.companyName || row.name || "Data Stream Missing";
+            var type = row.ipoType || row.type || "Mainboard";
+            var exchange = row.exchange || "NSE / BSE";
+            var openDate = row.openDate || "TBD";
+            var closeDate = row.closeDate || "TBD";
+            var listingDate = row.listingDate || "TBD";
+            var priceBand = row.priceBand || "TBD";
+            var lotSize = row.lotSize || "-";
+            var issueSize = row.issueSize || "-";
+            var gmp = row.gmp !== undefined ? `₹${row.gmp}` : "₹0";
+            var gain = row.estimatedGain || row.gain || "0.0%";
+            var status = row.subscriptionStatus || row.status || "0.0x";
+            var registrar = row.registrar || "Not Announced";
+            var leadManager = row.leadManager || "Not Announced";
+            var sector = row.sector || "General Industry";
+            var recommendation = row.recommendation || "Watch";
+            var reason = row.reason || "Review operational volumes and historical sector margins.";
+
+            // Dynamic evaluation colors for recommendations
+            var badgeColor = recommendation === "Apply" ? "#22c55e" : recommendation === "Watch" ? "#eab308" : "#ef4444";
+            var badgeBg = recommendation === "Apply" ? "rgba(34,197,94,0.1)" : recommendation === "Watch" ? "rgba(234,179,8,0.1)" : "rgba(239,68,68,0.1)";
+
+            tableHTML += `
+                <tr style="border-bottom: 1px solid #1e293b; transition: background 0.2s;">
+                    <td style="padding: 14px; font-weight: 700; color: #ffffff;">${name}<br><span style="font-size:10px; color:#64748b; font-weight:400;">Reg: ${registrar}</span></td>
+                    <td style="padding: 14px;"><span style="padding: 2px 6px; background: #334155; border-radius: 4px; font-size: 9px; color:#e2e8f0;">${type}</span></td>
+                    <td style="padding: 14px; color: #cbd5e1;">${exchange}</td>
+                    <td style="padding: 14px; color: #94a3b8; line-height: 1.4;">
+                        <span style="color:#22c55e;">O: ${openDate}</span><br>
+                        <span style="color:#ef4444;">C: ${closeDate}</span><br>
+                        <span style="color:#38bdf8;">L: ${listingDate}</span>
+                    </td>
+                    <td style="padding: 14px; color: #f1f5f9; font-weight:600;">${priceBand}</td>
+                    <td style="padding: 14px; color: #cbd5e1;">${lotSize}<br><span style="color:#c084fc; font-weight:600;">${issueSize}</span></td>
+                    <td style="padding: 14px;">
+                        <span style="color:#22c55e; font-weight:700; font-size:12px;">${gmp}</span><br>
+                        <span style="color:#34d399;">(${gain})</span>
+                    </td>
+                    <td style="padding: 14px; color: #38bdf8; font-weight:700;">${status}</td>
+                    <td style="padding: 14px; color: #94a3b8; line-height:1.3;">${sector}<br><span style="font-size:9px; color:#475569;">LM: ${leadManager}</span></td>
+                    <td style="padding: 14px; max-width: 240px; line-height: 1.4;">
+                        <span style="display: inline-block; padding: 2px 6px; color: ${badgeColor}; background: ${badgeBg}; border-radius: 4px; font-weight: 800; font-size: 9px; margin-bottom: 4px; letter-spacing:0.5px;">${recommendation.toUpperCase()}</span><br>
+                        <span style="color: #cbd5e1; font-size: 11px; font-family: sans-serif;">${reason}</span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `
+                    </tbody>
+                </table>
             </div>
-            <span id="accordion-arrow-${index}" style="color:#64748b; font-size:11px;">➕</span>
-          </div>
-
-          <div id="accordion-body-${index}" style="display:none; padding:16px; border-top:1px solid #1e293b; background:rgba(15,23,42,0.4); font-family:monospace; font-size:12px; line-height:1.6; color:#e2e8f0;">
-            <strong style="color:#94a3b8;">Headline:</strong> <span style="color:#cbd5e1; font-style:italic;">"${card.headline}"</span><br>
-            <strong style="color:#94a3b8;">Prediction:</strong> <span style="color:${colorStyle}; font-weight:900;">${card.prediction}</span><br>
-            <strong style="color:#94a3b8;">Confidence:</strong> <span style="color:#f59e0b; font-weight:700;">${card.confidence}%</span><br>
-            <strong style="color:#94a3b8;">Reason:</strong> <span style="color:#94a3b8; font-family:system-ui;">${card.reason}</span><br>
-            <strong style="color:#94a3b8;">Expected Move:</strong> <span style="color:${colorStyle}; font-weight:700;">${card.expectedMove}</span><br>
-            <strong style="color:#94a3b8;">Time Horizon:</strong> <span style="color:#38bdf8; font-weight:700;">${card.timeHorizon}</span>
-          </div>
-        </div>
-      `;
-      
-      compiledAccordionHTML += cardMarkup;
-    });
-
-    container.innerHTML = compiledAccordionHTML;
-
-  } catch (renderError) {
-    console.error("UI Deployment Execution Error:", renderError);
-  }
+        `;
+        
+        container.innerHTML = tableHTML; 
+    } catch (renderError) {
+        console.error("IPO API Client Interface Execution Fault:", renderError); 
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; color: #ef4444; background: rgba(239,68,68,0.05); border: 1px dashed #ef4444; padding: 30px; font-size: 11px; font-family: monospace; border-radius: 6px;">
+                ❌ Terminal Sync Error: Failed to evaluate upstream REST API stream. Check network console parameters or CORS protocol rules.
+            </div>`;
+    } 
 }
 
-window.toggleQuantAccordion = function(index) {
-  var targetBody = document.getElementById(`accordion-body-${index}`);
-  var targetArrow = document.getElementById(`accordion-arrow-${index}`);
-  if (!targetBody) return;
+// Hook execution engine directly onto client window stack
+document.addEventListener("DOMContentLoaded", loadIPOTracker);
 
-  if (targetBody.style.display === "none") {
-    targetBody.style.display = "block";
-    if (targetArrow) targetArrow.innerText = "➖";
-  } else {
-    targetBody.style.display = "none";
-    if (targetArrow) targetArrow.innerText = "➕";
-  }
-};
-
-
-
-// ====== UNIFIED BACKGROUND AUTO-REFRESH ARCHITECTURE ======
-// Verify loop sequence prevents overlapping listeners or duplicate interval registrations
-if (!window.quantWireIntervalHooked) {
-  window.quantWireIntervalHooked = true;
-  
-  // Set up a silent automatic 3-minute heartbeat loop (180000 ms)
-  setInterval(async function() {
-    var pulse = document.getElementById("syncPulse");
-    if (pulse) {
-      pulse.innerText = "SYNCING WIRE...";
-      pulse.style.background = "rgba(245,158,11,0.1)";
-      pulse.style.color = "#f59e0b";
-    }
-    
-    // Execute the updated query matrix in the background layout
-    await loadTopMovers();
-    
-    pulse = document.getElementById("syncPulse");
-    if (pulse) {
-      pulse.innerText = "NLP LIVE SYNCED";
-      pulse.style.background = "rgba(0,176,106,0.1)";
-      pulse.style.color = "#00b06a";
-    }
-  }, 3 * 60 * 1000);
-}
 
 // ====================================================================
 // 3. INDEX CARD GRAPHICS ENGINE & INJECTOR INTERCEPTOR 
