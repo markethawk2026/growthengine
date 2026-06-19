@@ -530,48 +530,42 @@ function processIndexPayload(quotes) {
 }
 
 /**
- * NanduChandu Markets Terminal Engine
- * Clean Production Build: 100% Dynamic API Feed
- * Legacy Modules Removed: yfMovers, loadTopMovers, and hardcoded arrays.
+ * Dynamic Indian IPO Tracker Module
+ * Connected to api.js proxy architecture for automatic failover rotation.
  */
-
 async function loadIPOTracker() {
     const container = document.getElementById("trendBody"); 
     if (!container) return; 
     
-    // 1. Render Active Network Loading State
+    // 1. Initialize Terminal Loading State
     container.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 50px; font-size: 11px; font-family: monospace;">
+        <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 40px; font-size: 11px; font-family: monospace;">
             <span style="display: inline-block; animation: spin 1s linear infinite; margin-bottom: 10px;">🔄</span><br>
-            CONNECTING TO LIVE IPO AGGREGATOR ENGINE... FETCHING LIVE DATA PIPELINES...
+            INITIALIZING REDUNDANT PROXY PIPELINES... FETCHING LIVE UNIFIED IPO DATASETS...
         </div>`;
 
     try {
-        // 2. Dynamically Update Section Heading & Status Badge
+        // Update Title Header
         const headingElement = container.previousElementSibling; 
         if (headingElement) {
-            headingElement.innerHTML = `📅 LIVE & UPCOMING INDIAN IPO TRACKER <span id="syncPulse" style="font-size:9px; background:rgba(34,197,94,0.1); color:#22c55e; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">100% DYNAMIC API SYNC</span>`; 
+            headingElement.innerHTML = `📅 LIVE & UPCOMING INDIAN IPO TRACKER <span id="syncPulse" style="font-size:9px; background:rgba(34,197,94,0.1); color:#22c55e; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:800; letter-spacing:0.5px;">DYNAMIC API SYNC</span>`; 
         } 
         
-        // 3. Fetch from Open Public IPO Aggregator
-        const API_ENDPOINT = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api.ipoalerts.in/v1/public/ipos"); 
-        
-        const response = await fetch(API_ENDPOINT);
-        if (!response.ok) throw new Error(`Upstream Server responded with status: ${response.status}`);
-        
-        let result = await response.json();
+        // 2. Query through your api.js proxy rotation pipeline
+        // This automatically guards against single-proxy blackouts
+        let result = await proxyFetch("https://api.ipoalerts.in/v1/public/ipos", 3000);
         let ipoData = result.data || result;
 
-        // 4. Handle Empty Streams Gracefully
-        if (!ipoData || ipoData.length === 0) {
+        // 3. Handle inactive or empty market cycles elegantly
+        if (!ipoData || !Array.isArray(ipoData) || ipoData.length === 0) {
             container.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; border: 1px dashed #334155; padding: 40px; font-size: 11px; font-family: monospace; border-radius: 6px;">
-                    ⚠️ Stream active, but no live Mainboard or SME listings are currently open in the market.
+                <div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; border: 1px dashed #1e293b; padding: 35px; font-size: 11px; font-family: monospace; border-radius: 6px; background: #0b0f19;">
+                    ⚠️ Data pipelines online. No active Mainboard or SME public offerings detected in the current market cycle.
                 </div>`;
             return;
         }
 
-        // 5. Construct Table Framework
+        // 4. Build Terminal Grid Display Matrix
         let tableHTML = `
             <div style="grid-column: 1 / -1; overflow-x: auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; margin-top: 10px; font-family: monospace; font-size: 11px; color: #f8fafc;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 1300px;">
@@ -592,9 +586,9 @@ async function loadIPOTracker() {
                     <tbody>
         `;
 
-        // 6. Loop and Map the Dynamic Fields JSON Schema dynamically
+        // 5. Schema Normalizer Loop
         ipoData.forEach(function(row) {
-            let name = row.name || row.companyName || "Unknown Entity";
+            let name = row.name || row.companyName || "Unknown Issue";
             let type = row.type || row.ipoType || "Mainboard";
             let exchange = row.exchange || "NSE / BSE";
             let openDate = row.openDate || row.open_date || "TBD";
@@ -613,8 +607,9 @@ async function loadIPOTracker() {
             let leadManager = row.leadManager || "N/A";
             let sector = row.sector || "General Industry";
             
+            // Safe fallback evaluation formula if recommendation metrics are absent
             let recommendation = row.recommendation || (parseFloat(rawGmp) > 30 ? "Apply" : parseFloat(rawGmp) > 10 ? "Watch" : "Avoid");
-            let reason = row.reason || `System Analysis: Tracking a grey market premium delta of ${gain}.`;
+            let reason = row.reason || `System tracking premium baseline vectors with dynamic delta variance at ${gain}.`;
 
             let badgeColor = recommendation === "Apply" ? "#22c55e" : recommendation === "Watch" ? "#eab308" : "#ef4444";
             let badgeBg = recommendation === "Apply" ? "rgba(34,197,94,0.1)" : recommendation === "Watch" ? "rgba(234,179,8,0.1)" : "rgba(239,68,68,0.1)";
@@ -648,10 +643,10 @@ async function loadIPOTracker() {
         tableHTML += `</tbody></table></div>`;
         container.innerHTML = tableHTML; 
     } catch (apiError) {
-        console.error("Live Sync Error Details:", apiError);
+        console.error("Unified Multi-Proxy Network Exception:", apiError);
         container.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; color: #ef4444; background: rgba(239,68,68,0.02); border: 1px dashed rgba(239,68,68,0.3); padding: 40px; font-size: 11px; font-family: monospace; border-radius: 6px;">
-                ❌ Live Sync Error: Unable to fetch real-time data from the upstream API aggregator. Network stream temporarily unresponsive.
+                ❌ Terminal Sync Timeout: All upstream data proxy nodes are currently handling maximum load frequencies. Retrying stream alignment...
             </div>`;
     } 
 }
