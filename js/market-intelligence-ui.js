@@ -16,6 +16,11 @@ function ensure(){
 async function render(){
   var body=document.getElementById("ncMiBody"); if(!body)return;
   body.innerHTML='<div class="nc-mi-loading">Refreshing market intelligence…</div>';
+  var currentUniverse=NCMarketIntelligence.getUniverse?NCMarketIntelligence.getUniverse():[];
+  if(!currentUniverse.length){
+    body.innerHTML='<div class="nc-mi-empty">No companies are preloaded. Add stocks to your watchlist, portfolio, or recent analyses to build Market Intelligence dynamically.</div>';
+    return;
+  }
   try{
     var results=await Promise.all([NCMarketIntelligence.breadth(),NCMarketIntelligence.leaders(),NCMarketIntelligence.sectorPerformance(),NCMarketIntelligence.enhancedNews("Indian stock market")]);
     var b=results[0], l=results[1], s=results[2], n=results[3].slice(0,8);

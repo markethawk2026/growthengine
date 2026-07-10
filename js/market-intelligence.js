@@ -5,23 +5,19 @@
 (function(){
 "use strict";
 
-var FALLBACK_UNIVERSE=["RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","SBIN","BHARTIARTL","ITC","LT","HINDUNILVR","AXISBANK","KOTAKBANK"];
+var EMPTY_UNIVERSE=[];
 function dynamicUniverse(){
   try {
     var s=window.NCUserTools&&window.NCUserTools.getState?window.NCUserTools.getState():null;
-    var userSymbols=[].concat((s&&s.watchlist)||[],(s&&s.recent)||[],((s&&s.portfolio)||[]).map(function(h){return h.ticker;}));
-    var unique=Array.from(new Set(userSymbols.filter(Boolean)));
-    return unique.length>=3?unique.slice(0,50):FALLBACK_UNIVERSE.slice();
-  } catch(_) { return FALLBACK_UNIVERSE.slice(); }
+    var userSymbols=[].concat(
+      (s&&s.watchlist)||[],
+      (s&&s.recent)||[],
+      ((s&&s.portfolio)||[]).map(function(h){return h.ticker;})
+    );
+    return Array.from(new Set(userSymbols.filter(Boolean))).slice(0,50);
+  } catch(_) { return []; }
 }
-var SECTORS={
-  "Technology":["TCS","INFY"],
-  "Financials":["HDFCBANK","ICICIBANK","SBIN","AXISBANK","KOTAKBANK"],
-  "Energy":["RELIANCE"],
-  "Telecom":["BHARTIARTL"],
-  "Consumer":["ITC","HINDUNILVR"],
-  "Industrials":["LT"]
-};
+var SECTORS={};
 
 function pct(v){var n=parseFloat(String(v||"").replace("%",""));return Number.isFinite(n)?n:null;}
 async function quoteRows(symbols){
@@ -72,5 +68,5 @@ async function enhancedNews(query){
     if(!key||seen.has(key))return false; seen.add(key); return true;
   }).map(function(a){return Object.assign({},a,{estimatedSentiment:estimateSentiment(a)});});
 }
-window.NCMarketIntelligence={getUniverse:dynamicUniverse,FALLBACK_UNIVERSE:FALLBACK_UNIVERSE,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
+window.NCMarketIntelligence={getUniverse:dynamicUniverse,getUniverse:dynamicUniverse,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
 })();

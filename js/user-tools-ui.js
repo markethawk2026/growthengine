@@ -43,7 +43,7 @@ async function render(){
 }
 async function renderWatchlist(panel){
   var s=state(), rows=await Promise.all(s.watchlist.map(async function(t){return {ticker:t,q:await yfQuote(t)};}));
-  panel.innerHTML='<form id="ncWatchForm" class="ncuw-form"><input name="ticker" placeholder="Add ticker, e.g. RELIANCE" required><button>Add to watchlist</button></form>'+
+  panel.innerHTML='<form id="ncWatchForm" class="ncuw-form"><input name="ticker" placeholder="Add ticker, Enter ticker" required><button>Add to watchlist</button></form>'+
     (rows.length?'<div class="ncuw-grid">'+rows.map(function(r){return '<article class="ncuw-card"><div><strong>'+esc(r.ticker)+'</strong><div class="ncuw-muted">'+esc(r.q?r.q.name:"Unavailable")+'</div></div><div class="ncuw-price">'+esc(r.q?r.q.price:"Unavailable")+'</div><div class="ncuw-muted">'+esc(r.q?r.q.changePct:"")+'</div><div class="ncuw-actions"><button data-open="'+esc(r.ticker)+'">Analyze</button><button data-remove="'+esc(r.ticker)+'">Remove</button></div></article>';}).join("")+'</div>':'<div class="ncuw-empty">Your watchlist is empty.</div>');
   panel.querySelector("#ncWatchForm").addEventListener("submit",function(e){e.preventDefault();NCUserTools.addWatchlist(new FormData(e.target).get("ticker"));render();});
   panel.querySelectorAll("[data-remove]").forEach(function(b){b.onclick=function(){NCUserTools.removeWatchlist(b.dataset.remove);render();};});
@@ -59,7 +59,7 @@ async function renderPortfolio(panel){
   panel.querySelectorAll("[data-holding]").forEach(function(b){b.onclick=function(){NCUserTools.removeHolding(b.dataset.holding);render();};});
 }
 function renderCompare(panel){
-  panel.innerHTML='<form id="ncCompareForm" class="ncuw-form"><input name="tickers" placeholder="RELIANCE, TCS, INFY (up to 5)" required><button>Compare</button></form><div id="ncCompareResults" class="ncuw-empty">Enter two to five symbols to compare.</div>';
+  panel.innerHTML='<form id="ncCompareForm" class="ncuw-form"><input name="tickers" placeholder="Enter up to 5 tickers, comma-separated" required><button>Compare</button></form><div id="ncCompareResults" class="ncuw-empty">Enter two to five symbols to compare.</div>';
   panel.querySelector("#ncCompareForm").onsubmit=async function(e){e.preventDefault();var out=document.getElementById("ncCompareResults");out.textContent="Comparing…";var rows=await NCUserTools.compare(String(new FormData(e.target).get("tickers")).split(","));out.className="ncuw-tablewrap";out.innerHTML='<table class="ncuw-table"><thead><tr><th>Stock</th><th>Price</th><th>Change</th><th>RSI</th><th>MACD</th><th>EMA trend</th><th>Score</th></tr></thead><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.ticker)+'</td><td>'+money(r.price)+'</td><td>'+esc(r.changePct||"—")+'</td><td>'+esc(r.rsi==null?"—":r.rsi)+'</td><td>'+esc(r.macd==null?"—":r.macd)+'</td><td>'+esc(r.emaTrend||"—")+'</td><td>'+esc(r.technicalScore==null?"—":r.technicalScore+"/100")+'</td></tr>';}).join("")+'</tbody></table>';};
 }
 function renderScreener(panel){
