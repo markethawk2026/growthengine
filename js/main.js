@@ -382,19 +382,23 @@ async function bootDashboard() {
   try { await loadNews(); } catch(e) {}
 }
 
-if (window.MASTER_EXCHANGE_ORCHESTRATOR) clearInterval(window.MASTER_EXCHANGE_ORCHESTRATOR);
-window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function () {
-  if (!isIndianMarketOpen()) { forceRenderIndexUI(); return; }
-  forceRenderIndexUI();
-  if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 15000) {
-    loadIdx().catch(() => {});
-    window.LAST_IDX_REFRESH_TS = Date.now();
-  }
-  if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 240000) {
-    loadNews().catch(() => {});
-    window.LAST_NEWS_REFRESH_TS = Date.now();
-  }
-}, 2000);
+if (window.RefreshScheduler) {
+  window.RefreshScheduler.register("master-exchange-orchestrator", async function () {
+    if (!isIndianMarketOpen()) { forceRenderIndexUI(); return; }
+    forceRenderIndexUI();
+
+    var tasks = [];
+    if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 15000) {
+      window.LAST_IDX_REFRESH_TS = Date.now();
+      tasks.push(loadIdx());
+    }
+    if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 240000) {
+      window.LAST_NEWS_REFRESH_TS = Date.now();
+      tasks.push(loadNews());
+    }
+    if (tasks.length) await Promise.allSettled(tasks);
+  }, 2000, { pauseWhenHidden: true });
+}
 
 function initThemeSwitcher() {
   var themeBtn = document.getElementById("themeBtn") || document.querySelector(".themeToggle");
