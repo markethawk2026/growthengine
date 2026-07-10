@@ -5,7 +5,15 @@
 (function(){
 "use strict";
 
-var DEFAULT_UNIVERSE=["RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","SBIN","BHARTIARTL","ITC","LT","HINDUNILVR","AXISBANK","KOTAKBANK"];
+var FALLBACK_UNIVERSE=["RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","SBIN","BHARTIARTL","ITC","LT","HINDUNILVR","AXISBANK","KOTAKBANK"];
+function dynamicUniverse(){
+  try {
+    var s=window.NCUserTools&&window.NCUserTools.getState?window.NCUserTools.getState():null;
+    var userSymbols=[].concat((s&&s.watchlist)||[],(s&&s.recent)||[],((s&&s.portfolio)||[]).map(function(h){return h.ticker;}));
+    var unique=Array.from(new Set(userSymbols.filter(Boolean)));
+    return unique.length>=3?unique.slice(0,50):FALLBACK_UNIVERSE.slice();
+  } catch(_) { return FALLBACK_UNIVERSE.slice(); }
+}
 var SECTORS={
   "Technology":["TCS","INFY"],
   "Financials":["HDFCBANK","ICICIBANK","SBIN","AXISBANK","KOTAKBANK"],
@@ -25,7 +33,7 @@ async function quoteRows(symbols){
   })).then(function(rows){return rows.filter(Boolean);});
 }
 async function breadth(symbols){
-  var universe=(symbols&&symbols.length?symbols:DEFAULT_UNIVERSE).slice(0,50);
+  var universe=(symbols&&symbols.length?symbols:dynamicUniverse()).slice(0,50);
   var rows=await quoteRows(universe);
   var advances=rows.filter(function(r){return r.changePct>0;}).length;
   var declines=rows.filter(function(r){return r.changePct<0;}).length;
@@ -64,5 +72,5 @@ async function enhancedNews(query){
     if(!key||seen.has(key))return false; seen.add(key); return true;
   }).map(function(a){return Object.assign({},a,{estimatedSentiment:estimateSentiment(a)});});
 }
-window.NCMarketIntelligence={DEFAULT_UNIVERSE:DEFAULT_UNIVERSE,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
+window.NCMarketIntelligence={getUniverse:dynamicUniverse,FALLBACK_UNIVERSE:FALLBACK_UNIVERSE,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
 })();
