@@ -273,6 +273,28 @@ body.light .cmai {
   font-size: 12px;
 }
 
+@media (max-width: 640px) {
+  .bar {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 10px 12px;
+  }
+  .sw {
+    order: 3;
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+  .bar-r {
+    margin-left: auto;
+  }
+}
+@media (max-width: 380px) {
+  .bar > div:first-child > div[style*="margin-left:9px"] {
+    display: none;
+  }
+}
+
 .tabs {
   display: flex;
   background: #0b0e1a;
