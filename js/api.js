@@ -1,5 +1,6 @@
 /**
- * NanduChandu Markets - Data Pipelines, Indicators & Math Calculations Layer
+ * NC Markets - Data Pipelines, Indicators & Math Calculations Layer
+ * Provides real market data with transparent source attribution
  */
 
 window.CACHE = { prices: {}, analysis: {}, nextday: {}, outlook: {}, news: null, nTs: 0, trend: null, tTs: 0, global: null, gTs: 0, cal: null, cTs: 0 };
@@ -49,7 +50,13 @@ async function proxyFetch(url, timeoutMs = 2500) {
 }
 
 async function yfQuote(ticker) {
-  ticker = ticker.toUpperCase().trim();
+  const validTicker = validateTickerSymbol(ticker);
+  if (!validTicker) {
+    console.error('Invalid ticker symbol:', ticker);
+    return null;
+  }
+  
+  ticker = validTicker;
   if (ticker === "NIFTY50" || ticker === "NIFTY 50" || ticker === "NIFTY") ticker = "^NSEI";
   if (ticker === "SENSEX") ticker = "^BSESN";
   
@@ -106,7 +113,9 @@ async function yfQuote(ticker) {
       name:     m.longName || m.shortName || ticker,
       closes:   cleanCloses,
       volumes:  cleanVolumes,
-      times:    cResult.timestamp || []
+      times:    cResult.timestamp || [],
+      dataSource: 'Yahoo Finance',
+      dataStatus: 'DELAYED'
     };
     window.CACHE.prices[ticker] = { d: d, ts: Date.now() };
     return d;
@@ -156,10 +165,10 @@ async function yfNews(q) {
 
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
-              headline: title,
-              source: source.name.toUpperCase(),
+              headline: escapeHTML(title),
+              source: escapeHTML(source.name.toUpperCase()),
               time: new Date().toLocaleTimeString(),
-              summary: summaryClean
+              summary: escapeHTML(summaryClean)
             });
           }
         });
@@ -203,7 +212,7 @@ function parseDynamicMoverItem(sym, q) {
 
   return {
     ticker:       sym,
-    name:         q.name || (sym + " Corp"),
+    name:         escapeHTML(q.name || (sym + " Corp")),
     price:        q.price || "₹0.00",
     rawPrice:     q.raw || 0,
     changePct:    q.changePct || "0.00%",
