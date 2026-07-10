@@ -1,0 +1,9 @@
+{
+  "name": "NC Markets \u2014 Financial Intelligence Terminal",
+  "short_name": "NC Markets",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#0b0f19",
+  "description": "Financial intelligence dashboard with market analysis, user tools and market intelligence."
+}
