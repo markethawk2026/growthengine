@@ -1099,3 +1099,49 @@ body.light-theme .stitle {
 .nc-feature-nav{display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px;background:#0b0f19;border-bottom:1px solid #1e293b;position:sticky;top:0;z-index:80}
 .nc-feature-nav button{border:1px solid #334155;background:#111827;color:#e5e7eb;border-radius:9px;padding:8px 11px;cursor:pointer}
 .nc-feature-nav button:hover,.nc-feature-nav button:focus-visible{border-color:#38bdf8;color:#38bdf8}
+
+/* Phase 8B — page alignment and dynamic-only data repair */
+:root{--nc-page-max:1440px;--nc-page-gap:18px}
+html,body{max-width:100%;overflow-x:hidden}
+main,.main{width:100%;max-width:var(--nc-page-max);margin-left:auto;margin-right:auto;box-sizing:border-box}
+.nc-user-workspace,.nc-mi{
+  width:calc(100% - (var(--nc-page-gap) * 2));
+  max-width:calc(var(--nc-page-max) - (var(--nc-page-gap) * 2));
+  margin:28px auto;
+  box-sizing:border-box;
+  min-width:0;
+}
+.nc-feature-nav{
+  width:100%;
+  box-sizing:border-box;
+  justify-content:center;
+  align-items:center;
+}
+.ncuw-head,.nc-mi-head{align-items:flex-start}
+.ncuw-grid,.nc-mi-sector,.ncuw-summary,.nc-mi-summary,.nc-mi-columns{min-width:0}
+.ncuw-card,.nc-mi-sector>div,.ncuw-summary>div,.nc-mi-summary>div{min-width:0;overflow-wrap:anywhere}
+.ncuw-tablewrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ncuw-form,.ncuw-form-wide{align-items:stretch}
+.ncuw-form input,.ncuw-form select,.ncuw-form button{box-sizing:border-box;min-height:42px}
+.nc-mi-list>div{align-items:center}
+.nc-mi-list span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:900px){
+  .nc-mi-summary,.ncuw-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nc-mi-columns{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  :root{--nc-page-gap:8px}
+  .nc-user-workspace,.nc-mi{margin:16px auto;padding:14px}
+  .ncuw-head,.nc-mi-head{display:flex;flex-direction:column}
+  .ncuw-refresh,.nc-mi-head button{width:100%}
+  .ncuw-tabs{width:100%;padding-bottom:4px}
+  .ncuw-tabs button{flex:0 0 auto}
+  .ncuw-grid,.nc-mi-sector{grid-template-columns:1fr}
+  .ncuw-summary,.nc-mi-summary{grid-template-columns:1fr 1fr}
+  .ncuw-form>*{width:100%;min-width:0!important}
+  .nc-feature-nav{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap}
+  .nc-feature-nav button{flex:0 0 auto}
+}
+@media(max-width:420px){
+  .ncuw-summary,.nc-mi-summary{grid-template-columns:1fr}
+}
