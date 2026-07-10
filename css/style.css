@@ -1094,3 +1094,8 @@ body.light-theme .stitle {
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 @media(max-width:640px){.nc-cmd-overlay{padding-top:7vh}.nc-cmd-fab{right:10px;bottom:10px}}
 @media print{.nc-cmd-fab,.nc-cmd-overlay,.nc-offline-banner,nav,button{display:none!important}body{background:#fff!important;color:#000!important}.sec,.gc,.nc-user-workspace,.nc-mi{break-inside:avoid;border-color:#ccc!important;background:#fff!important;color:#000!important}}
+
+/* Phase 8 live deployment integration */
+.nc-feature-nav{display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px;background:#0b0f19;border-bottom:1px solid #1e293b;position:sticky;top:0;z-index:80}
+.nc-feature-nav button{border:1px solid #334155;background:#111827;color:#e5e7eb;border-radius:9px;padding:8px 11px;cursor:pointer}
+.nc-feature-nav button:hover,.nc-feature-nav button:focus-visible{border-color:#38bdf8;color:#38bdf8}
