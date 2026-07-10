@@ -1074,3 +1074,13 @@ body.light-theme .icl,
 body.light-theme .stitle {
     color: #475569 !important;
 }
+
+/* NC Markets Phase 4B user workspace */
+.nc-user-workspace{margin:28px 18px;padding:20px;border:1px solid #1e293b;border-radius:16px;background:#0b0f19;color:#e5e7eb}
+.ncuw-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.ncuw-head h2{margin:3px 0 4px}.ncuw-head p,.ncuw-muted{color:#94a3b8}.ncuw-kicker{font-size:10px;font-weight:800;letter-spacing:.12em;color:#38bdf8}
+.ncuw-tabs{display:flex;gap:8px;overflow:auto;margin:18px 0}.ncuw-tabs button,.ncuw-refresh,.ncuw-actions button,.ncuw-card button,.ncuw-form button{border:1px solid #334155;background:#111827;color:#e5e7eb;border-radius:9px;padding:9px 12px;cursor:pointer}.ncuw-tabs button.active{border-color:#38bdf8;color:#38bdf8}
+.ncuw-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.ncuw-form input,.ncuw-form select{min-width:180px;flex:1;background:#111827;color:#e5e7eb;border:1px solid #334155;border-radius:9px;padding:10px}
+.ncuw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.ncuw-card{border:1px solid #1e293b;background:#111625;border-radius:12px;padding:14px}.ncuw-price{font-size:20px;font-weight:800;margin-top:8px}.ncuw-actions{display:flex;gap:8px;margin-top:10px}
+.ncuw-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.ncuw-summary>div{background:#111625;border:1px solid #1e293b;border-radius:12px;padding:14px}.ncuw-summary span{display:block;color:#94a3b8;font-size:11px}.ncuw-summary strong{font-size:18px}
+.ncuw-tablewrap{overflow:auto}.ncuw-table{width:100%;border-collapse:collapse;min-width:680px}.ncuw-table th,.ncuw-table td{text-align:left;padding:10px;border-bottom:1px solid #1e293b}.ncuw-table th{color:#94a3b8;font-size:11px;text-transform:uppercase}.ncuw-empty,.ncuw-loading{padding:24px;text-align:center;color:#94a3b8;border:1px dashed #334155;border-radius:12px}
+@media(max-width:640px){.nc-user-workspace{margin:18px 8px;padding:14px}.ncuw-head{display:block}.ncuw-refresh{margin-top:10px}.ncuw-summary{grid-template-columns:1fr}.ncuw-form>*{width:100%;min-width:100%!important}}
