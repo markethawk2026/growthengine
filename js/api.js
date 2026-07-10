@@ -23,30 +23,26 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 /**
  * Proxy fetch for CORS bypass - kept for API access
  */
-async function proxyFetch(url, timeoutMs = 2500) {
+async function proxyFetch(url, timeoutMs = 5000) {
   let lastError = null;
-  
+
   for (var i = 0; i < PROXIES.length; i++) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
     try {
       var targetUrl = PROXIES[i] + encodeURIComponent(url);
-      var r = await fetch(targetUrl, { signal: controller.signal });
-      
-      clearTimeout(timeoutId);
-      
-      if (r.ok) {
-        var text = await r.text();
-        return JSON.parse(text);
-      }
+      var result = await window.RequestManager.request(targetUrl, {
+        timeout: timeoutMs,
+        retries: 1,
+        ttl: window.TTL.s,
+        cacheKey: "proxy::" + url,
+        allowStaleOnError: true
+      });
+      return result.data;
     } catch (e) {
-      clearTimeout(timeoutId);
       lastError = e;
-      console.warn(`Proxy channel ${i} timed out or failed. Shifting to alternative line...`);
+      console.warn("Proxy channel " + i + " failed; trying the next available source.", e.code || e.message);
     }
   }
-  throw lastError || new Error("All available proxy pathways deadlocked.");
+  throw lastError || new Error("All available proxy pathways failed.");
 }
 
 async function yfQuote(ticker) {
@@ -150,8 +146,14 @@ async function yfNews(q) {
   var fetchPromises = feedSources.map(async function(source) {
     try {
       var endpoint = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(source.url);
-      var res = await fetch(endpoint);
-      var payload = await res.json();
+      var managed = await window.RequestManager.request(endpoint, {
+        timeout: 7000,
+        retries: 2,
+        ttl: window.TTL.m,
+        cacheKey: "rss::" + source.url,
+        allowStaleOnError: true
+      });
+      var payload = managed.data;
       
       if (payload && payload.items && payload.items.length > 0) {
         payload.items.forEach(function(item) {
@@ -267,8 +269,15 @@ function calculateTechnicalScore(closes, rsi, macd, ema20, ema50) {
 async function freeAI(prompt) {
   try {
     var cleanUrl = POLL_AI + encodeURIComponent(prompt) + "?wrap=false";
-    var r = await fetch(cleanUrl);
-    if (r.ok) return await r.text();
+    var managed = await window.RequestManager.request(cleanUrl, {
+      timeout: 15000,
+      retries: 1,
+      ttl: 0,
+      responseType: "text",
+      cacheKey: "ai::" + cleanUrl,
+      allowStaleOnError: false
+    });
+    return managed.data || "";
   } catch(e) {}
   return "";
 }
