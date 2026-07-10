@@ -1179,3 +1179,10 @@ main,.main{width:100%;max-width:860px;margin-left:auto;margin-right:auto;box-siz
 .nc-integrated-nav{display:contents}.nc-advanced-nav-item{font:inherit}
 @media(max-width:700px){.nc-user-workspace,.nc-mi{width:calc(100% - 24px);max-width:none;margin:12px auto}.nc-mi-columns{grid-template-columns:1fr}.ncuw-summary,.nc-mi-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.ncuw-summary,.nc-mi-summary{grid-template-columns:1fr}}
+
+/* Branding only */
+.navbar-logo{height:44px;width:auto}
+.footer-logo{height:48px;width:auto}
+.hero-brand img{max-width:420px;width:90%;height:auto}
+.loading-logo{width:120px;animation:logoGlow 2s ease-in-out infinite}
+@keyframes logoGlow{0%,100%{transform:scale(.96);opacity:.9}50%{transform:scale(1.04);opacity:1}}

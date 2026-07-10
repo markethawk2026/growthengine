@@ -1,9 +1,21 @@
 {
-  "name": "NC Markets \u2014 Financial Intelligence Terminal",
-  "short_name": "NC Markets",
+  "name": "NC Markets",
+  "short_name": "NC",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b0f19",
   "theme_color": "#0b0f19",
-  "description": "Financial intelligence dashboard with market analysis, user tools and market intelligence."
+  "description": "Financial intelligence dashboard with market analysis, user tools and market intelligence.",
+  "icons": [
+    {
+      "src": "assets/branding/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/branding/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
