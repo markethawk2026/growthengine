@@ -180,6 +180,7 @@ function forceRenderIndexUI() {
 
 async function runAnalysis(ticker){
   ticker = ticker.toUpperCase().trim();
+  if (window.NCUserTools) window.NCUserTools.addRecent(ticker);
   if(siEl) siEl.value = ticker;
   window.activeTickerNode = ticker;
   switchTab("analysis");
