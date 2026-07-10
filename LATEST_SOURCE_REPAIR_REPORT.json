@@ -1,0 +1,23 @@
+{
+  "source_audit": {
+    "runAnalysis": true,
+    "yfQuote": true,
+    "indicators": true,
+    "user_tools": true,
+    "user_tools_ui": true,
+    "market_intelligence": true,
+    "market_intelligence_ui": true
+  },
+  "remaining_known_hardcoded_company_refs": {},
+  "all_js_syntax_passed": true,
+  "tests": {
+    "financial-indicators.test.js": {
+      "passed": true,
+      "output": "PASS RSI is bounded\nPASS EMA returns finite value with enough history\nPASS EMA returns null with insufficient history\nPASS VWAP equals constant price\nPASS VWAP returns null without positive volume\nPASS ATR is positive\nPASS MACD details are deterministic\nPASS Technical score stays within 0..100\n\n8/8 tests passed"
+    },
+    "security-architecture.test.js": {
+      "passed": true,
+      "output": "PASS security architecture checks"
+    }
+  }
+}
