@@ -1145,3 +1145,14 @@ main,.main{width:100%;max-width:var(--nc-page-max);margin-left:auto;margin-right
 @media(max-width:420px){
   .ncuw-summary,.nc-mi-summary{grid-template-columns:1fr}
 }
+
+/* Latest-source regression and alignment repair */
+html,body{max-width:100%;overflow-x:hidden}
+main,.main{width:100%;max-width:1440px;margin-left:auto;margin-right:auto;box-sizing:border-box}
+.nc-user-workspace,.nc-mi{width:min(calc(100% - 24px),1400px);margin:24px auto;box-sizing:border-box;min-width:0}
+.ncuw-grid,.nc-mi-sector,.ncuw-summary,.nc-mi-summary,.nc-mi-columns{min-width:0}
+.ncuw-card,.nc-mi-sector>div,.ncuw-summary>div,.nc-mi-summary>div{min-width:0;overflow-wrap:anywhere}
+.ncuw-tablewrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.nc-integrated-nav{display:contents}.nc-advanced-nav-item{font:inherit}
+@media(max-width:700px){.nc-user-workspace,.nc-mi{width:calc(100% - 12px);margin:12px auto}.nc-mi-columns{grid-template-columns:1fr}.ncuw-summary,.nc-mi-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.ncuw-summary,.nc-mi-summary{grid-template-columns:1fr}}

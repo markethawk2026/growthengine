@@ -8,7 +8,7 @@ function pct(v){return v===null||v===undefined?"—":(v>0?"+":"")+Number(v).toFi
 function ensure(){
   if(document.getElementById("ncMarketIntel")||!window.NCMarketIntelligence)return;
   var sec=document.createElement("section"); sec.id="ncMarketIntel"; sec.className="nc-mi";
-  sec.innerHTML='<div class="nc-mi-head"><div><div class="nc-mi-kicker">PHASE 5</div><h2>Market Intelligence</h2><p>Market breadth, leaders, sector performance and enhanced news using an explicitly disclosed ticker universe.</p></div><button id="ncMiRefresh">Refresh intelligence</button></div><div id="ncMiBody"><div class="nc-mi-loading">Loading market intelligence…</div></div>';
+  sec.innerHTML='<div class="nc-mi-head"><div><h2>Market Intelligence</h2><p>Market breadth, leaders, sector performance and enhanced news using an explicitly disclosed ticker universe.</p></div><button id="ncMiRefresh">Refresh intelligence</button></div><div id="ncMiBody"><div class="nc-mi-loading">Loading market intelligence…</div></div>';
   var anchor=document.getElementById("ncUserWorkspace"), target=document.querySelector("main")||document.querySelector(".main")||document.body;
   if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(sec,anchor.nextSibling); else target.appendChild(sec);
   document.getElementById("ncMiRefresh").onclick=render; render();

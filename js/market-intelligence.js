@@ -9,12 +9,8 @@ var EMPTY_UNIVERSE=[];
 function dynamicUniverse(){
   try {
     var s=window.NCUserTools&&window.NCUserTools.getState?window.NCUserTools.getState():null;
-    var userSymbols=[].concat(
-      (s&&s.watchlist)||[],
-      (s&&s.recent)||[],
-      ((s&&s.portfolio)||[]).map(function(h){return h.ticker;})
-    );
-    return Array.from(new Set(userSymbols.filter(Boolean))).slice(0,50);
+    var symbols=[].concat((s&&s.watchlist)||[],(s&&s.recent)||[],((s&&s.portfolio)||[]).map(function(h){return h.ticker;}));
+    return Array.from(new Set(symbols.filter(Boolean))).slice(0,50);
   } catch(_) { return []; }
 }
 var SECTORS={};
