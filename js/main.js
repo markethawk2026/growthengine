@@ -180,7 +180,13 @@ function forceRenderIndexUI() {
 
 async function runAnalysis(ticker){
   ticker = ticker.toUpperCase().trim();
-  if (window.NCUserTools) window.NCUserTools.addRecent(ticker);
+  try {
+    if (window.NCUserTools && typeof window.NCUserTools.addRecent === "function") {
+      window.NCUserTools.addRecent(ticker);
+    }
+  } catch (integrationError) {
+    console.warn("Recent-search integration skipped:", integrationError);
+  }
   if(siEl) siEl.value = ticker;
   window.activeTickerNode = ticker;
   switchTab("analysis");

@@ -13,7 +13,7 @@ function ensureUI(){
   var wrap=document.createElement("section");
   wrap.id="ncUserWorkspace";
   wrap.className="nc-user-workspace";
-  wrap.innerHTML='<div class="ncuw-head"><div><div class="ncuw-kicker">PERSONAL WORKSPACE</div><h2>NC User Tools</h2><p>Watchlist, portfolio, comparison, screener and alerts stored locally in this browser.</p></div><button class="ncuw-refresh" type="button">Refresh workspace</button></div><div class="ncuw-tabs" role="tablist"></div><div id="ncuwPanel"></div>';
+  wrap.innerHTML='<div class="ncuw-head"><div><h2>Watchlist & Portfolio</h2><p>Watchlist, portfolio, comparison, screener and alerts stored locally in this browser.</p></div><button class="ncuw-refresh" type="button">Refresh workspace</button></div><div class="ncuw-tabs" role="tablist"></div><div id="ncuwPanel"></div>';
   var target=document.querySelector("main")||document.querySelector(".main")||document.body;
   target.appendChild(wrap);
   wrap.querySelector(".ncuw-refresh").addEventListener("click",render);
