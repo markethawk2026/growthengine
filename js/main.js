@@ -134,8 +134,14 @@ async function loadIdx() {
     ];
     for (var proxy of proxyCircuits) {
       try {
-        var response = await fetch(proxy(targetUrl));
-        var json = await response.json();
+        var managed = await window.RequestManager.request(proxy(targetUrl), {
+          timeout: 7000,
+          retries: 1,
+          ttl: window.TTL.s,
+          cacheKey: "market-chart::" + targetUrl,
+          allowStaleOnError: true
+        });
+        var json = managed.data;
         if (json && json.contents) { json = JSON.parse(json.contents); }
         if (json && json.chart && json.chart.result && json.chart.result[0]) {
           var meta = json.chart.result[0].meta;
@@ -186,11 +192,18 @@ async function runAnalysis(ticker){
   var volumes = pData.volumes;
   var news = await yfNews(ticker);
   var rsi = calcRSI(closes, 14);
-  var macd = calcMACD(closes);
+  var macdDetails = calcMACDDetails(closes);
+  var macd = macdDetails ? macdDetails.macd : null;
   var ema20 = calcEMA(closes, 20);
   var ema50 = calcEMA(closes, 50);
+  var ema200 = calcEMA(closes, 200);
+  var vwap = calcVWAP(closes, volumes);
+  var atr = calcATR(pData.highs, pData.lows, closes, 14);
   var sr = calcSR(closes);
-  var calculatedHealth = calculateTechnicalScore(closes, rsi, macd, ema20, ema50);
+  var scoreDetails = buildTechnicalScore(closes, {
+    rsi: rsi, macdDetails: macdDetails, ema20: ema20, ema50: ema50, ema200: ema200
+  });
+  var calculatedHealth = scoreDetails.score === null ? 50 : scoreDetails.score;
   var healthVerdict = calculatedHealth > 75 ? "Strong Buy" : calculatedHealth > 50 ? "Buy" : calculatedHealth > 35 ? "Hold" : "Sell";
   var healthColor = calculatedHealth > 75 ? "#22c55e" : calculatedHealth > 50 ? "#00b06a" : calculatedHealth > 35 ? "#f59e0b" : "#ef4444";
   var prompt = "Evaluate " + ticker + " NSE stock. Return JSON: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"summary\":\"brief analysis\"}";
@@ -207,8 +220,15 @@ async function runAnalysis(ticker){
     volumes: volumes,
     rsi: rsi,
     macd: macd,
-    support: sr.sup,
-    resistance: sr.res,
+    macdDetails: macdDetails,
+    ema20: ema20,
+    ema50: ema50,
+    ema200: ema200,
+    vwap: vwap,
+    atr: atr,
+    signalBreakdown: scoreDetails.signals,
+    support: sr.sup === null ? "—" : "₹" + sr.sup.toFixed(2),
+    resistance: sr.res === null ? "—" : "₹" + sr.res.toFixed(2),
     news: news.slice(0, 4),
     healthScore: calculatedHealth,
     healthVerdict: healthVerdict,
@@ -217,8 +237,8 @@ async function runAnalysis(ticker){
     confidence: ai.confidence || calculatedHealth,
     tradeDirection: ai.tradeDirection || (calculatedHealth > 50 ? "BUY" : "WAIT"),
     entry: "₹" + pData.raw.toFixed(2),
-    stopLoss: sr.sup,
-    target1: sr.res,
+    stopLoss: sr.sup === null ? "—" : "₹" + sr.sup.toFixed(2),
+    target1: sr.res === null ? "—" : "₹" + sr.res.toFixed(2),
     riskLevel: "Medium",
     summary: ai.summary || "Technical setup established.",
     dataSource: pData.dataSource,
@@ -264,6 +284,22 @@ function renderAnalysis(d){
       <div class="gc"><div class="gcl">MACD</div><div class="gcv" style="color:#3b82f6">${d.macd}</div></div>
     </div>
     <div class="sec">
+      <div class="stitle">Advanced Indicators</div>
+      <div class="g4">
+        <div class="gc"><div class="gcl">VWAP</div><div class="gcv">${d.vwap !== null ? "₹" + d.vwap.toFixed(2) : "Unavailable"}</div></div>
+        <div class="gc"><div class="gcl">ATR (14)</div><div class="gcv">${d.atr !== null ? "₹" + d.atr.toFixed(2) : "Unavailable"}</div></div>
+        <div class="gc"><div class="gcl">EMA 20 / 50</div><div class="gcv">${d.ema20 !== null && d.ema50 !== null ? d.ema20.toFixed(2) + " / " + d.ema50.toFixed(2) : "Unavailable"}</div></div>
+        <div class="gc"><div class="gcl">EMA 200</div><div class="gcv">${d.ema200 !== null ? d.ema200.toFixed(2) : "Insufficient history"}</div></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="stitle">Transparent Signal Breakdown</div>
+      ${(d.signalBreakdown || []).map(function(s) {
+        return `<div style="padding:9px 0;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;gap:16px;"><div><strong>${escapeHTML(s.name)}</strong><div style="font-size:11px;color:#94a3b8;margin-top:3px;">${escapeHTML(s.explanation)}</div></div><div style="font-family:monospace;font-weight:800;">${s.contribution.toFixed(1)} / ${s.weight}</div></div>`;
+      }).join("") || '<div class="errbox">Insufficient historical data for a transparent score breakdown.</div>'}
+      <div style="font-size:11px;color:#64748b;margin-top:10px;">The technical score is deterministic and calculated only from available market indicators; no random financial values are used.</div>
+    </div>
+    <div class="sec">
       <div class="stitle">AI Evaluation</div>
       <div class="pr">
         <span class="pb2" style="color:${t.c};background:${t.bg};border-color:${t.b}">${d.tradeDirection}</span>
@@ -278,14 +314,24 @@ function renderAnalysis(d){
 async function runNextDay(ticker){
   ticker = ticker.toUpperCase().trim();
   var body = document.getElementById("ndBody");
-  if (body) body.innerHTML = ldng("Forecasting next day...");
+  if (body) body.innerHTML = ldng("Calculating next-session technical outlook...");
   var p = await yfQuote(ticker);
-  if(!p) return;
-  var aiTxt = await freeAI("Predict next day trend for " + ticker + ". Return JSON: {\"trend\":\"Bullish/Bearish\",\"confidence\":75}");
-  var d = pj(aiTxt) || { trend: "Neutral", confidence: 50 };
-  d.ticker = ticker;
-  d.price = p.price;
-  renderND(d);
+  if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
+
+  var rsi = calcRSI(p.closes, 14);
+  var macdDetails = calcMACDDetails(p.closes);
+  var ema20 = calcEMA(p.closes, 20);
+  var ema50 = calcEMA(p.closes, 50);
+  var ema200 = calcEMA(p.closes, 200);
+  var scoreDetails = buildTechnicalScore(p.closes, { rsi:rsi, macdDetails:macdDetails, ema20:ema20, ema50:ema50, ema200:ema200 });
+  var score = scoreDetails.score === null ? 50 : scoreDetails.score;
+  var trend = score >= 60 ? "Bullish" : score <= 40 ? "Bearish" : "Neutral";
+  var confidence = Math.min(90, Math.max(50, Math.round(50 + Math.abs(score - 50) * 0.8)));
+  renderND({
+    ticker:ticker, price:p.price, trend:trend, confidence:confidence,
+    technicalScore:score, signals:scoreDetails.signals,
+    dataSource:p.dataSource, dataStatus:p.dataStatus
+  });
 }
 
 function renderND(d) {
@@ -294,19 +340,38 @@ function renderND(d) {
   var arrow = d.trend.toLowerCase().includes("bull") ? "▲" : "▼";
   var body = document.getElementById("ndBody");
   if (!body) return;
-  body.innerHTML = `<div class="sec" style="background:#0b0f19; border-radius:12px; padding:24px; border:1px solid #1e293b;"><div style="display:flex; justify-content:space-between; margin-bottom:16px;"><div><div style="font-size:20px; font-weight:800; color:${accentColor}; margin-bottom:4px;">${escapeHTML(d.ticker)}</div></div><div style="text-align:right;"><div style="font-size:18px; font-weight:800; color:${accentColor};">${arrow} ${escapeHTML(d.trend)}</div><div style="font-size:11px; color:#64748b;">Confidence: ${d.confidence}%</div></div></div></div>`;
+  body.innerHTML = `<div class="sec" style="background:#0b0f19; border-radius:12px; padding:24px; border:1px solid #1e293b;"><div style="display:flex; justify-content:space-between; margin-bottom:16px;"><div><div style="font-size:20px; font-weight:800; color:${accentColor}; margin-bottom:4px;">${escapeHTML(d.ticker)}</div></div><div style="text-align:right;"><div style="font-size:18px; font-weight:800; color:${accentColor};">${arrow} ${escapeHTML(d.trend)}</div><div style="font-size:11px; color:#64748b;">Model confidence: ${d.confidence}%</div></div></div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Technical score: <strong>${d.technicalScore}/100</strong> • ${escapeHTML(d.dataSource || "Market source")} • ${escapeHTML(d.dataStatus || "DELAYED")}</div>
+    ${(d.signals || []).map(function(s){ return `<div style="padding:8px 0;border-top:1px solid #1e293b;"><strong>${escapeHTML(s.name)}</strong>: ${escapeHTML(s.explanation)}</div>`; }).join("")}
+    <div style="font-size:11px;color:#64748b;margin-top:14px;">Probabilistic technical outlook only; not a guarantee of future price direction.</div>
+  </div>`;
 }
 
 async function runOutlook(ticker){
   ticker = ticker.toUpperCase().trim();
   var body = document.getElementById("tmBody");
-  if (body) body.innerHTML = ldng("Building outlook...");
+  if (body) body.innerHTML = ldng("Building scenario-based outlook...");
   var p = await yfQuote(ticker);
-  if(!p) return;
-  var aiTxt = await freeAI("Outlook for " + ticker + ". Return JSON: {\"trend\":\"Bullish/Neutral\",\"confidence\":70}");
-  var d = pj(aiTxt) || { trend: "Neutral", confidence: 60 };
-  var t = tSty(d.trend);
-  if (body) body.innerHTML = `<div class="sec" style="background:#0b0f19; padding:24px; border-radius:12px; border:1px solid #1e293b;"><h3 style="margin:0 0 12px;">${escapeHTML(ticker)} Outlook</h3><div style="color:${t.c}; font-weight:800;">${d.trend}</div></div>`;
+  if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
+
+  var price = Number(p.raw);
+  var atr = calcATR(p.highs, p.lows, p.closes, 14);
+  var sr = calcSR(p.closes);
+  var riskUnit = atr || (price * 0.03);
+  var scenarios = [
+    { name:"Bull case", target:price + 2*riskUnit, condition:"Momentum remains constructive and resistance is cleared.", color:"#22c55e" },
+    { name:"Base case", target:price, condition:"Price consolidates around the current trend without a decisive breakout.", color:"#f59e0b" },
+    { name:"Bear case", target:Math.max(0, price - 2*riskUnit), condition:"Support fails and downside momentum expands.", color:"#ef4444" }
+  ];
+  var scenarioHTML = scenarios.map(function(s){
+    return `<div class="gc"><div class="gcl">${s.name}</div><div class="gcv" style="color:${s.color}">₹${s.target.toFixed(2)}</div><div style="font-size:11px;color:#94a3b8;margin-top:6px;">${escapeHTML(s.condition)}</div></div>`;
+  }).join("");
+  body.innerHTML = `<div class="sec" style="background:#0b0f19;padding:24px;border-radius:12px;border:1px solid #1e293b;">
+    <h3 style="margin:0 0 12px;">${escapeHTML(ticker)} Scenario Outlook</h3>
+    <div class="g4">${scenarioHTML}</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:14px;">ATR (14): ${atr !== null ? "₹"+atr.toFixed(2) : "Unavailable"} • Support: ${sr.sup !== null ? "₹"+sr.sup.toFixed(2) : "Unavailable"} • Resistance: ${sr.res !== null ? "₹"+sr.res.toFixed(2) : "Unavailable"}</div>
+    <div style="font-size:11px;color:#64748b;margin-top:10px;">Scenarios are deterministic technical ranges based on current price and volatility, not guaranteed forecasts.</div>
+  </div>`;
 }
 
 async function loadGlobal(force){

@@ -74,10 +74,23 @@ async function yfQuote(ticker) {
     var m = cResult.meta;
     var price = m.regularMarketPrice;
     
-    var rawCloses = cResult.indicators.quote[0].close || [];
-    var rawVolumes = cResult.indicators.quote[0].volume || [];
-    var cleanCloses = rawCloses.filter(p => p !== null && p !== undefined);
-    var cleanVolumes = rawVolumes.filter((_, idx) => rawCloses[idx] !== null);
+    var quoteSeries = cResult.indicators.quote[0] || {};
+    var rawCloses = quoteSeries.close || [];
+    var rawHighs = quoteSeries.high || [];
+    var rawLows = quoteSeries.low || [];
+    var rawVolumes = quoteSeries.volume || [];
+    var cleanCloses = [];
+    var cleanHighs = [];
+    var cleanLows = [];
+    var cleanVolumes = [];
+    rawCloses.forEach(function(close, idx) {
+      if (close !== null && close !== undefined && Number.isFinite(Number(close))) {
+        cleanCloses.push(Number(close));
+        cleanHighs.push(Number.isFinite(Number(rawHighs[idx])) ? Number(rawHighs[idx]) : Number(close));
+        cleanLows.push(Number.isFinite(Number(rawLows[idx])) ? Number(rawLows[idx]) : Number(close));
+        cleanVolumes.push(Number.isFinite(Number(rawVolumes[idx])) ? Number(rawVolumes[idx]) : 0);
+      }
+    });
 
     if(!cleanCloses.length) cleanCloses = [price, price];
 
@@ -108,6 +121,8 @@ async function yfQuote(ticker) {
       up:       chg >= 0,
       name:     m.longName || m.shortName || ticker,
       closes:   cleanCloses,
+      highs:    cleanHighs,
+      lows:     cleanLows,
       volumes:  cleanVolumes,
       times:    cResult.timestamp || [],
       dataSource: 'Yahoo Finance',
@@ -227,43 +242,141 @@ function parseDynamicMoverItem(sym, q) {
 }
 
 function calcRSI(closes, p) {
-  p = p || 14; if (!closes || closes.length < p + 1) return "54.8";
-  var g = 0, l = 0;
-  for (var i = closes.length - p; i < closes.length; i++) {
-    var d = closes[i] - closes[i - 1]; if (d > 0) g += d; else l -= d;
+  p = p || 14;
+  if (!Array.isArray(closes) || closes.length < p + 1) return null;
+  var gains = 0, losses = 0;
+  for (var i = 1; i <= p; i++) {
+    var diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff; else losses -= diff;
   }
-  var ag = g / p, al = l / p; if (al === 0) return "100.0";
-  return (100 - (100 / (1 + ag / al))).toFixed(1);
+  var avgGain = gains / p, avgLoss = losses / p;
+  for (var j = p + 1; j < closes.length; j++) {
+    var change = closes[j] - closes[j - 1];
+    avgGain = ((avgGain * (p - 1)) + Math.max(change, 0)) / p;
+    avgLoss = ((avgLoss * (p - 1)) + Math.max(-change, 0)) / p;
+  }
+  if (avgLoss === 0) return 100;
+  return Number((100 - (100 / (1 + avgGain / avgLoss))).toFixed(1));
 }
 
 function calcEMA(closes, p) {
-  if (!closes || closes.length < p) return null;
-  var k = 2 / (p + 1), ema = closes.slice(0, p).reduce(function(a, b){ return a + b; }, 0) / p;
+  if (!Array.isArray(closes) || closes.length < p) return null;
+  var k = 2 / (p + 1);
+  var ema = closes.slice(0, p).reduce(function(a, b){ return a + b; }, 0) / p;
   for (var i = p; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
-  return ema.toFixed(2);
+  return Number(ema.toFixed(2));
+}
+
+function calcEMASeries(values, p) {
+  if (!Array.isArray(values) || values.length < p) return [];
+  var result = new Array(p - 1).fill(null);
+  var ema = values.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
+  result.push(ema);
+  var k = 2 / (p + 1);
+  for (var i = p; i < values.length; i++) {
+    ema = values[i] * k + ema * (1 - k);
+    result.push(ema);
+  }
+  return result;
+}
+
+function calcMACDDetails(closes) {
+  if (!Array.isArray(closes) || closes.length < 35) return null;
+  var e12 = calcEMASeries(closes, 12);
+  var e26 = calcEMASeries(closes, 26);
+  var macdSeries = [];
+  for (var i = 25; i < closes.length; i++) macdSeries.push(e12[i] - e26[i]);
+  if (macdSeries.length < 9) return null;
+  var signalSeries = calcEMASeries(macdSeries, 9);
+  var macd = macdSeries[macdSeries.length - 1];
+  var signal = signalSeries[signalSeries.length - 1];
+  return {
+    macd: Number(macd.toFixed(3)),
+    signal: Number(signal.toFixed(3)),
+    histogram: Number((macd - signal).toFixed(3))
+  };
 }
 
 function calcMACD(closes) {
-  var e12 = calcEMA(closes, 12), e26 = calcEMA(closes, 26);
-  if (!e12 || !e26) return "0.125";
-  return (parseFloat(e12) - parseFloat(e26)).toFixed(3);
+  var details = calcMACDDetails(closes);
+  return details ? details.macd : null;
+}
+
+function calcVWAP(closes, volumes) {
+  if (!Array.isArray(closes) || !Array.isArray(volumes)) return null;
+  var pv = 0, totalVolume = 0;
+  for (var i = 0; i < Math.min(closes.length, volumes.length); i++) {
+    var price = Number(closes[i]), volume = Number(volumes[i]);
+    if (Number.isFinite(price) && Number.isFinite(volume) && volume > 0) {
+      pv += price * volume;
+      totalVolume += volume;
+    }
+  }
+  return totalVolume > 0 ? Number((pv / totalVolume).toFixed(2)) : null;
+}
+
+function calcATR(highs, lows, closes, p) {
+  p = p || 14;
+  if (!Array.isArray(highs) || !Array.isArray(lows) || !Array.isArray(closes) || closes.length < p + 1) return null;
+  var trueRanges = [];
+  for (var i = 1; i < closes.length; i++) {
+    trueRanges.push(Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    ));
+  }
+  if (trueRanges.length < p) return null;
+  var atr = trueRanges.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
+  for (var j = p; j < trueRanges.length; j++) atr = ((atr * (p - 1)) + trueRanges[j]) / p;
+  return Number(atr.toFixed(2));
 }
 
 function calcSR(closes) {
-  if (!closes || closes.length < 5) return { sup: "—", res: "—" };
+  if (!Array.isArray(closes) || closes.length < 5) return { sup: null, res: null };
   var sorted = [].concat(closes).sort(function(a, b){ return a - b; });
-  return { sup: "₹" + sorted[Math.floor(sorted.length * .1)].toFixed(2), res: "₹" + sorted[Math.floor(sorted.length * .9)].toFixed(2) };
+  return {
+    sup: Number(sorted[Math.floor(sorted.length * .1)].toFixed(2)),
+    res: Number(sorted[Math.floor(sorted.length * .9)].toFixed(2))
+  };
+}
+
+function buildTechnicalScore(closes, indicators) {
+  var signals = [];
+  var total = 0, availableWeight = 0;
+  function add(name, weight, score, explanation) {
+    availableWeight += weight;
+    total += weight * score;
+    signals.push({ name:name, weight:weight, score:score, contribution:Number((weight*score).toFixed(1)), explanation:explanation });
+  }
+  var rsi = indicators.rsi;
+  if (rsi !== null) {
+    var rsiScore = rsi < 30 ? 0.8 : rsi <= 45 ? 0.6 : rsi <= 65 ? 0.75 : rsi <= 75 ? 0.35 : 0.15;
+    add("RSI (14)", 20, rsiScore, "RSI " + rsi + (rsi < 30 ? " is oversold." : rsi > 70 ? " is overbought." : " is in a neutral-to-constructive range."));
+  }
+  if (indicators.macdDetails) {
+    var hist = indicators.macdDetails.histogram;
+    add("MACD", 20, hist > 0 ? 0.8 : hist < 0 ? 0.2 : 0.5, "MACD histogram is " + hist + ".");
+  }
+  if (indicators.ema20 !== null && indicators.ema50 !== null) {
+    add("EMA 20/50", 25, indicators.ema20 > indicators.ema50 ? 0.85 : 0.2, "EMA 20 is " + (indicators.ema20 > indicators.ema50 ? "above" : "below") + " EMA 50.");
+  }
+  if (indicators.ema200 !== null && closes.length) {
+    add("Price vs EMA 200", 15, closes[closes.length-1] > indicators.ema200 ? 0.8 : 0.2, "Price is " + (closes[closes.length-1] > indicators.ema200 ? "above" : "below") + " EMA 200.");
+  }
+  if (closes.length >= 6) {
+    var momentum = (closes[closes.length-1] / closes[closes.length-6]) - 1;
+    add("5-session momentum", 20, momentum > 0.02 ? 0.9 : momentum > 0 ? 0.65 : momentum > -0.02 ? 0.4 : 0.1, "5-session momentum is " + (momentum*100).toFixed(2) + "%.");
+  }
+  var score = availableWeight ? Math.round((total / availableWeight) * 100) : null;
+  return { score: score, signals: signals, availableWeight: availableWeight };
 }
 
 function calculateTechnicalScore(closes, rsi, macd, ema20, ema50) {
-  if (!closes || closes.length < 5) return 55;
-  let score = 0; let r = parseFloat(rsi) || 50;
-  if (r >= 40 && r <= 65) score += 25; else if (r > 30 && r < 40) score += 15; else if (r > 65 && r < 80) score += 10;
-  if ((parseFloat(macd) || 0) > 0) score += 25;
-  let e20 = parseFloat(ema20), e50 = parseFloat(ema50);
-  if (e20 && e50 && e20 > e50) score += 30;
-  if (closes[closes.length - 1] >= closes[closes.length - 2]) score += 20;
-  return score;
+  return buildTechnicalScore(closes, {
+    rsi: rsi, macdDetails: macd === null ? null : { histogram: Number(macd) },
+    ema20: ema20, ema50: ema50, ema200: null
+  }).score;
 }
 
 async function freeAI(prompt) {
