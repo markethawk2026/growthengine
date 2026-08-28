@@ -264,6 +264,11 @@ async function runAnalysis(ticker){
   var prompt = "Evaluate " + ticker + " NSE stock. Return JSON: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"summary\":\"brief analysis\"}";
   var aiTxt = await freeAI(prompt);
   var ai = pj(aiTxt) || {};
+
+  var estEps = (pData.raw && pData.raw > 0) ? (pData.raw / 18.5) : null; // Estimated earnings per share
+  var grahamVal = (estEps && window.NCUserTools) ? window.NCUserTools.calculateGrahamValue(estEps, 8.5) : null;
+  var marginOfSafety = (grahamVal && window.NCUserTools) ? window.NCUserTools.calculateMarginOfSafety(pData.raw, grahamVal) : null;
+
   var d = {
     ticker: ticker,
     company: escapeHTML(pData.name),
@@ -284,6 +289,8 @@ async function runAnalysis(ticker){
     signalBreakdown: scoreDetails.signals,
     support: sr.sup === null ? "—" : "₹" + sr.sup.toFixed(2),
     resistance: sr.res === null ? "—" : "₹" + sr.res.toFixed(2),
+    grahamVal: grahamVal !== null ? "₹" + grahamVal.toFixed(2) : "—",
+    marginOfSafety: marginOfSafety !== null ? (marginOfSafety >= 0 ? "+" : "") + marginOfSafety.toFixed(1) + "%" : "—",
     news: news.slice(0, 4),
     healthScore: calculatedHealth,
     healthVerdict: healthVerdict,
@@ -337,6 +344,13 @@ function renderAnalysis(d){
       <div class="gc"><div class="gcl">Resistance</div><div class="gcv" style="color:#ef4444">${d.resistance}</div></div>
       <div class="gc"><div class="gcl">RSI (14)</div><div class="gcv" style="color:#f59e0b">${d.rsi}</div></div>
       <div class="gc"><div class="gcl">MACD</div><div class="gcv" style="color:#3b82f6">${d.macd}</div></div>
+    </div>
+    <div class="sec">
+      <div class="stitle">Benjamin Graham Valuation</div>
+      <div class="g2">
+        <div class="gc"><div class="gcl">Graham Fair Value</div><div class="gcv" style="color:#38bdf8">${d.grahamVal}</div></div>
+        <div class="gc"><div class="gcl">Margin of Safety</div><div class="gcv" style="color:${d.marginOfSafety.startsWith('+') ? '#22c55e' : '#ef4444'}">${d.marginOfSafety}</div></div>
+      </div>
     </div>
     <div class="sec">
       <div class="stitle">Advanced Indicators</div>
