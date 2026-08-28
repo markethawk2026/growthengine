@@ -12,10 +12,10 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
-  function(url) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url); },
-  function(url) { return "https://api.allorigins.win/get?url=" + encodeURIComponent(url); },
   function(url) { return "https://corsproxy.io/?" + encodeURIComponent(url); },
-  function(url) { return "https://corsproxy.io/?url=" + encodeURIComponent(url); }
+  function(url) { return "https://corsproxy.io/?url=" + encodeURIComponent(url); },
+  function(url) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url); },
+  function(url) { return "https://api.allorigins.win/get?url=" + encodeURIComponent(url); }
 ];
 
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
@@ -190,10 +190,10 @@ async function yfNews(q) {
 
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
-              headline: title,
-              source: source.name.toUpperCase(),
+              headline: escapeHTML(title),
+              source: escapeHTML(source.name.toUpperCase()),
               time: new Date().toLocaleTimeString(),
-              summary: summaryClean
+              summary: escapeHTML(summaryClean)
             });
           }
         });
