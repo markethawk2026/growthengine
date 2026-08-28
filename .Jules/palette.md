@@ -7,3 +7,7 @@
 ## 2025-05-18 - Tab Navigation Emoji Spacing
 **Learning:** Inline emojis in navigation tab labels can crowd adjacent text depending on platform font rendering, making tab items feel cluttered.
 **Action:** Wrap tab icon emojis in container spans with explicit margin (`margin-right: 4px`) to preserve consistent visual hierarchy across platforms.
+
+## 2025-05-18 - Primary Action Button Hover Transitions
+**Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
+**Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
