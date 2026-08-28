@@ -12,8 +12,7 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
-  function(url) { return "https://corsproxy.io/?" + encodeURIComponent(url); },
-  function(url) { return "https://corsproxy.io/?url=" + encodeURIComponent(url); },
+  function(url) { return "https://proxy.cors.sh/" + url; },
   function(url) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url); },
   function(url) { return "https://api.allorigins.win/get?url=" + encodeURIComponent(url); }
 ];
@@ -24,7 +23,7 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 /**
  * Proxy fetch for CORS bypass - kept for API access
  */
-async function proxyFetch(url, timeoutMs = 5000) {
+async function proxyFetch(url, timeoutMs = 8000) {
   let lastError = null;
 
   for (var i = 0; i < PROXIES.length; i++) {
@@ -37,14 +36,14 @@ async function proxyFetch(url, timeoutMs = 5000) {
         cacheKey: "proxy::" + url,
         allowStaleOnError: true
       });
-      var data = result.data;
-      if (data && typeof data === "object" && data.contents) {
-        try { data = JSON.parse(data.contents); } catch(_) {}
+      var payload = result.data;
+      if (payload && payload.contents) {
+        payload = typeof payload.contents === "string" ? JSON.parse(payload.contents) : payload.contents;
       }
-      if (typeof data === "string") {
-        try { data = JSON.parse(data); } catch(_) {}
+      if (payload && (payload.chart || payload.quotes || payload.items)) {
+        return payload;
       }
-      return data;
+      return payload;
     } catch (e) {
       lastError = e;
       console.warn("Proxy channel " + i + " failed; trying the next available source.", e.code || e.message);
@@ -190,10 +189,10 @@ async function yfNews(q) {
 
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
-              headline: escapeHTML(title),
-              source: escapeHTML(source.name.toUpperCase()),
+              headline: title,
+              source: source.name.toUpperCase(),
               time: new Date().toLocaleTimeString(),
-              summary: escapeHTML(summaryClean)
+              summary: summaryClean
             });
           }
         });
