@@ -611,31 +611,27 @@ async function sendChat(){
 }
 
 async function discoverDynamicNSETickers() {
-  var symbols = new Set([
-    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "TATAMOTORS", "SBIN",
-    "BHARTIARTL", "ITC", "LT", "AXISBANK", "KOTAKBANK", "HINDUNILVR", "BAJFINANCE",
-    "MARUTI", "SUNPHARMA", "ASIANPAINT", "TITAN", "ULTRACEMCO", "NTPC", "POWERGRID",
-    "ONGC", "JSWSTEEL", "TATASTEEL", "ADANIENT", "WIPRO", "HCLTECH", "TECHM",
-    "COALINDIA", "CIPLA", "HEROMOTOCO", "EICHERMOT"
-  ]);
+  var symbols = new Set();
 
-  // 1. Discover via dynamic search queries across current market segments
+  // 1. Discover via live market search queries
   try {
-    var searchQueries = ["NSE", "NIFTY", "BANK", "LIMITED", "INDIA"];
+    var searchQueries = ["NSE", "NIFTY", "TATA", "INDIA", "LIMITED", "RELIANCE", "BANK"];
     var searchResults = await Promise.all(searchQueries.map(q => yfSearch(q)));
     searchResults.forEach(function(list) {
       if (Array.isArray(list)) {
         list.forEach(function(item) {
           if (item && item.symbol) {
             var sym = item.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
-            if (sym && !sym.startsWith("^") && !sym.includes("=")) symbols.add(sym);
+            if (sym && !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-")) {
+              symbols.add(sym);
+            }
           }
         });
       }
     });
   } catch (_) {}
 
-  // 2. Discover via active user tools state
+  // 2. Discover via active user tools state (watchlist, recent searches, portfolio)
   try {
     if (window.NCUserTools && typeof window.NCUserTools.getState === "function") {
       var st = window.NCUserTools.getState();

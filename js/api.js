@@ -12,9 +12,9 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
+  function(url) { return "https://proxy.cors.sh/" + url; },
   function(url) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url); },
-  function(url) { return "https://api.allorigins.win/get?url=" + encodeURIComponent(url); },
-  function(url) { return "https://corsproxy.io/?" + encodeURIComponent(url); }
+  function(url) { return "https://api.allorigins.win/get?url=" + encodeURIComponent(url); }
 ];
 
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
