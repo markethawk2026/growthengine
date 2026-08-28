@@ -45,7 +45,7 @@ function switchTab(name){
   if(name === "nextday") {
     var body = document.getElementById("ndBody");
     if(body && (!body.innerHTML.trim() || window.activeTickerNode)) {
-      var ticker = window.activeTickerNode || (document.getElementById("ndIn") && document.getElementById("ndIn").value.trim()) || "RELIANCE";
+      var ticker = window.activeTickerNode || (document.getElementById("ndIn") && document.getElementById("ndIn").value.trim()) || (window.TOP_MOVERS_SYMBOLS && window.TOP_MOVERS_SYMBOLS[0]) || "NIFTY";
       var ndInput = document.getElementById("ndIn");
       if(ndInput) ndInput.value = ticker;
       runNextDay(ticker);
@@ -320,7 +320,7 @@ async function runNextDay(ticker){
   var body = document.getElementById("ndBody");
   if (body) body.innerHTML = ldng("Analyzing quantitative momentum & calculating next-session model probabilities...");
   var p = await yfQuote(ticker);
-  if(!p) { if(body) body.innerHTML = '<div class="errbox" style="padding:24px; text-align:center; background:#0f172a; border:1px solid #1e293b; border-radius:12px;">⚠️ Market data unavailable for symbol "<strong>' + escapeHTML(ticker) + '</strong>". Please check ticker spelling or try RELIANCE / INFY.</div>'; return; }
+  if(!p) { if(body) body.innerHTML = '<div class="errbox" style="padding:24px; text-align:center; background:#0f172a; border:1px solid #1e293b; border-radius:12px;">⚠️ Market data unavailable for symbol "<strong>' + escapeHTML(ticker) + '</strong>". Please check ticker spelling or retry search.</div>'; return; }
 
   var price = Number(p.raw || 0);
   var rsi = calcRSI(p.closes, 14);
@@ -580,7 +580,7 @@ document.querySelectorAll(".tfb").forEach(function(btn) {
 function initChatSuggestions() {
   var sugBox = document.getElementById("chatSuggestions");
   if (!sugBox) return;
-  var suggestions = ["NIFTY 50 Outlook", "Top Bullish Stocks", "RELIANCE Technicals", "Risk Management Rules"];
+  var suggestions = ["NIFTY 50 Outlook", "Top Bullish Stocks", "Sector Trends", "Risk Management Rules"];
   sugBox.innerHTML = suggestions.map(function(s) {
     return `<button class="sbtn" style="margin-right:6px;margin-bottom:6px;" onclick="document.getElementById('chatIn').value='${escapeHTML(s)}';sendChat()">${escapeHTML(s)}</button>`;
   }).join("");
@@ -610,27 +610,51 @@ async function sendChat(){
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 }
 
+async function discoverDynamicNSETickers() {
+  var symbols = new Set();
+
+  // 1. Discover via dynamic search queries across current market segments
+  try {
+    var searchQueries = ["NSE", "NIFTY", "BANK", "LIMITED", "INDIA"];
+    var searchResults = await Promise.all(searchQueries.map(q => yfSearch(q)));
+    searchResults.forEach(function(list) {
+      if (Array.isArray(list)) {
+        list.forEach(function(item) {
+          if (item && item.symbol) {
+            var sym = item.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+            if (sym && !sym.startsWith("^") && !sym.includes("=")) symbols.add(sym);
+          }
+        });
+      }
+    });
+  } catch (_) {}
+
+  // 2. Discover via active user tools state
+  try {
+    if (window.NCUserTools && typeof window.NCUserTools.getState === "function") {
+      var st = window.NCUserTools.getState();
+      if (st) {
+        (st.watchlist || []).forEach(s => symbols.add(String(s).toUpperCase()));
+        (st.recent || []).forEach(s => symbols.add(String(s).toUpperCase()));
+        (st.portfolio || []).forEach(h => h.ticker && symbols.add(String(h.ticker).toUpperCase()));
+      }
+    }
+  } catch (_) {}
+
+  return Array.from(symbols);
+}
+
 async function loadTrending() {
   var container = document.getElementById("trendBody");
   if (!container) return;
 
-  var candidateUniverse = [
-    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "TATAMOTORS", "SBIN",
-    "BHARTIARTL", "ITC", "LT", "AXISBANK", "KOTAKBANK", "HINDUNILVR", "BAJFINANCE",
-    "MARUTI", "SUNPHARMA", "ASIANPAINT", "TITAN", "ULTRACEMCO", "NTPC", "POWERGRID",
-    "ONGC", "JSWSTEEL", "TATASTEEL", "ADANIENT", "WIPRO", "HCLTECH", "TECHM"
-  ];
+  var dynamicUniverse = await discoverDynamicNSETickers();
+  if (!dynamicUniverse.length) {
+    container.innerHTML = `<div style="color:#64748b; padding:16px; font-size:12px;">Fetching live intraday market performers...</div>`;
+    return;
+  }
 
-  try {
-    if (window.NCMarketIntelligence && NCMarketIntelligence.getUniverse) {
-      var u = NCMarketIntelligence.getUniverse();
-      if (u && u.length) {
-        candidateUniverse = Array.from(new Set(u.concat(candidateUniverse)));
-      }
-    }
-  } catch(_) {}
-
-  var quotes = await Promise.all(candidateUniverse.slice(0, 16).map(async function(sym) {
+  var quotes = await Promise.all(dynamicUniverse.map(async function(sym) {
     try {
       var q = await yfQuote(sym);
       if (!q) return null;
@@ -648,20 +672,25 @@ async function loadTrending() {
 
   quotes = quotes.filter(Boolean);
 
-  // Sort by top performing movers of the day (descending by % change)
+  // Sort by top performing movers of the day (descending by intraday % change magnitude)
   quotes.sort(function(a, b) {
     return Math.abs(b.changePctNum) - Math.abs(a.changePctNum);
   });
 
   var topMovers = quotes.slice(0, 8);
+  window.TOP_MOVERS_SYMBOLS = topMovers.map(m => m.ticker);
+
+  // Render quick benchmark buttons dynamically in Next Day tab
+  var benchmarkContainer = document.getElementById("ndQuickBenchmarks");
+  if (benchmarkContainer && topMovers.length) {
+    benchmarkContainer.innerHTML = topMovers.slice(0, 5).map(function(m) {
+      return `<button class="ndQuick" onclick="document.getElementById('ndIn').value='${escapeHTML(m.ticker)}';runNextDay('${escapeHTML(m.ticker)}')" style="background:#0f172a; border:1px solid #1e293b; color:#94a3b8; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; transition:all 0.15s">${escapeHTML(m.ticker)}</button>`;
+    }).join("");
+  }
 
   if (!topMovers.length) {
-    topMovers = [
-      { ticker: "RELIANCE", name: "Reliance Industries Ltd", price: "₹1,283.70", changePctStr: "+0.12%", up: true },
-      { ticker: "TCS", name: "Tata Consultancy Services", price: "₹2,342.00", changePctStr: "+4.16%", up: true },
-      { ticker: "INFY", name: "Infosys Limited", price: "₹1,143.00", changePctStr: "+2.90%", up: true },
-      { ticker: "HDFCBANK", name: "HDFC Bank Limited", price: "₹719.50", changePctStr: "+1.20%", up: true }
-    ];
+    container.innerHTML = `<div style="color:#64748b; padding:16px; font-size:12px;">No active movers returned for current trading session.</div>`;
+    return;
   }
 
   container.innerHTML = topMovers.map(function(item) {
