@@ -613,25 +613,7 @@ async function sendChat(){
 async function discoverDynamicNSETickers() {
   var symbols = new Set();
 
-  // 1. Discover via live market search queries
-  try {
-    var searchQueries = ["NSE", "NIFTY", "TATA", "INDIA", "LIMITED", "RELIANCE", "BANK"];
-    var searchResults = await Promise.all(searchQueries.map(q => yfSearch(q)));
-    searchResults.forEach(function(list) {
-      if (Array.isArray(list)) {
-        list.forEach(function(item) {
-          if (item && item.symbol) {
-            var sym = item.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
-            if (sym && !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-")) {
-              symbols.add(sym);
-            }
-          }
-        });
-      }
-    });
-  } catch (_) {}
-
-  // 2. Discover via active user tools state (watchlist, recent searches, portfolio)
+  // 1. Discover tickers from active user tools state (watchlist, recent searches, portfolio)
   try {
     if (window.NCUserTools && typeof window.NCUserTools.getState === "function") {
       var st = window.NCUserTools.getState();
@@ -642,6 +624,46 @@ async function discoverDynamicNSETickers() {
       }
     }
   } catch (_) {}
+
+  // 2. Extract potential company/ticker keywords from active live news articles
+  var newsKeywords = new Set();
+  var stopWords = new Set(["THE", "FOR", "AND", "WITH", "FROM", "THAT", "THIS", "NEWS", "STOCK", "STOCKS", "MARKET", "MARKETS", "INDIA", "INDIAN", "RUPEE", "SHARE", "SHARES", "PRICE", "PRICES", "SEBI", "NIFTY", "SENSEX", "BANK", "TODAY", "YEAR", "LTD", "LIMITED", "CORP", "BSE", "NSE", "CNBC", "BUSINESS", "STANDARD", "FED", "GLOBAL", "HIGH", "LOW", "GAIN", "LOSS", "RALLY", "SAYS", "AFTER", "INTO", "OVER", "MORE", "WILL", "HERE", "SOME", "WHAT", "WHEN"]);
+
+  try {
+    if (Array.isArray(window.ACTIVE_NEWS_POOL) && window.ACTIVE_NEWS_POOL.length) {
+      window.ACTIVE_NEWS_POOL.forEach(function(art) {
+        var text = (art.headline || "") + " " + (art.summary || "");
+        var matches = text.match(/\b[A-Z0-9]{2,10}\b/g);
+        if (matches) {
+          matches.forEach(function(m) {
+            if (!stopWords.has(m) && !/^\d+$/.test(m)) {
+              newsKeywords.add(m);
+            }
+          });
+        }
+      });
+    }
+  } catch (_) {}
+
+  // 3. Dynamically search live endpoints using extracted news keywords
+  var kwList = Array.from(newsKeywords).slice(0, 8);
+  if (kwList.length) {
+    try {
+      var searchResults = await Promise.all(kwList.map(q => yfSearch(q)));
+      searchResults.forEach(function(list) {
+        if (Array.isArray(list)) {
+          list.forEach(function(item) {
+            if (item && item.symbol) {
+              var sym = item.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+              if (sym && !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-")) {
+                symbols.add(sym);
+              }
+            }
+          });
+        }
+      });
+    } catch (_) {}
+  }
 
   return Array.from(symbols);
 }
@@ -730,8 +752,8 @@ async function loadQuickView() {
 
 async function bootDashboard() {
   try { loadIdx(); } catch(e) {}
-  try { loadNews(); } catch(e) {}
-  try { loadTrending(); } catch(e) {}
+  try { await loadNews(); } catch(e) {}
+  try { await loadTrending(); } catch(e) {}
   try { loadQuickView(); } catch(e) {}
 }
 
