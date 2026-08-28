@@ -3,7 +3,7 @@
  */
 (function(){
 "use strict";
-function esc(v){ return window.escapeHTML ? window.escapeHTML(String(v==null?"":v)) : String(v==null?"":v).replace(/[&<>\"']/g,function(c){return({"&":"&amp;","<":"&lt;"," ":"&gt;",'"':"&quot;","'":"&#39;"})[c];});}
+function esc(v){ return window.escapeHTML ? window.escapeHTML(String(v==null?"":v)) : String(v==null?"":v).replace(/[&<>\"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c];});}
 function money(v){return Number.isFinite(Number(v))?"₹"+Number(v).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2}):"Unavailable";}
 function root(){return document.getElementById("ncUserWorkspace");}
 function state(){return window.NCUserTools.getState();}
@@ -14,8 +14,7 @@ function ensureUI(){
   wrap.id="ncUserWorkspace";
   wrap.className="nc-user-workspace";
   wrap.innerHTML='<div class="ncuw-head"><div><h2>Watchlist & Portfolio</h2><p>Watchlist, portfolio, comparison, screener and alerts stored locally in this browser.</p></div><button class="ncuw-refresh">Refresh</button></div><div class="ncuw-tabs"></div><div id="ncuwPanel"></div>';
-  // Mount the workspace inside the Home page when available to avoid showing on every page
-  var target = document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
+  var target=document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
   target.appendChild(wrap);
   wrap.querySelector(".ncuw-refresh").addEventListener("click",render);
   var tabs=[["watchlist","Watchlist"],["portfolio","Portfolio"],["compare","Compare"],["screener","Screener"],["alerts","Alerts"],["recent","Recent"]];
@@ -40,12 +39,12 @@ async function render(){
     else if(active==="screener") renderScreener(panel);
     else if(active==="alerts") renderAlerts(panel);
     else renderRecent(panel);
-  }catch(e){panel.innerHTML='<div class="errbox">⚠️ '+esc(e.message||"Unable to load workspace.")+'</div>';}
+  }catch(e){panel.innerHTML='<div class="errbox">⚠️ '+esc(e.message||"Unable to load workspace.")+'</div>';} 
 }
 async function renderWatchlist(panel){
   var s=state(), rows=await Promise.all(s.watchlist.map(async function(t){return {ticker:t,q:await yfQuote(t)};}));
   panel.innerHTML='<form id="ncWatchForm" class="ncuw-form"><input name="ticker" placeholder="Add ticker, Enter ticker" required><button>Add to watchlist</button></form>'+
-    (rows.length?'<div class="ncuw-grid>'+rows.map(function(r){return '<article class="ncuw-card"><div><strong>'+esc(r.ticker)+'</strong><div class="ncuw-muted">'+esc(r.q?r.q.name:"Unavailable")+'</div></div><div class="ncuw-actions"><button data-open="'+esc(r.ticker)+'">Analyze</button><button data-remove="'+esc(r.ticker)+'">Remove</button></div></article>';}).join('')+'</div>':'<div class="ncuw-empty">No items in watchlist.</div>');
+    (rows.length?'<div class="ncuw-grid">'+rows.map(function(r){return '<article class="ncuw-card"><div><strong>'+esc(r.ticker)+'</strong><div class="ncuw-muted">'+esc(r.q?r.q.name:"Unavailable")+'</div></div><div class="ncuw-actions"><button data-open="'+esc(r.ticker)+'">Analyze</button><button data-remove="'+esc(r.ticker)+'">Remove</button></div></article>';}).join('')+'</div>':'<div class="ncuw-empty">No items in watchlist.</div>');
   panel.querySelector("#ncWatchForm").addEventListener("submit",function(e){e.preventDefault();NCUserTools.addWatchlist(new FormData(e.target).get("ticker"));render();});
   panel.querySelectorAll("[data-remove]").forEach(function(b){b.onclick=function(){NCUserTools.removeWatchlist(b.dataset.remove);render();};});
   panel.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){runAnalysis(b.dataset.open);};});
@@ -70,9 +69,8 @@ function renderScreener(panel){
 function renderAlerts(panel){
   var s=state();
   panel.innerHTML='<form id="ncAlertForm" class="ncuw-form ncuw-form-wide"><input name="ticker" placeholder="Ticker" required><select name="type"><option value="priceAbove">Price above</option><option value="priceBelow">Price below</option></select><input name="threshold" placeholder="Threshold" type="number" step="any"><button>Add alert</button></form>'+
-  (s.alerts.length?'<div class="ncuw-grid">'+s.alerts.map(function(a){return '<article class="ncuw-card"><strong>'+esc(a.ticker)+'</strong><div>'+esc(a.type==="priceBelow"?"Below":"Above")+' '+esc(a.threshold)+'</div><div><button data-alert="'+esc(a.id)+'">Remove</button></div></article>';}).join('')+'</div>':'<div class="ncuw-empty">No alerts configured.</div>');
+  (s.alerts.length?'<div class="ncuw-grid">'+s.alerts.map(function(a){return '<article class="ncuw-card"><strong>'+esc(a.ticker)+'</strong><div>'+esc(a.type==="priceBelow"?"Below":"Above")+' '+money(a.threshold)+'</div><div><button data-alert="'+esc(a.id)+'">Remove</button></div></article>';}).join('')+'</div>':'<div class="ncuw-empty">No alerts configured.</div>');
   panel.querySelector("#ncAlertForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);try{NCUserTools.addAlert({ticker:f.get("ticker"),type:f.get("type"),threshold:f.get("threshold")});render();}catch(err){alert(err.message);}};
-  panel.querySelector("#ncCheckAlerts").onclick=async function(){var hits=await NCUserTools.checkAlerts();alert(hits.length?hits.length+" alert(s) triggered.":"No alerts triggered.");render();};
   panel.querySelectorAll("[data-alert]").forEach(function(b){b.onclick=function(){NCUserTools.removeAlert(b.dataset.alert);render();};});
 }
 function renderRecent(panel){
