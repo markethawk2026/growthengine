@@ -8,8 +8,8 @@ function isUp(v){ return !String(v || "0").trim().startsWith("-"); }
 function fmtVol(v){ if(!v) return "—"; if(v > 10000000) return (v / 10000000).toFixed(1) + "Cr"; if(v > 100000) return (v / 100000).toFixed(1) + "L"; return String(v); }
 function fmtCap(v){ if(!v) return "—"; if(v > 1e12) return "₹" + (v / 1e12).toFixed(1) + "T"; if(v > 1e9) return "₹" + (v / 1e9).toFixed(0) + "B"; return "₹" + (v / 1e7).toFixed(0) + "Cr"; }
 function timeAgo(ts){ var m = Math.floor((Date.now() - ts) / 60000); if(m < 60) return m + "m ago"; if(m < 1440) return Math.floor(m / 60) + "h ago"; return Math.floor(m / 1440) + "d ago"; }
-function tSty(t){ if(t === "Bullish" || t === "BUY" || t === "Strong Buy") return { c: "#22c55e", bg: "#052016", b: "#22c55e" }; if(t === "Bearish" || t === "SELL" || t === "Strong Sell") return { c: "#ef4444", bg: "#1a0505", b: "#ef4444" }; return { c: "#94a3b8", bg: "#0f1525", b: "#1c2a45" }; }
-function ring(conf){ var cc = conf > 65 ? "#22c55e" : conf > 40 ? "#f59e0b" : "#ef4444"; var c = 2 * Math.PI * 33; return '<svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="33" fill="none" stroke="#1e293b" stroke-width="2"/><circle cx="42" cy="42" r="33" fill="none" stroke="' + cc + '" stroke-width="2" stroke-dasharray="' + (c * conf / 100) + ' ' + c + '" stroke-linecap="round" transform="rotate(-90 42 42)"/><text x="42" y="50" text-anchor="middle" fill="' + cc + '" font-size="24" font-weight="800" font-family="monospace">' + conf + '%</text></svg>'; }
+function tSty(t){ if(t === "Bullish" || t === "BUY" || t === "Strong Buy") return { c: "#22c55e", bg: "#052016", b: "#22c55e" }; if(t === "Bearish" || t === "SELL" || t === "Strong Sell") return { c: "#ef4444", bg: "#3f0f0f", b: "#ef4444" }; return { c: "#f59e0b", bg: "#3b2600", b: "#f59e0b" }; }
+function ring(conf){ var cc = conf > 65 ? "#22c55e" : conf > 40 ? "#f59e0b" : "#ef4444"; var c = 2 * Math.PI * 33; return '<svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="33" fill="none" stroke="' + cc + '" stroke-width="2" stroke-dasharray="' + (c * conf / 100) + ' ' + c + '" transform="rotate(-90 42 42)"/></svg>'; }
 function rls(arr){ if(!Array.isArray(arr)) return ""; return arr.map(function(r){ return '<div class="rsn">' + escapeHTML(r) + '</div>'; }).join(""); }
 function skels(h, n){ return Array(n).fill('<div class="skel" style="height:' + h + 'px;margin-bottom:8px"></div>').join(""); }
 function ldng(msg){ return '<div style="text-align:center;padding:40px 20px"><div class="spnr"></div><div style="font-size:13px;color:#64748b">' + escapeHTML(msg) + '</div></div>'; }
@@ -33,8 +33,8 @@ function drawNativeChart(closes, volumes, up) {
   var gradId = "grad_" + Math.random().toString(36).substr(2, 5);
   var currentLatestPrice = closes[closes.length - 1] || 0;
   var currentY = h - ((currentLatestPrice - minP) / rngP) * (h - 40) - 20;
-  var priceBadgeHTML = currentLatestPrice > 0 ? `<span style="background: rgba(56,189,248,0.02); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.12); font-size: 9.5px; color: ${color}; font-weight: 800; font-family: monospace;">₹${currentLatestPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>` : '';
-  return `<div id="chart-card-wrapper" style="margin: 14px 0; background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 14px 16px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); width: 100%"><div style="font-size: 10px; color: #64748b; margin-bottom: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;"><span style="display: flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block;"></span>Intraday Technical Waveform</span><div style="display: flex; align-items: center; gap: 6px;">${priceBadgeHTML}<span style="background: #111827; padding: 2px 6px; border-radius: 4px; border: 1px solid #1e293b; font-size: 9px; color: #94a3b8;">CHART DATA</span></div></div><div style="height: 130px; width: 100%; position: relative; overflow: visible;"><svg viewBox="0 0 500 140" preserveAspectRatio="none" style="width: 100%; height: 100%; overflow: visible; display: block;"><defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.15"/><stop offset="100%" stop-color="${color}" stop-opacity="0.00"/></linearGradient></defs><path d="${areaPathData}" fill="url(#${gradId})" /><polyline points="${pricePts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /><circle cx="${coordinates[coordinates.length - 1].x.toFixed(1)}" cy="${coordinates[coordinates.length - 1].y.toFixed(1)}" r="4" fill="${color}" stroke="#0b0f19" stroke-width="1.5" /></svg><div style="position: absolute; left: 4px; top: -4px; font-size: 9px; color: #475569; font-weight: 700;">H: ₹${maxP.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div><div style="position: absolute; left: 4px; bottom: 4px; font-size: 9px; color: #475569; font-weight: 700;">L: ₹${minP.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div></div></div>`;
+  var priceBadgeHTML = currentLatestPrice > 0 ? `<span style="background: rgba(56,189,248,0.02); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.12); font-size: 9.5px; color: #06b6d4;">₹${currentLatestPrice.toFixed(2)}</span>` : '';
+  return `<div id="chart-card-wrapper" style="margin: 14px 0; background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 14px 16px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); position: relative;"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display: block; width: 100%; height: auto;"><defs><linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:${color};stop-opacity:0.3"/><stop offset="100%" style="stop-color:${color};stop-opacity:0.01"/></linearGradient></defs><path d="${areaPathData}" fill="url(#${gradId})"/><polyline points="${pricePts}" fill="none" stroke="${color}" stroke-width="2"/></svg><div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">${priceBadgeHTML}</div></div>`;
 }
 
 function switchTab(name){
@@ -60,12 +60,17 @@ async function doSearch(q) {
   if (!ddEl) return;
   ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching...</div>';
   ddEl.classList.add("open"); 
-  var res = await yfSearch(q);
-  if (!res.length) { ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">No matches.</div>'; return; }
-  ddEl.innerHTML = res.map(function(r){
-    var sym = r.symbol.replace(".NS", "").replace(".BO", "");
-    return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(r.longname || r.shortname || sym) + '</span></div>';
-  }).join("");
+  try {
+    var res = await yfSearch(q);
+    if (!res.length) { ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">No matches.</div>'; return; }
+    ddEl.innerHTML = res.map(function(r){
+      var sym = r.symbol.replace(".NS", "").replace(".BO", "");
+      return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(r.longname || r.shortname || sym) + '</span></div>';
+    }).join("");
+  } catch (err) {
+    console.error("Search error:", err);
+    ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#ef4444">Search failed. Try again.</div>';
+  }
 }
 if (ddEl) {
   ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
@@ -80,18 +85,19 @@ window.viewArticleDetail = function(id) {
   var detailPane = document.getElementById("newsDetailPanel");
   if (!target || !detailPane) return;
   window.ACTIVE_NEWS_POOL.forEach(function(art) {
-    var el = document.getElementById("card_" + art.id);
+    var el = document.getElementById("card_" + escapeHTML(String(art.id)));
     if (el) { el.style.borderColor = "#1e293b"; el.style.background = "#111827"; }
   });
-  var activeCard = document.getElementById("card_" + id);
+  var activeCard = document.getElementById("card_" + escapeHTML(String(id)));
   if (activeCard) { activeCard.style.borderColor = "#38bdf8"; activeCard.style.background = "rgba(56, 189, 248, 0.03)"; }
-  detailPane.innerHTML = `<div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left;"><div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 8px; width: 100%;"><span style="background: rgba(56,189,248,0.08); color: #38bdf8; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.15); text-transform: uppercase;">${target.source || "FEED"}</span><span style="color: #64748b; font-size: 11px; font-weight: 500;">${target.time || "Just now"}</span></div><h4 style="color: #ffffff; font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">${target.headline}</h4><div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; margin-top: 4px;"><span style="color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Summary</span><p style="color: #94a3b8; font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">${target.summary}</p></div></div>`;
+  var safeLink = sanitizeURL(target.link || "");
+  detailPane.innerHTML = `<div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left;"><div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"><span style="font-size: 20px;">${target.headline ? '📰' : '❓'}</span><h4 style="margin: 0; font-size: 14px; line-height: 1.4;">${escapeHTML(target.headline || 'No headline')}</h4></div><div style="font-size: 11px; color: #94a3b8;"><strong>${escapeHTML(target.source || 'Unknown')}</strong> · ${escapeHTML(target.time || 'N/A')}</div><div style="font-size: 12px; line-height: 1.6; color: #cbd5e1; margin-top: 8px;">${escapeHTML(target.summary || target.link || 'No summary available')}</div>${safeLink ? '<a href="' + safeLink + '" target="_blank" rel="noopener noreferrer" style="margin-top: 10px; display: inline-block; color: #3b82f6; text-decoration: none; font-size: 12px;">Read more →</a>' : ''}</div>`;
 };
 
 async function loadNews(targetTicker) {
   var container = document.getElementById("newsBody");
   if (!container) return;
-  container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px; gap:12px; width:100%;"><div style="width:26px; height:26px; border:3px solid rgba(56,189,248,0.1); border-top-color:#38bdf8; border-radius:50%; animation:newsSpin 0.7s linear infinite;"></div><span style="color:#64748b; font-size:11px; font-weight:600; letter-spacing:0.8px; text-transform:uppercase;">Loading News...</span></div>`;
+  container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px; gap:12px; width:100%;"><div style="width:26px; height:26px; border:3px solid #1e293b; border-top-color:#3b82f6; border-radius:50%; animation:spin 1s linear infinite;"></div></div>`;
   try {
     var ticker = (typeof targetTicker === "string") ? targetTicker.trim() : "";
     if (!ticker) { var searchBox = document.getElementById("si"); if (searchBox && searchBox.value) ticker = String(searchBox.value).trim(); }
@@ -99,14 +105,16 @@ async function loadNews(targetTicker) {
     var articles = [];
     if (typeof yfNews === "function") { try { articles = await yfNews(queryTag); } catch(apiErr) { console.warn("News API error", apiErr); } }
     window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
-    var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; background: #0b0f19; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
+    var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; background: #0b0f19; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 280px; padding: 12px; border-radius: 8px; background: #0f1525; overflow-y: auto; max-height: 420px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
-      layoutHtml += `<div id="card_${article.id}" onclick="window.viewArticleDetail('${article.id}')" style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${article.source}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${article.time}</span></div><p style="color: #f1f5f9; font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${article.headline}</p></div>`;
+      var sanitizedId = escapeHTML(String(article.id || ""));
+      layoutHtml += `<div id="card_${sanitizedId}" onclick="window.viewArticleDetail('${sanitizedId}')" style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 8px; transition: all 0.2s; min-height: 48px; display: flex; flex-direction: column; justify-content: center;"><div style="font-size: 12px; font-weight: 600; line-height: 1.3; color: #eef2ff; margin-bottom: 4px;">${escapeHTML((article.headline || "Untitled").substring(0, 60))}</div><div style="font-size: 10px; color: #64748b;">${escapeHTML(article.source || "Unknown")} · ${escapeHTML(article.time || "N/A")}</div></div>`;
     });
     layoutHtml += `</div><div id="newsDetailPanel" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center; background: #111827; border-radius: 8px; border: 1px solid #1e293b;"></div></div>`;
     container.innerHTML = layoutHtml;
     if (window.ACTIVE_NEWS_POOL.length > 0) window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
-  } catch (Error) {
+  } catch (err) {
+    console.error("News load error:", err);
     container.innerHTML = `<div style="color:#94a3b8; padding:24px; text-align:center;">News unavailable.</div>`;
   }
 }
@@ -152,7 +160,7 @@ async function loadIdx() {
             return { price: price, changePct: (change >= 0 ? "+" : "") + change.toFixed(2) + "%", up: change >= 0 };
           }
         }
-      } catch (e) { console.debug("Proxy shift"); }
+      } catch (e) { console.debug("Market data proxy failed, trying alternative source"); }
     }
     return null;
   }
@@ -173,7 +181,7 @@ function forceRenderIndexUI() {
   var sColor = window.LIVE_SENSEX_UP ? "#00b06a" : "#ff3b30";
   var nArrow = window.LIVE_NIFTY_UP ? "▲" : "▼";
   var sArrow = window.LIVE_SENSEX_UP ? "▲" : "▼";
-  var generatedHTML = `<div class="gc" style="flex:1; background:#0b0f19; padding:12px; border-radius:6px; border:1px solid #1e293b; text-align:left;"><div class="gcl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">NIFTY 50</div><div class="gcv" style="color:${nColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_NIFTY_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${nColor}; font-size:11px; font-weight:600; margin-top:2px;">${nArrow} ${window.LIVE_NIFTY_CHG}</div></div><div class="gc" style="flex:1; background:#0b0f19; padding:12px; border-radius:6px; border:1px solid #1e293b; text-align:left;"><div class="gcl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">SENSEX</div><div class="gcv" style="color:${sColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_SENSEX_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${sColor}; font-size:11px; font-weight:600; margin-top:2px;">${sArrow} ${window.LIVE_SENSEX_CHG}</div></div>`;
+  var generatedHTML = `<div class="gc" style="flex:1; background:#0b0f19; padding:12px; border-radius:6px; border:1px solid #1e293b; text-align:left;"><div class="gcl" style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">NIFTY 50</div><div class="gcv" style="font-size:20px; font-weight:700; color:${nColor}; margin:4px 0;">${nArrow} ${(window.LIVE_NIFTY_PRICE || 0).toFixed(2)}</div><div style="font-size:11px; color:#94a3b8;">${window.LIVE_NIFTY_CHG || '+0.00%'}</div></div><div class="gc" style="flex:1; background:#0b0f19; padding:12px; border-radius:6px; border:1px solid #1e293b; text-align:left;"><div class="gcl" style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">SENSEX</div><div class="gcv" style="font-size:20px; font-weight:700; color:${sColor}; margin:4px 0;">${sArrow} ${(window.LIVE_SENSEX_PRICE || 0).toFixed(2)}</div><div style="font-size:11px; color:#94a3b8;">${window.LIVE_SENSEX_CHG || '+0.00%'}</div></div>`;
   var explicitWrapper = document.getElementById("idxCards");
   if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
 }
@@ -192,7 +200,7 @@ async function runAnalysis(ticker){
   switchTab("analysis");
   var body = document.getElementById("aBody");
   if(window.CACHE.analysis[ticker] && fresh(window.CACHE.analysis[ticker].ts, window.TTL.m)) { renderAnalysis(window.CACHE.analysis[ticker].d); return; }
-  if (body) body.innerHTML = ldng("Analyzing " + ticker + "...");
+  if (body) body.innerHTML = ldng("Analyzing " + escapeHTML(ticker) + "...");
   var pData = await yfQuote(ticker);
   if(!pData) { if (body) body.innerHTML = '<div class="errbox">⚠️ Ticker unavailable</div>'; return; }
   var closes = pData.closes;
@@ -260,7 +268,7 @@ function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
   var t = tSty(d.trend);
   var chartHTML = drawNativeChart(window.LIVE_CHART_POOL.closes.length ? window.LIVE_CHART_POOL.closes : d.closes, d.volumes, d.up);
-  var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${escapeHTML(n.headline)}</div><div class="nc-meta"><span>${escapeHTML(n.source)}</span>·<span>${n.time}</span></div></div>`).join("");
+  var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${escapeHTML(n.headline)}</div><div class="nc-meta"><span>${escapeHTML(n.source)}</span>·<span>${escapeHTML(n.time)}</span></div></div>`).join("");
   var aBodyEl = document.getElementById("aBody");
   if (!aBodyEl) return;
   window.CURRENT_ACTIVE_ANALYSIS_DATA = d;
@@ -270,8 +278,8 @@ function renderAnalysis(d){
       <div class="ahdr">
         <div>
           <div class="anm">${escapeHTML(d.company)}</div>
-          <div class="asb">${d.ticker} · India</div>
-          <div class="atgs"><span class="atg" style="color:${t.c};border-color:${t.b};background:${t.bg}">${d.trend}</span></div>
+          <div class="asb">${escapeHTML(d.ticker)} · India</div>
+          <div class="atgs"><span class="atg" style="color:${t.c};border-color:${t.b};background:${t.bg}">${escapeHTML(d.trend)}</span></div>
         </div>
         <div class="apr" style="margin-left:auto;text-align:right;">
           <div class="bprc" style="color:${pc}">${d.price}</div>
@@ -279,7 +287,7 @@ function renderAnalysis(d){
         </div>
       </div>
       <div style="margin-top:10px; background:#111625; padding:10px; border-radius:10px; border:1px dashed #1c2a45; display:flex; justify-content:space-between; align-items:center;">
-        <div><span style="font-size:11px; color:#64748b; font-weight:600;">TECHNICAL SCORE:</span><div style="font-size:15px; font-weight:800; color:${d.healthColor}">${d.healthScore}% — ${d.healthVerdict}</div></div>
+        <div><span style="font-size:11px; color:#64748b; font-weight:600;">TECHNICAL SCORE:</span><div style="font-size:15px; font-weight:800; color:${d.healthColor}">${d.healthScore}% — ${escapeHTML(d.healthVerdict)}</div></div>
         <div style="height:6px; width:120px; background:#1c2a45; border-radius:3px; overflow:hidden;"><div style="height:100%; width:${d.healthScore}%; background:${d.healthColor}"></div></div>
       </div>
     </div>
@@ -302,14 +310,14 @@ function renderAnalysis(d){
     <div class="sec">
       <div class="stitle">Transparent Signal Breakdown</div>
       ${(d.signalBreakdown || []).map(function(s) {
-        return `<div style="padding:9px 0;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;gap:16px;"><div><strong>${escapeHTML(s.name)}</strong><div style="font-size:11px;color:#94a3b8;margin-top:3px;">${escapeHTML(s.explanation)}</div></div><div style="font-family:monospace;font-weight:800;">${s.contribution.toFixed(1)} / ${s.weight}</div></div>`;
+        return `<div style="padding:9px 0;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;gap:16px;"><div><strong>${escapeHTML(s.name)}</strong><div style="font-size:11px;color:#94a3b8;">${escapeHTML(s.explanation || '')}</div></div><div style="text-align:right;color:${s.passing ? '#22c55e' : '#ef4444'};font-weight:700;">${s.passing ? '✓' : '✗'}</div></div>`;
       }).join("") || '<div class="errbox">Insufficient historical data for a transparent score breakdown.</div>'}
       <div style="font-size:11px;color:#64748b;margin-top:10px;">The technical score is deterministic and calculated only from available market indicators; no random financial values are used.</div>
     </div>
     <div class="sec">
       <div class="stitle">AI Evaluation</div>
       <div class="pr">
-        <span class="pb2" style="color:${t.c};background:${t.bg};border-color:${t.b}">${d.tradeDirection}</span>
+        <span class="pb2" style="color:${t.c};background:${t.bg};border-color:${t.b}">${escapeHTML(d.tradeDirection)}</span>
         <div style="font-size:11px;color:#94a3b8;">Confidence: <strong>${d.confidence}%</strong></div>
       </div>
       <div class="asum">💡 ${escapeHTML(d.summary)}</div>
@@ -347,9 +355,9 @@ function renderND(d) {
   var arrow = d.trend.toLowerCase().includes("bull") ? "▲" : "▼";
   var body = document.getElementById("ndBody");
   if (!body) return;
-  body.innerHTML = `<div class="sec" style="background:#0b0f19; border-radius:12px; padding:24px; border:1px solid #1e293b;"><div style="display:flex; justify-content:space-between; margin-bottom:16px;"><div><div style="font-size:20px; font-weight:800; color:${accentColor}; margin-bottom:4px;">${escapeHTML(d.ticker)}</div></div><div style="text-align:right;"><div style="font-size:18px; font-weight:800; color:${accentColor};">${arrow} ${escapeHTML(d.trend)}</div><div style="font-size:11px; color:#64748b;">Model confidence: ${d.confidence}%</div></div></div>
-    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Technical score: <strong>${d.technicalScore}/100</strong> • ${escapeHTML(d.dataSource || "Market source")} • ${escapeHTML(d.dataStatus || "DELAYED")}</div>
-    ${(d.signals || []).map(function(s){ return `<div style="padding:8px 0;border-top:1px solid #1e293b;"><strong>${escapeHTML(s.name)}</strong>: ${escapeHTML(s.explanation)}</div>`; }).join("")}
+  body.innerHTML = `<div class="sec" style="background:#0b0f19; border-radius:12px; padding:24px; border:1px solid #1e293b;"><div style="display:flex; justify-content:space-between; margin-bottom:16px;"><div><h4 style="margin:0; font-size:14px; color:#eef2ff;">${escapeHTML(d.ticker)} Next Session</h4><div style="font-size:12px; color:#94a3b8;">${escapeHTML(d.trend)}</div></div><div style="text-align:right; font-size:24px; font-weight:700; color:${accentColor};">${arrow} ${d.price}</div></div><div style="background:${accentBg}; padding:12px; border-radius:8px; border:1px solid ${accentColor}; margin-bottom:12px;"><div style="font-size:13px; font-weight:600; color:${accentColor};">Technical Score: ${d.technicalScore}% • Confidence: ${d.confidence}%</div></div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Technical score: <strong>${d.technicalScore}/100</strong> • ${escapeHTML(d.dataSource || "Market source")} • ${escapeHTML(d.dataStatus || "Live")}</div>
+    ${(d.signals || []).map(function(s){ return `<div style="padding:8px 0;border-top:1px solid #1e293b;"><strong>${escapeHTML(s.name)}</strong>: ${escapeHTML(s.explanation || '')}</div>`; }).join("")}
     <div style="font-size:11px;color:#64748b;margin-top:14px;">Probabilistic technical outlook only; not a guarantee of future price direction.</div>
   </div>`;
 }
@@ -371,7 +379,7 @@ async function runOutlook(ticker){
     { name:"Bear case", target:Math.max(0, price - 2*riskUnit), condition:"Support fails and downside momentum expands.", color:"#ef4444" }
   ];
   var scenarioHTML = scenarios.map(function(s){
-    return `<div class="gc"><div class="gcl">${s.name}</div><div class="gcv" style="color:${s.color}">₹${s.target.toFixed(2)}</div><div style="font-size:11px;color:#94a3b8;margin-top:6px;">${escapeHTML(s.condition)}</div></div>`;
+    return `<div class="gc"><div class="gcl">${escapeHTML(s.name)}</div><div class="gcv" style="color:${s.color}">₹${s.target.toFixed(2)}</div><div style="font-size:11px;color:#94a3b8;margin-top:6px;">${escapeHTML(s.condition)}</div></div>`;
   }).join("");
   body.innerHTML = `<div class="sec" style="background:#0b0f19;padding:24px;border-radius:12px;border:1px solid #1e293b;">
     <h3 style="margin:0 0 12px;">${escapeHTML(ticker)} Scenario Outlook</h3>
@@ -396,7 +404,7 @@ async function loadGlobal(force){
 
 function renderGlobal(arr){
   var h = '<div class="ggrid">';
-  arr.forEach(function(p){ if(!p) return; var c = p.up ? "#22c55e" : "#ef4444"; h += '<div class="gcrd"><div class="gnm">' + escapeHTML(p.name) + '</div><div class="gvl" style="color:' + c + '">' + p.raw.toLocaleString("en-IN", { maximumFractionDigits: 2 }) + '</div></div>'; });
+  arr.forEach(function(p){ if(!p) return; var c = p.up ? "#22c55e" : "#ef4444"; h += '<div class="gcrd"><div class="gnm">' + escapeHTML(p.name) + '</div><div class="gvl" style="color:' + c + '">' + p.price + '</div><div class="gch" style="color:' + c + '">' + p.changePct + '</div></div>'; });
   var gBodyEl = document.getElementById("gBody");
   if (gBodyEl) gBodyEl.innerHTML = h + '</div>';
 }
@@ -449,9 +457,9 @@ async function sendChat(){
 }
 
 async function bootDashboard() {
-  try { await loadIdx(); } catch(e) {}
+  try { await loadIdx(); } catch(e) { console.warn("Index load failed:", e); }
   await new Promise(r => setTimeout(r, 300));
-  try { await loadNews(); } catch(e) {}
+  try { await loadNews(); } catch(e) { console.warn("News load failed:", e); }
 }
 
 if (window.RefreshScheduler) {
