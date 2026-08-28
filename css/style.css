@@ -21,6 +21,9 @@ body.light .tabs {
 body.light .tab {
   color: #94a3b8;
 }
+body.light .tab:hover {
+  color: #475569;
+}
 body.light .tab.active {
   color: #2563eb;
   border-bottom-color: #2563eb;
@@ -315,6 +318,9 @@ body.light .cmai {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s;
+}
+.tab:hover {
+  color: #94a3b8;
 }
 .tab.active {
   color: #3b82f6;
