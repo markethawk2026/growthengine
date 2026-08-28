@@ -12,9 +12,10 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
-  "https://corsproxy.io/?url=",
-  "https://api.allorigins.win/raw?url=",
-  "https://thingproxy.freeboard.io/fetch/"
+  function(url) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url); },
+  function(url) { return "https://api.allorigins.win/get?url=" + encodeURIComponent(url); },
+  function(url) { return "https://corsproxy.io/?" + encodeURIComponent(url); },
+  function(url) { return "https://corsproxy.io/?url=" + encodeURIComponent(url); }
 ];
 
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
@@ -28,7 +29,7 @@ async function proxyFetch(url, timeoutMs = 5000) {
 
   for (var i = 0; i < PROXIES.length; i++) {
     try {
-      var targetUrl = PROXIES[i] + encodeURIComponent(url);
+      var targetUrl = PROXIES[i](url);
       var result = await window.RequestManager.request(targetUrl, {
         timeout: timeoutMs,
         retries: 1,
@@ -36,7 +37,14 @@ async function proxyFetch(url, timeoutMs = 5000) {
         cacheKey: "proxy::" + url,
         allowStaleOnError: true
       });
-      return result.data;
+      var data = result.data;
+      if (data && typeof data === "object" && data.contents) {
+        try { data = JSON.parse(data.contents); } catch(_) {}
+      }
+      if (typeof data === "string") {
+        try { data = JSON.parse(data); } catch(_) {}
+      }
+      return data;
     } catch (e) {
       lastError = e;
       console.warn("Proxy channel " + i + " failed; trying the next available source.", e.code || e.message);
