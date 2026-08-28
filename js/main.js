@@ -54,6 +54,15 @@ if (siEl) {
     clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ ddEl.classList.remove("open"); return; }
     ddTmr = setTimeout(function(){ doSearch(q); }, 300);
   });
+  siEl.addEventListener("keydown", function(e){
+    if(e.key === "Enter") {
+      var q = siEl.value.trim();
+      if(q) {
+        if(ddEl) ddEl.classList.remove("open");
+        runAnalysis(q);
+      }
+    }
+  });
 }
 
 async function doSearch(q) {
@@ -71,6 +80,7 @@ if (ddEl) {
   ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
 }
 document.addEventListener("click", function(e){ if(ddEl && !e.target.closest(".sw")) ddEl.classList.remove("open"); });
+document.addEventListener("keydown", function(e){ if(e.key === "Escape" && ddEl) ddEl.classList.remove("open"); });
 
 window.ACTIVE_NEWS_POOL = [];
 
@@ -403,6 +413,42 @@ function renderCal(arr){
 }
 var btnCalEl = document.getElementById("btnCal");
 if (btnCalEl) { btnCalEl.addEventListener("click", function(){ loadCal(true); }); }
+
+// Next Day Prediction tab bindings
+var ndBtnEl = document.getElementById("ndBtn");
+var ndInEl = document.getElementById("ndIn");
+if (ndBtnEl && ndInEl) {
+  ndBtnEl.addEventListener("click", function() { if (ndInEl.value.trim()) runNextDay(ndInEl.value.trim()); });
+  ndInEl.addEventListener("keydown", function(e) { if (e.key === "Enter" && ndInEl.value.trim()) runNextDay(ndInEl.value.trim()); });
+}
+
+// Term / Outlook tab bindings
+var tmBtnEl = document.getElementById("tmBtn");
+var tmInEl = document.getElementById("tmIn");
+if (tmBtnEl && tmInEl) {
+  tmBtnEl.addEventListener("click", function() { if (tmInEl.value.trim()) runOutlook(tmInEl.value.trim()); });
+  tmInEl.addEventListener("keydown", function(e) { if (e.key === "Enter" && tmInEl.value.trim()) runOutlook(tmInEl.value.trim()); });
+}
+document.querySelectorAll(".tfb").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".tfb").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    var tf = btn.getAttribute("data-tf");
+    window.activeTF = tf;
+    if (tmInEl && tmInEl.value.trim()) runOutlook(tmInEl.value.trim());
+  });
+});
+
+// AI Chat Suggestions init
+function initChatSuggestions() {
+  var sugBox = document.getElementById("chatSuggestions");
+  if (!sugBox) return;
+  var suggestions = ["NIFTY 50 Outlook", "Top Bullish Stocks", "RELIANCE Technicals", "Risk Management Rules"];
+  sugBox.innerHTML = suggestions.map(function(s) {
+    return `<button class="sbtn" style="margin-right:6px;margin-bottom:6px;" onclick="document.getElementById('chatIn').value='${escapeHTML(s)}';sendChat()">${escapeHTML(s)}</button>`;
+  }).join("");
+}
+initChatSuggestions();
 
 var chatSendEl = document.getElementById("chatSend");
 if (chatSendEl) chatSendEl.addEventListener("click", sendChat);

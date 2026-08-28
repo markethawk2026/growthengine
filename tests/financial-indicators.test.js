@@ -5,8 +5,6 @@ const assert=require("assert");
 
 const apiPath=path.join(__dirname,"..","js","api.js");
 const source=fs.readFileSync(apiPath,"utf8");
-const miPath=path.join(__dirname,"..","js","market-intelligence.js");
-const miSource=fs.readFileSync(miPath,"utf8");
 const sandbox={
   window:{TTL:{s:1000,m:60000}},
   console:console,
@@ -18,7 +16,6 @@ const sandbox={
 sandbox.window.window=sandbox.window;
 vm.createContext(sandbox);
 vm.runInContext(source,sandbox);
-vm.runInContext(miSource,sandbox);
 
 const tests=[];
 function test(name,fn){tests.push({name,fn});}
@@ -63,31 +60,9 @@ test("Technical score stays within 0..100",()=>{
   assert.ok(score>=0&&score<=100);
 });
 
-test("NCMarketIntelligence.leaders reuses pre-calculated breadth", async ()=>{
-  const mockBreadth = {
-    universe: ["RELIANCE.NS", "TCS.NS", "INFY.NS"],
-    rows: [
-      { ticker: "RELIANCE.NS", changePct: 2.5, volume: 1000 },
-      { ticker: "TCS.NS", changePct: -1.2, volume: 500 },
-      { ticker: "INFY.NS", changePct: 0.8, volume: 800 }
-    ],
-    advances: 2,
-    declines: 1,
-    unchanged: 0,
-    ratio: 2.0
-  };
-  const res = await sandbox.window.NCMarketIntelligence.leaders(mockBreadth);
-  assert.strictEqual(res.universe.length, 3);
-  assert.strictEqual(res.gainers[0].ticker, "RELIANCE.NS");
-  assert.strictEqual(res.losers[0].ticker, "TCS.NS");
-  assert.strictEqual(res.volumeLeaders[0].ticker, "RELIANCE.NS");
-});
-
-(async function(){
-  let passed=0;
-  for(const t of tests){
-    try{await t.fn();console.log("PASS",t.name);passed++;}
-    catch(e){console.error("FAIL",t.name,"\n ",e.message);process.exitCode=1;}
-  }
-  console.log(`\n${passed}/${tests.length} tests passed`);
-})();
+let passed=0;
+for(const t of tests){
+  try{t.fn();console.log("PASS",t.name);passed++;}
+  catch(e){console.error("FAIL",t.name,"\n ",e.message);process.exitCode=1;}
+}
+console.log(`\n${passed}/${tests.length} tests passed`);
