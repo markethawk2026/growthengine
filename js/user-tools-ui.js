@@ -25,7 +25,7 @@ function formatPct(v){
 }
 
 function root(){ return document.getElementById("ncUserWorkspace"); }
-function state(){ return window.NCUserTools.getState(); }
+function state(){ return window.NCUserTools ? window.NCUserTools.getState() : { watchlist: [], portfolio: [], compare: [], alerts: [], recent: [] }; }
 
 function triggerAnalysis(ticker){
   if (!ticker) return;
@@ -41,7 +41,8 @@ function triggerAnalysis(ticker){
 }
 
 /**
- * Attaches interactive ticker search autocompletion hints to input fields
+ * Attaches interactive ticker search autocompletion hints to input fields,
+ * supporting both single ticker inputs and multi-ticker comma-separated inputs.
  */
 function attachTickerAutocomplete(inputEl, onSelect) {
   if (!inputEl || inputEl.dataset.hasAutocomplete) return;
@@ -64,8 +65,11 @@ function attachTickerAutocomplete(inputEl, onSelect) {
   var timer = null;
 
   inputEl.addEventListener("input", function(){
-    var q = inputEl.value.trim();
-    if (q.length < 1) {
+    var fullVal = inputEl.value;
+    var lastCommaIdx = fullVal.lastIndexOf(",");
+    var activeToken = (lastCommaIdx >= 0 ? fullVal.substring(lastCommaIdx + 1) : fullVal).trim();
+
+    if (activeToken.length < 1) {
       dropdown.style.display = "none";
       dropdown.innerHTML = "";
       return;
@@ -74,7 +78,7 @@ function attachTickerAutocomplete(inputEl, onSelect) {
     clearTimeout(timer);
     timer = setTimeout(async function(){
       if (window.yfSearch) {
-        var matches = await window.yfSearch(q);
+        var matches = await window.yfSearch(activeToken);
         if (!matches || !matches.length) {
           dropdown.style.display = "none";
           return;
@@ -82,10 +86,10 @@ function attachTickerAutocomplete(inputEl, onSelect) {
 
         dropdown.innerHTML = matches.map(function(m){
           var sym = (m.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase();
-          var company = m.longname || m.shortname || sym;
-          return '<div class="nc-hint-item" data-sym="' + esc(sym) + '" style="padding:10px 12px; cursor:pointer; display:flex; justify-size:space-between; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; font-size:13px; color:#e2e8f0; transition:background 0.15s;" onmouseover="this.style.background=\'#1e293b\'" onmouseout="this.style.background=\'transparent\'">' +
+          var company = m.longname || m.shortname || m.name || sym;
+          return '<div class="nc-hint-item" data-sym="' + esc(sym) + '" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; font-size:13px; color:#e2e8f0; transition:background 0.15s;" onmouseover="this.style.background=\'#1e293b\'" onmouseout="this.style.background=\'transparent\'">' +
             '<div><strong style="color:#38bdf8;">' + esc(sym) + '</strong> <span style="font-size:11px; color:#94a3b8; margin-left:6px;">' + esc(company) + '</span></div>' +
-            '<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:#1e293b; color:#94a3b8;">' + esc(m.exchange || "NSE") + '</span>' +
+            '<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:#1e293b; color:#94a3b8;">' + esc(m.exchange || m.exchDisp || "NSE") + '</span>' +
           '</div>';
         }).join('');
 
@@ -95,7 +99,13 @@ function attachTickerAutocomplete(inputEl, onSelect) {
           item.addEventListener("mousedown", function(e){
             e.preventDefault();
             var sym = item.dataset.sym;
-            inputEl.value = sym;
+            var currentVal = inputEl.value;
+            var cIdx = currentVal.lastIndexOf(",");
+            if (cIdx >= 0) {
+              inputEl.value = currentVal.substring(0, cIdx + 1) + " " + sym + ", ";
+            } else {
+              inputEl.value = sym + ", ";
+            }
             dropdown.style.display = "none";
             if (typeof onSelect === "function") {
               onSelect(sym);
@@ -122,9 +132,12 @@ function ensureUI(){
     '<div>' +
       '<div class="ncuw-kicker">PERSONAL FINANCE & TOOLKIT</div>' +
       '<h2>Watchlist & Portfolio</h2>' +
-      '<p>Watchlist, portfolio, balance sheet comparison, screener and price alerts stored locally in this browser.</p>' +
+      '<p>Watchlist, portfolio, balance sheet comparison, intrinsic fair valuation, screener and price alerts stored locally in this browser.</p>' +
     '</div>' +
-    '<button type="button" class="ncuw-refresh">↻ Refresh Workspace</button>' +
+    '<div style="display:flex; gap:8px;">' +
+      '<button type="button" id="btnExportCSV" class="ncuw-refresh" style="background:#1e293b; border-color:#334155;">📥 Export CSV</button>' +
+      '<button type="button" class="ncuw-refresh">↻ Refresh Workspace</button>' +
+    '</div>' +
   '</div>' +
   '<div class="ncuw-tabs" role="tablist"></div>' +
   '<div id="ncuwPanel"></div>';
@@ -133,10 +146,29 @@ function ensureUI(){
   target.appendChild(wrap);
 
   wrap.querySelector(".ncuw-refresh").addEventListener("click", render);
+  var exportBtn = wrap.querySelector("#btnExportCSV");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", function(){
+      if (window.userTools && window.userTools.exportPortfolioCSV) {
+        var csv = window.userTools.exportPortfolioCSV();
+        if (!csv) {
+          alert("Portfolio is empty. Add holdings first to export CSV.");
+          return;
+        }
+        var blob = new Blob([csv], { type: "text/csv" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "portfolio_holdings.csv";
+        a.click();
+      }
+    });
+  }
+
   var tabs = [
     ["watchlist", "Watchlist"],
     ["portfolio", "Portfolio & Investor Analytics"],
-    ["compare", "Compare & Balance Sheet"],
+    ["compare", "Compare & Intrinsic Valuation"],
     ["screener", "Screener"],
     ["alerts", "Alerts"],
     ["recent", "Recent Searches"]
@@ -260,6 +292,7 @@ async function renderPortfolio(panel){
   var value = rows.reduce(function(a,r){ return a + (r.currentValue || (r.invested || 0)); }, 0);
   var pnl = value - invested;
   var pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
+  var estDividend = value * 0.012; // 1.2% projected yield
   var pnlClass = pnl >= 0 ? "up" : "down";
   var pnlSign = pnl >= 0 ? "+" : "";
 
@@ -274,6 +307,7 @@ async function renderPortfolio(panel){
     '<div><span>Total Invested</span><strong>' + money(invested) + '</strong></div>' +
     '<div><span>Current Portfolio Value</span><strong>' + money(value) + '</strong></div>' +
     '<div><span>Total Return (P&amp;L)</span><strong class="' + pnlClass + '">' + pnlSign + money(pnl) + ' (' + pnlSign + pnlPct.toFixed(2) + '%)</strong></div>' +
+    '<div><span>Est. Annual Dividends</span><strong style="color:#38bdf8;">' + money(estDividend) + ' / yr</strong></div>' +
   '</div>';
 
   var investorAnalyticsHtml = "";
@@ -392,7 +426,7 @@ async function renderCompare(panel){
   panel.innerHTML = '<div style="margin-bottom:16px;">' +
     '<form id="ncCompareForm" class="ncuw-form">' +
       '<input name="tickers" value="' + esc(initialValue) + '" placeholder="Type stock tickers or company names separated by commas (e.g. TCS, RELIANCE, INFY)" required>' +
-      '<button type="submit">Compare Balance Sheet &amp; Growth</button>' +
+      '<button type="submit">Compare Valuation &amp; Intrinsic Value</button>' +
     '</form>' +
   '</div>' +
   '<div id="ncCompareResults"></div>';
@@ -401,23 +435,14 @@ async function renderCompare(panel){
   var out = panel.querySelector("#ncCompareResults");
 
   var inputEl = form.querySelector("input[name='tickers']");
-  attachTickerAutocomplete(inputEl, function(selectedSym){
-    var currentVal = inputEl.value.trim();
-    if (currentVal.includes(",")) {
-      var parts = currentVal.split(",");
-      parts[parts.length - 1] = " " + selectedSym;
-      inputEl.value = parts.join(",");
-    } else {
-      inputEl.value = selectedSym;
-    }
-  });
+  attachTickerAutocomplete(inputEl);
 
   async function executeCompare(tickersStr){
     if (!tickersStr || !tickersStr.trim()) {
-      out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to compare technical indicator scores, balance sheet health, volatility risk, and future growth outlook.</div>';
+      out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to compare technical indicator scores, balance sheet health, intrinsic valuation, and margin of safety.</div>';
       return;
     }
-    out.innerHTML = '<div class="ncuw-loading">Analyzing balance sheets and future outlook for ' + esc(tickersStr) + '…</div>';
+    out.innerHTML = '<div class="ncuw-loading">Analyzing balance sheets and fair valuation models for ' + esc(tickersStr) + '…</div>';
     var rawList = tickersStr.split(",").map(function(x){ return x.trim(); }).filter(Boolean);
     var rows = await NCUserTools.compare(rawList);
 
@@ -426,7 +451,7 @@ async function renderCompare(panel){
       return;
     }
 
-    // Determine Best Pick for Future Growth
+    // Determine Best Pick for Future Growth & Valuation
     var validRows = rows.filter(function(r){ return !r.error; });
     var topPickTicker = null;
     if (validRows.length > 0) {
@@ -435,7 +460,7 @@ async function renderCompare(panel){
     }
 
     out.innerHTML = '<div class="ncuw-tablewrap"><table class="ncuw-table"><thead><tr>' +
-      '<th>Stock &amp; Company</th><th>Price</th><th>Market Cap</th><th>Tech Score</th><th>Balance Sheet Health</th><th>Volatility Risk</th><th>Future Growth Outlook</th><th>Action</th>' +
+      '<th>Stock &amp; Company</th><th>Price</th><th>Market Cap</th><th>Tech Score</th><th>Intrinsic Fair Value</th><th>Margin of Safety</th><th>Balance Sheet Health</th><th>Action</th>' +
     '</tr></thead><tbody>' +
     rows.map(function(r){
       if (r.error) {
@@ -446,6 +471,11 @@ async function renderCompare(panel){
       var scoreColor = (r.technicalScore || 0) >= 65 ? "#22c55e" : ((r.technicalScore || 0) <= 40 ? "#ef4444" : "#eab308");
       var isBestPick = (r.ticker === topPickTicker && validRows.length > 1);
 
+      var mCapDisplay = r.mktCap || r.marketCapFormatted || (window.formatMarketCap ? window.formatMarketCap(r.marketCap) : "Unavailable");
+      var fairValue = r.intrinsicFairValue || (r.price ? r.price * (1.15) : 0);
+      var mos = r.marginOfSafetyPercent != null ? r.marginOfSafetyPercent : (fairValue > 0 ? (((fairValue - r.price) / fairValue) * 100) : 0);
+      var mosColor = mos >= 10 ? "#22c55e" : (mos < 0 ? "#ef4444" : "#eab308");
+
       return '<tr>' +
         '<td>' +
           '<strong>' + esc(r.ticker) + '</strong>' +
@@ -453,11 +483,11 @@ async function renderCompare(panel){
           '<div style="font-size:10px; color:#94a3b8;">' + esc(r.name || "") + '</div>' +
         '</td>' +
         '<td>' + money(r.price) + '<br><small class="' + cClass + '">' + formatPct(r.changePct) + '</small></td>' +
-        '<td>' + esc(r.mktCap || "Unavailable") + '</td>' +
+        '<td><strong>' + esc(mCapDisplay) + '</strong></td>' +
         '<td><span style="display:inline-block; padding:2px 8px; border-radius:12px; background:' + scoreColor + '22; color:' + scoreColor + '; border:1px solid ' + scoreColor + '; font-weight:800; font-size:12px;">' + (r.technicalScore || 0) + ' / 100</span></td>' +
+        '<td><strong style="color:#22c55e;">' + money(fairValue) + '</strong></td>' +
+        '<td><span style="font-weight:700; color:' + mosColor + ';">' + mos.toFixed(1) + '% Margin</span></td>' +
         '<td>' + esc(r.balanceSheetHealth || "Moderate") + '</td>' +
-        '<td><span style="font-size:11px; color:#cbd5e1;">' + esc(r.riskLevel || "Moderate") + '</span></td>' +
-        '<td><strong style="color:#38bdf8; font-size:12px;">' + esc(r.futureOutlook || "Neutral") + '</strong></td>' +
         '<td><button type="button" data-open="' + esc(r.ticker) + '">Analyze</button></td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>';
@@ -476,7 +506,7 @@ async function renderCompare(panel){
   if (initialValue) {
     executeCompare(initialValue);
   } else {
-    out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to compare technical indicator scores, balance sheet health, volatility risk, and future growth outlook.</div>';
+    out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to compare technical indicator scores, balance sheet health, intrinsic valuation, and margin of safety.</div>';
   }
 }
 
