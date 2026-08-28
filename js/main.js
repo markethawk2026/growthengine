@@ -479,6 +479,9 @@ function initThemeSwitcher() {
     isLight = !isLight;
     document.body.classList.toggle("light", isLight);
     themeBtn.innerText = isLight ? "☀️" : "🌙";
+    var nextLabel = isLight ? "Switch to dark mode" : "Switch to light mode";
+    themeBtn.setAttribute("aria-label", nextLabel);
+    themeBtn.setAttribute("title", nextLabel);
   });
 }
 
