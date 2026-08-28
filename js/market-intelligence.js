@@ -32,10 +32,8 @@ async function breadth(symbols){
   var unchanged=rows.length-advances-declines;
   return {universe:universe,rows:rows,advances:advances,declines:declines,unchanged:unchanged,ratio:declines?Number((advances/declines).toFixed(2)):null};
 }
-// ⚡ OPTIMIZATION: Accepts optional pre-calculated breadth object to avoid duplicate quote fetches.
-async function leaders(symbolsOrBreadth){
-  var b=(symbolsOrBreadth && Array.isArray(symbolsOrBreadth.rows)) ? symbolsOrBreadth : await breadth(symbolsOrBreadth);
-  var valid=b.rows.filter(function(r){return r.changePct!==null;});
+async function leaders(symbols){
+  var b=await breadth(symbols), valid=b.rows.filter(function(r){return r.changePct!==null;});
   return {
     universe:b.universe,
     gainers:valid.slice().sort(function(a,b){return b.changePct-a.changePct;}).slice(0,5),
@@ -43,14 +41,13 @@ async function leaders(symbolsOrBreadth){
     volumeLeaders:b.rows.filter(function(r){return r.volume!==null;}).sort(function(a,b){return b.volume-a.volume;}).slice(0,5)
   };
 }
-// ⚡ OPTIMIZATION: Fetches sector quotes concurrently with Promise.all instead of sequentially in a loop.
 async function sectorPerformance(){
-  var names = Object.keys(SECTORS);
-  var output = await Promise.all(names.map(async function(name){
-    var rows = await quoteRows(SECTORS[name]);
-    var changes = rows.map(function(r){return r.changePct;}).filter(function(v){return v!==null;});
-    return {sector:name,changePct:changes.length?Number((changes.reduce(function(a,b){return a+b;},0)/changes.length).toFixed(2)):null,members:rows.length,universe:SECTORS[name]};
-  }));
+  var output=[];
+  for(var name in SECTORS){
+    var rows=await quoteRows(SECTORS[name]);
+    var changes=rows.map(function(r){return r.changePct;}).filter(function(v){return v!==null;});
+    output.push({sector:name,changePct:changes.length?Number((changes.reduce(function(a,b){return a+b;},0)/changes.length).toFixed(2)):null,members:rows.length,universe:SECTORS[name]});
+  }
   return output.sort(function(a,b){return (b.changePct||-999)-(a.changePct||-999);});
 }
 function estimateSentiment(article){

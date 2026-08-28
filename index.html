@@ -87,11 +87,33 @@
 </div>
 
 <div class="page" id="pg-nextday">
-  <div class="sec">
-    <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
-    <div style="display:flex;gap:8px">
-      <input id="ndIn" type="text" placeholder="NSE ticker — RELIANCE, TCS, HFCL…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
-      <button id="ndBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Predict</button>
+  <div class="sec" style="background:linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(15,23,42,0.4) 100%); border:1px solid #1e293b; border-radius:16px; padding:20px; margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+      <div>
+        <div class="stitle" style="font-size:18px; font-weight:800; color:#38bdf8; display:flex; align-items:center; gap:8px;">
+          <span>⚡ AI Next-Session Technical Forecast</span>
+          <span class="badge b-free" style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3)">QUANT MODEL v2.4</span>
+        </div>
+        <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Get quantitative probabilities, estimated price corridors, and multi-factor indicator breakdowns for any NSE stock.</div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:14px;">
+      <div style="position:relative; flex:1;">
+        <input id="ndIn" type="text" placeholder="Enter NSE symbol — e.g. RELIANCE, INFY, TATAMOTORS…" style="width:100%; background:#0b0f19; border:1px solid #334155; border-radius:12px; padding:12px 16px; color:#e2e8f0; font-size:14px; outline:none; transition:border 0.2s; box-shadow:inset 0 2px 4px rgba(0,0,0,0.2)"/>
+      </div>
+      <button id="ndBtn" style="background:linear-gradient(135deg, #2563eb, #1d4ed8); border:none; color:#ffffff; padding:12px 24px; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.3); transition:all 0.2s">
+        <span>Run Forecast</span> ➔
+      </button>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Popular Benchmarks:</span>
+      <button class="ndQuick" onclick="document.getElementById('ndIn').value='RELIANCE';runNextDay('RELIANCE')" style="background:#0f172a; border:1px solid #1e293b; color:#94a3b8; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; transition:all 0.15s">RELIANCE</button>
+      <button class="ndQuick" onclick="document.getElementById('ndIn').value='INFY';runNextDay('INFY')" style="background:#0f172a; border:1px solid #1e293b; color:#94a3b8; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; transition:all 0.15s">INFY</button>
+      <button class="ndQuick" onclick="document.getElementById('ndIn').value='TCS';runNextDay('TCS')" style="background:#0f172a; border:1px solid #1e293b; color:#94a3b8; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; transition:all 0.15s">TCS</button>
+      <button class="ndQuick" onclick="document.getElementById('ndIn').value='HDFCBANK';runNextDay('HDFCBANK')" style="background:#0f172a; border:1px solid #1e293b; color:#94a3b8; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; transition:all 0.15s">HDFCBANK</button>
+      <button class="ndQuick" onclick="document.getElementById('ndIn').value='TATAMOTORS';runNextDay('TATAMOTORS')" style="background:#0f172a; border:1px solid #1e293b; color:#94a3b8; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; transition:all 0.15s">TATAMOTORS</button>
     </div>
   </div>
   <div id="ndBody"></div>

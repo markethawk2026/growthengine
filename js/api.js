@@ -12,9 +12,9 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
-  "https://corsproxy.io/?url=",
-  "https://api.allorigins.win/raw?url=",
-  "https://thingproxy.freeboard.io/fetch/"
+  function(url) { return "https://proxy.cors.sh/" + url; },
+  function(url) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url); },
+  function(url) { return "https://api.allorigins.win/get?url=" + encodeURIComponent(url); }
 ];
 
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
@@ -23,12 +23,12 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 /**
  * Proxy fetch for CORS bypass - kept for API access
  */
-async function proxyFetch(url, timeoutMs = 5000) {
+async function proxyFetch(url, timeoutMs = 8000) {
   let lastError = null;
 
   for (var i = 0; i < PROXIES.length; i++) {
     try {
-      var targetUrl = PROXIES[i] + encodeURIComponent(url);
+      var targetUrl = PROXIES[i](url);
       var result = await window.RequestManager.request(targetUrl, {
         timeout: timeoutMs,
         retries: 1,
@@ -36,7 +36,14 @@ async function proxyFetch(url, timeoutMs = 5000) {
         cacheKey: "proxy::" + url,
         allowStaleOnError: true
       });
-      return result.data;
+      var payload = result.data;
+      if (payload && payload.contents) {
+        payload = typeof payload.contents === "string" ? JSON.parse(payload.contents) : payload.contents;
+      }
+      if (payload && (payload.chart || payload.quotes || payload.items)) {
+        return payload;
+      }
+      return payload;
     } catch (e) {
       lastError = e;
       console.warn("Proxy channel " + i + " failed; trying the next available source.", e.code || e.message);
