@@ -1067,34 +1067,73 @@ body.light .chart-tooltip {
   border-radius: 20px;
   color: #94a3b8;
 }
-/* Light Theme Global Override Properties */
-body.light-theme {
-    background: #f8fafc !important; /* Light background */
-    color: #0f172a !important;      /* Dark text */
+/* Light Theme Comprehensive Rules */
+body.light, body.light-theme {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
 }
 
-/* Update your dashboard cards to look crisp in light mode */
-body.light-theme .acrd,
-body.light-theme .sec,
-body.light-theme .gc,
-body.light-theme .ic,
-body.light-theme .mover-card,
-body.light-theme #chart-card-wrapper {
+body.light .bar, body.light-theme .bar {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+}
+
+body.light .tabs, body.light-theme .tabs {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+}
+
+body.light .sec, body.light-theme .sec,
+body.light .acrd, body.light-theme .acrd,
+body.light .mover-card, body.light-theme .mover-card,
+body.light .ndQuick, body.light-theme .ndQuick {
     background: #ffffff !important;
     border-color: #cbd5e1 !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+    color: #0f172a !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
 }
 
-/* Adjust general secondary labels so they remain readable */
-body.light-theme div, 
-body.light-theme span, 
-body.light-theme p {
-    --text-primary: #0f172a;
+/* Light mode overrides for inline dark card elements */
+body.light [style*="background:#0b0f19"], body.light-theme [style*="background:#0b0f19"],
+body.light [style*="background: #0b0f19"], body.light-theme [style*="background: #0b0f19"],
+body.light [style*="background:#0f172a"], body.light-theme [style*="background:#0f172a"],
+body.light [style*="background:#0f1525"], body.light-theme [style*="background:#0f1525"],
+body.light .nc-user-workspace, body.light .nc-mi {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
 }
-body.light-theme .gcl,
-body.light-theme .icl,
-body.light-theme .stitle {
+
+/* Light mode text readability overrides */
+body.light [style*="color:#f8fafc"], body.light-theme [style*="color:#f8fafc"],
+body.light [style*="color:#e2e8f0"], body.light-theme [style*="color:#e2e8f0"],
+body.light [style*="color:#eef2ff"], body.light-theme [style*="color:#eef2ff"],
+body.light [style*="color: #ffffff"], body.light-theme [style*="color: #ffffff"],
+body.light .mover-symbol, body.light .mover-price {
+    color: #0f172a !important;
+}
+
+body.light [style*="color:#94a3b8"], body.light-theme [style*="color:#94a3b8"],
+body.light [style*="color:#64748b"], body.light-theme [style*="color:#64748b"],
+body.light .mover-name {
     color: #475569 !important;
+}
+
+body.light input[type="text"], body.light-theme input[type="text"] {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+body.light .dd, body.light-theme .dd {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+}
+
+body.light .stitle, body.light-theme .stitle {
+    color: #1e293b !important;
 }
 
 /* NC Markets Phase 4B user workspace */
