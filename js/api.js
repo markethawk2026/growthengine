@@ -190,10 +190,10 @@ async function yfNews(q) {
 
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
-              headline: escapeHTML(title),
-              source: escapeHTML(source.name.toUpperCase()),
+              headline: title,
+              source: source.name.toUpperCase(),
               time: new Date().toLocaleTimeString(),
-              summary: escapeHTML(summaryClean)
+              summary: summaryClean
             });
           }
         });
