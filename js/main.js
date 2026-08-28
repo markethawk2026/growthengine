@@ -611,7 +611,13 @@ async function sendChat(){
 }
 
 async function discoverDynamicNSETickers() {
-  var symbols = new Set();
+  var symbols = new Set([
+    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "TATAMOTORS", "SBIN",
+    "BHARTIARTL", "ITC", "LT", "AXISBANK", "KOTAKBANK", "HINDUNILVR", "BAJFINANCE",
+    "MARUTI", "SUNPHARMA", "ASIANPAINT", "TITAN", "ULTRACEMCO", "NTPC", "POWERGRID",
+    "ONGC", "JSWSTEEL", "TATASTEEL", "ADANIENT", "WIPRO", "HCLTECH", "TECHM",
+    "COALINDIA", "CIPLA", "HEROMOTOCO", "EICHERMOT"
+  ]);
 
   // 1. Discover via dynamic search queries across current market segments
   try {
@@ -654,7 +660,10 @@ async function loadTrending() {
     return;
   }
 
-  var quotes = await Promise.all(dynamicUniverse.map(async function(sym) {
+  // Sample top candidate subset (first 10) to optimize network speed & avoid proxy rate-limits
+  var candidateSubset = dynamicUniverse.slice(0, 10);
+
+  var quotes = await Promise.all(candidateSubset.map(async function(sym) {
     try {
       var q = await yfQuote(sym);
       if (!q) return null;
