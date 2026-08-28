@@ -804,6 +804,13 @@ body.light .cmai {
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+.csend:hover, #ndBtn:hover, #tmBtn:hover {
+  background: #1d4ed8;
+}
+#ndBtn, #tmBtn {
+  transition: background-color 0.2s ease;
 }
 .csg {
   font-size: 10px;
