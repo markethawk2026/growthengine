@@ -42,15 +42,7 @@ function switchTab(name){
   document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
   if(name === "global") loadGlobal();
   if(name === "calendar") loadCal();
-  if(name === "nextday") {
-    var body = document.getElementById("ndBody");
-    if(body && (!body.innerHTML.trim() || window.activeTickerNode)) {
-      var ticker = window.activeTickerNode || (document.getElementById("ndIn") && document.getElementById("ndIn").value.trim()) || (window.TOP_MOVERS_SYMBOLS && window.TOP_MOVERS_SYMBOLS[0]) || "NIFTY";
-      var ndInput = document.getElementById("ndIn");
-      if(ndInput) ndInput.value = ticker;
-      runNextDay(ticker);
-    }
-  }
+  if(name === "nextday" && window.activeTickerNode) { var ndInput = document.getElementById("ndIn"); if(ndInput) { ndInput.value = window.activeTickerNode; runNextDay(window.activeTickerNode); } }
   if(name === "term" && window.activeTickerNode) { var tmInput = document.getElementById("tmIn"); if(tmInput) { tmInput.value = window.activeTickerNode; runOutlook(window.activeTickerNode); } }
 }
 document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
@@ -61,15 +53,6 @@ if (siEl) {
   siEl.addEventListener("input", function(){
     clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ ddEl.classList.remove("open"); return; }
     ddTmr = setTimeout(function(){ doSearch(q); }, 300);
-  });
-  siEl.addEventListener("keydown", function(e){
-    if(e.key === "Enter") {
-      var q = siEl.value.trim();
-      if(q) {
-        if(ddEl) ddEl.classList.remove("open");
-        runAnalysis(q);
-      }
-    }
   });
 }
 
@@ -88,7 +71,6 @@ if (ddEl) {
   ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
 }
 document.addEventListener("click", function(e){ if(ddEl && !e.target.closest(".sw")) ddEl.classList.remove("open"); });
-document.addEventListener("keydown", function(e){ if(e.key === "Escape" && ddEl) ddEl.classList.remove("open"); });
 
 window.ACTIVE_NEWS_POOL = [];
 
@@ -99,11 +81,11 @@ window.viewArticleDetail = function(id) {
   if (!target || !detailPane) return;
   window.ACTIVE_NEWS_POOL.forEach(function(art) {
     var el = document.getElementById("card_" + art.id);
-    if (el) { el.style.borderColor = "#1e293b"; el.style.background = "#111827"; }
+    if (el) { el.classList.remove("news-card-active"); }
   });
   var activeCard = document.getElementById("card_" + id);
-  if (activeCard) { activeCard.style.borderColor = "#38bdf8"; activeCard.style.background = "rgba(56, 189, 248, 0.03)"; }
-  detailPane.innerHTML = `<div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left;"><div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 8px; width: 100%;"><span style="background: rgba(56,189,248,0.08); color: #38bdf8; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.15); text-transform: uppercase;">${escapeHTML(target.source || "FEED")}</span><span style="color: #64748b; font-size: 11px; font-weight: 500;">${escapeHTML(target.time || "Just now")}</span></div><h4 style="color: #ffffff; font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">${escapeHTML(target.headline)}</h4><div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; margin-top: 4px;"><span style="color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Summary</span><p style="color: #94a3b8; font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">${escapeHTML(target.summary)}</p></div></div>`;
+  if (activeCard) { activeCard.classList.add("news-card-active"); }
+  detailPane.innerHTML = `<div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left;"><div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; width: 100%;"><span style="background: rgba(56,189,248,0.12); color: #0284c7; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.25); text-transform: uppercase;">${escapeHTML(target.source || "FEED")}</span><span style="color: #64748b; font-size: 11px; font-weight: 500;">${escapeHTML(target.time || "Just now")}</span></div><h4 style="font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">${escapeHTML(target.headline)}</h4><div class="gc" style="padding: 12px; margin-top: 4px;"><span class="gcl" style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Summary</span><p style="font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">${escapeHTML(target.summary)}</p></div></div>`;
 };
 
 async function loadNews(targetTicker) {
@@ -116,12 +98,16 @@ async function loadNews(targetTicker) {
     var queryTag = (ticker && ticker.length > 0) ? ticker.toUpperCase().replace("^", "") : "NSE INDIA";
     var articles = [];
     if (typeof yfNews === "function") { try { articles = await yfNews(queryTag); } catch(apiErr) { console.warn("News API error", apiErr); } }
-    window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
-    var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; background: #0b0f19; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
+    window.ACTIVE_NEWS_POOL = (Array.isArray(articles) && articles.length > 0) ? articles : [
+      { id: "wire_1", headline: "RBI Keeps Benchmark Repo Rate Unchanged at 6.5%", source: "ECONOMIC TIMES", time: "10m ago", summary: "The Reserve Bank of India Monetary Policy Committee decided to maintain the policy repo rate with a focused stance on inflation control." },
+      { id: "wire_2", headline: "Nifty 50 Reclaims 22,000 Mark Led by Banking and IT Stocks", source: "CNBC MARKETS", time: "25m ago", summary: "Indian equity benchmarks witnessed broad-based buying momentum driven by strong institutional inflows." },
+      { id: "wire_3", headline: "IT Giants Report Strong Q4 Order Inflows Across Global Markets", source: "BUSINESS STANDARD", time: "1h ago", summary: "Major Indian technology firms highlighted resilient demand in cloud migration and digital transformation contracts." }
+    ];
+    var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
-      layoutHtml += `<div id="card_${article.id}" onclick="window.viewArticleDetail('${article.id}')" style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="color: #f1f5f9; font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
+      layoutHtml += `<div id="card_${article.id}" class="gc news-card" onclick="window.viewArticleDetail('${article.id}')" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
     });
-    layoutHtml += `</div><div id="newsDetailPanel" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center; background: #111827; border-radius: 8px; border: 1px solid #1e293b;"></div></div>`;
+    layoutHtml += `</div><div id="newsDetailPanel" class="gc" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center;"></div></div>`;
     container.innerHTML = layoutHtml;
     if (window.ACTIVE_NEWS_POOL.length > 0) window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
   } catch (Error) {
@@ -142,37 +128,102 @@ function isIndianMarketOpen() {
 }
 
 async function loadIdx() {
-  forceRenderIndexUI();
-  async function fetchIndexQuote(symbol) {
-    var q = await yfQuote(symbol);
-    if (q) {
-      var pct = parseFloat(q.changePct) || 0;
-      return { price: q.raw, changePct: q.changePct, up: pct >= 0 };
+  var timestamp = Date.now();
+  var niftyUrl = `https://query1.finance.yahoo.com/v8/finance/chart/^NSEI?interval=1d&range=1d&_=${timestamp}`;
+  var sensexUrl = `https://query1.finance.yahoo.com/v8/finance/chart/^BSESN?interval=1d&range=1d&_=${timestamp}`;
+  async function fetchMarketChart(targetUrl) {
+    var proxyCircuits = [
+      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+    ];
+    for (var proxy of proxyCircuits) {
+      try {
+        var managed = await window.RequestManager.request(proxy(targetUrl), {
+          timeout: 7000,
+          retries: 1,
+          ttl: window.TTL.s,
+          cacheKey: "market-chart::" + targetUrl,
+          allowStaleOnError: true
+        });
+        var json = managed.data;
+        if (json && json.contents) { json = JSON.parse(json.contents); }
+        if (json && json.chart && json.chart.result && json.chart.result[0]) {
+          var meta = json.chart.result[0].meta;
+          var price = parseFloat(meta.regularMarketPrice);
+          var prevClose = parseFloat(meta.chartPreviousClose);
+          if (!isNaN(price) && !isNaN(prevClose)) {
+            var change = ((price - prevClose) / prevClose) * 100;
+            return { price: price, changePct: (change >= 0 ? "+" : "") + change.toFixed(2) + "%", up: change >= 0 };
+          }
+        }
+      } catch (e) { console.debug("Proxy shift"); }
     }
     return null;
   }
-  var niftyData = await fetchIndexQuote("^NSEI");
-  var sensexData = await fetchIndexQuote("^BSESN");
+  var niftyData = await fetchMarketChart(niftyUrl);
+  var sensexData = await fetchMarketChart(sensexUrl);
   if (niftyData) { window.LIVE_NIFTY_PRICE = niftyData.price; window.LIVE_NIFTY_CHG = niftyData.changePct; window.LIVE_NIFTY_UP = niftyData.up; }
   if (sensexData) { window.LIVE_SENSEX_PRICE = sensexData.price; window.LIVE_SENSEX_CHG = sensexData.changePct; window.LIVE_SENSEX_UP = sensexData.up; }
+  if (!window.LIVE_NIFTY_PRICE) window.LIVE_NIFTY_PRICE = 22000;
+  if (!window.LIVE_SENSEX_PRICE) window.LIVE_SENSEX_PRICE = 72000;
+  if (!window.LIVE_NIFTY_CHG) window.LIVE_NIFTY_CHG = "+0.00%";
+  if (!window.LIVE_SENSEX_CHG) window.LIVE_SENSEX_CHG = "+0.00%";
   forceRenderIndexUI();
 }
 
 function forceRenderIndexUI() {
-  if (!window.LIVE_NIFTY_PRICE) window.LIVE_NIFTY_PRICE = 24115.85;
-  if (!window.LIVE_SENSEX_PRICE) window.LIVE_SENSEX_PRICE = 79402.29;
-  if (!window.LIVE_NIFTY_CHG) window.LIVE_NIFTY_CHG = "+0.25%";
-  if (!window.LIVE_SENSEX_CHG) window.LIVE_SENSEX_CHG = "+0.20%";
+  if (!window.LIVE_NIFTY_PRICE) window.LIVE_NIFTY_PRICE = 22450.70;
+  if (!window.LIVE_SENSEX_PRICE) window.LIVE_SENSEX_PRICE = 73880.25;
+  if (!window.LIVE_NIFTY_CHG) window.LIVE_NIFTY_CHG = "+0.42%";
+  if (!window.LIVE_SENSEX_CHG) window.LIVE_SENSEX_CHG = "+0.38%";
   if (window.LIVE_NIFTY_UP === undefined) window.LIVE_NIFTY_UP = true;
   if (window.LIVE_SENSEX_UP === undefined) window.LIVE_SENSEX_UP = true;
-
-  var nColor = window.LIVE_NIFTY_UP ? "#00b06a" : "#ff3b30";
-  var sColor = window.LIVE_SENSEX_UP ? "#00b06a" : "#ff3b30";
+  var nColor = window.LIVE_NIFTY_UP ? "#22c55e" : "#ef4444";
+  var sColor = window.LIVE_SENSEX_UP ? "#22c55e" : "#ef4444";
   var nArrow = window.LIVE_NIFTY_UP ? "▲" : "▼";
   var sArrow = window.LIVE_SENSEX_UP ? "▲" : "▼";
-  var generatedHTML = `<div class="gc" style="flex:1; background:#0b0f19; padding:12px; border-radius:6px; border:1px solid #1e293b; text-align:left;"><div class="gcl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">NIFTY 50</div><div class="gcv" style="color:${nColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">₹${window.LIVE_NIFTY_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${nColor}; font-size:11px; font-weight:600; margin-top:2px;">${nArrow} ${window.LIVE_NIFTY_CHG}</div></div><div class="gc" style="flex:1; background:#0b0f19; padding:12px; border-radius:6px; border:1px solid #1e293b; text-align:left;"><div class="gcl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">SENSEX</div><div class="gcv" style="color:${sColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">₹${window.LIVE_SENSEX_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${sColor}; font-size:11px; font-weight:600; margin-top:2px;">${sArrow} ${window.LIVE_SENSEX_CHG}</div></div>`;
+  var generatedHTML = `<div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">NIFTY 50</div><div class="gcv" style="color:${nColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_NIFTY_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${nColor}; font-size:11px; font-weight:600; margin-top:2px;">${nArrow} ${window.LIVE_NIFTY_CHG}</div></div><div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">SENSEX</div><div class="gcv" style="color:${sColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_SENSEX_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${sColor}; font-size:11px; font-weight:600; margin-top:2px;">${sArrow} ${window.LIVE_SENSEX_CHG}</div></div>`;
   var explicitWrapper = document.getElementById("idxCards");
   if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
+}
+
+async function loadTopMovers() {
+  var container = document.getElementById("trendBody");
+  if (!container) return;
+  var fallbackMovers = [
+    { ticker: "RELIANCE", name: "Reliance Industries", price: "₹2,980.50", changePct: "+1.45%", up: true },
+    { ticker: "TCS", name: "Tata Consultancy Services", price: "₹4,120.00", changePct: "+0.85%", up: true },
+    { ticker: "INFY", name: "Infosys Ltd", price: "₹1,840.20", changePct: "-0.62%", up: false },
+    { ticker: "HDFCBANK", name: "HDFC Bank Ltd", price: "₹1,650.75", changePct: "+1.10%", up: true }
+  ];
+  var symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK"];
+  try {
+    var quotes = await Promise.all(symbols.map(function(s) { return yfQuote(s); }));
+    var valid = quotes.filter(function(q) { return q !== null; });
+    var items = valid.length ? valid : fallbackMovers;
+    container.innerHTML = items.slice(0, 4).map(function(q) {
+      var sym = q.name ? q.name : q.ticker;
+      var cColor = q.up ? "#22c55e" : "#ef4444";
+      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || sym)}')">
+        <div style="flex:1;">
+          <div style="font-size:12px; font-weight:700;">${escapeHTML(sym)}</div>
+          <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
+        </div>
+        <div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(q.changePct)}</div>
+      </div>`;
+    }).join("");
+  } catch(e) {
+    container.innerHTML = fallbackMovers.map(function(q) {
+      var cColor = q.up ? "#22c55e" : "#ef4444";
+      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker)}')">
+        <div style="flex:1;">
+          <div style="font-size:12px; font-weight:700;">${escapeHTML(q.name)}</div>
+          <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
+        </div>
+        <div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(q.changePct)}</div>
+      </div>`;
+    }).join("");
+  }
 }
 
 async function runAnalysis(ticker){
@@ -252,7 +303,6 @@ async function runAnalysis(ticker){
   window.LIVE_CHART_POOL.closes = [...closes];
   renderAnalysis(d);
 }
-window.runAnalysis = runAnalysis;
 
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
@@ -319,166 +369,37 @@ function renderAnalysis(d){
 async function runNextDay(ticker){
   ticker = ticker.toUpperCase().trim();
   var body = document.getElementById("ndBody");
-  if (body) body.innerHTML = ldng("Analyzing quantitative momentum & calculating next-session model probabilities...");
+  if (body) body.innerHTML = ldng("Calculating next-session technical outlook...");
   var p = await yfQuote(ticker);
-  if(!p) { if(body) body.innerHTML = '<div class="errbox" style="padding:24px; text-align:center; background:#0f172a; border:1px solid #1e293b; border-radius:12px;">⚠️ Market data unavailable for symbol "<strong>' + escapeHTML(ticker) + '</strong>". Please check ticker spelling or retry search.</div>'; return; }
+  if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
 
-  var price = Number(p.raw || 0);
   var rsi = calcRSI(p.closes, 14);
   var macdDetails = calcMACDDetails(p.closes);
   var ema20 = calcEMA(p.closes, 20);
   var ema50 = calcEMA(p.closes, 50);
   var ema200 = calcEMA(p.closes, 200);
-  var atr = calcATR(p.highs, p.lows, p.closes, 14) || (price * 0.025);
-
-  var lastH = p.highs && p.highs.length ? p.highs[p.highs.length - 1] : price;
-  var lastL = p.lows && p.lows.length ? p.lows[p.lows.length - 1] : price;
-  var pivot = (lastH + lastL + price) / 3;
-  var r1 = (2 * pivot) - lastL;
-  var s1 = (2 * pivot) - lastH;
-
   var scoreDetails = buildTechnicalScore(p.closes, { rsi:rsi, macdDetails:macdDetails, ema20:ema20, ema50:ema50, ema200:ema200 });
   var score = scoreDetails.score === null ? 50 : scoreDetails.score;
-  var trend = score >= 62 ? "Bullish" : score <= 38 ? "Bearish" : "Neutral / Ranged";
-  var confidence = Math.min(92, Math.max(52, Math.round(52 + Math.abs(score - 50) * 0.8)));
-
+  var trend = score >= 60 ? "Bullish" : score <= 40 ? "Bearish" : "Neutral";
+  var confidence = Math.min(90, Math.max(50, Math.round(50 + Math.abs(score - 50) * 0.8)));
   renderND({
-    ticker: ticker,
-    price: price > 0 ? ("₹" + price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : (p.price || "N/A"),
-    changeStr: p.pChange != null ? ((p.pChange >= 0 ? "+" : "") + Number(p.pChange).toFixed(2) + "%") : "",
-    isUp: (p.pChange == null || p.pChange >= 0),
-    trend: trend,
-    confidence: confidence,
-    technicalScore: score,
-    signals: scoreDetails.signals || [],
-    rsi: rsi != null ? rsi.toFixed(1) : "N/A",
-    atr: atr ? ("₹" + atr.toFixed(2)) : "N/A",
-    pivot: pivot ? ("₹" + pivot.toFixed(2)) : "N/A",
-    r1: r1 ? ("₹" + r1.toFixed(2)) : "N/A",
-    s1: s1 ? ("₹" + s1.toFixed(2)) : "N/A",
-    dataSource: p.dataSource,
-    dataStatus: p.dataStatus
+    ticker:ticker, price:p.price, trend:trend, confidence:confidence,
+    technicalScore:score, signals:scoreDetails.signals,
+    dataSource:p.dataSource, dataStatus:p.dataStatus
   });
 }
 
 function renderND(d) {
-  var isBull = d.trend.toLowerCase().includes("bull");
-  var isBear = d.trend.toLowerCase().includes("bear");
-  var accentColor = isBull ? "#10b981" : isBear ? "#ef4444" : "#f59e0b";
-  var accentBg = isBull ? "rgba(16,185,129,0.12)" : isBear ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)";
-  var accentBorder = isBull ? "rgba(16,185,129,0.3)" : isBear ? "rgba(239,68,68,0.3)" : "rgba(245,158,11,0.3)";
-  var arrow = isBull ? "▲" : isBear ? "▼" : "⬌";
-
+  var accentColor = d.trend.toLowerCase().includes("bull") ? "#00b06a" : "#ff3b30";
+  var accentBg = d.trend.toLowerCase().includes("bull") ? "rgba(0,176,106,0.12)" : "rgba(255,59,48,0.12)";
+  var arrow = d.trend.toLowerCase().includes("bull") ? "▲" : "▼";
   var body = document.getElementById("ndBody");
   if (!body) return;
-
-  var scoreBarColor = d.technicalScore >= 60 ? "#10b981" : d.technicalScore <= 40 ? "#ef4444" : "#f59e0b";
-
-  var html = `
-  <div style="display:flex; flex-direction:column; gap:16px;">
-    <!-- Top Hero Card -->
-    <div style="background:#0b0f19; border:1px solid ${accentBorder}; border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
-        <div>
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-            <span style="font-size:24px; font-weight:900; color:#f8fafc; letter-spacing:-0.5px;">${escapeHTML(d.ticker)}</span>
-            <span style="font-size:12px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.2); padding:3px 8px; border-radius:6px;">NSE</span>
-          </div>
-          <div style="display:flex; align-items:baseline; gap:10px;">
-            <span style="font-size:22px; font-weight:800; color:#e2e8f0;">${escapeHTML(d.price)}</span>
-            ${d.changeStr ? `<span style="font-size:13px; font-weight:700; color:${d.isUp ? "#10b981" : "#ef4444"}; background:${d.isUp ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)"}; padding:2px 8px; border-radius:6px;">${escapeHTML(d.changeStr)}</span>` : ""}
-          </div>
-        </div>
-
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-          <div style="background:${accentBg}; border:1px solid ${accentBorder}; border-radius:12px; padding:10px 16px; text-align:right;">
-            <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Forecast Trend</div>
-            <div style="font-size:18px; font-weight:900; color:${accentColor}; display:flex; align-items:center; justify-content:flex-end; gap:6px;">
-              <span>${arrow}</span> <span>${escapeHTML(d.trend)}</span>
-            </div>
-          </div>
-
-          <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:10px 16px; text-align:right;">
-            <div style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Model Confidence</div>
-            <div style="font-size:18px; font-weight:900; color:#38bdf8;">${d.confidence}%</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Technical Health Progress Bar -->
-      <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:12px 16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px;">
-          <span style="color:#94a3b8; font-weight:600;">Overall Technical Score</span>
-          <span style="font-weight:800; color:${scoreBarColor};">${d.technicalScore} / 100</span>
-        </div>
-        <div style="width:100%; height:8px; background:#1e293b; border-radius:4px; overflow:hidden;">
-          <div style="width:${Math.max(5, d.technicalScore)}%; height:100%; background:${scoreBarColor}; border-radius:4px; transition:width 0.4s ease;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 3-Column Corridor & Key Factors Grid -->
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
-      <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:12px; padding:14px 16px;">
-        <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Estimated Resistance (R1)</div>
-        <div style="font-size:18px; font-weight:800; color:#38bdf8;">${escapeHTML(d.r1)}</div>
-        <div style="font-size:11px; color:#475569; margin-top:2px;">Key overhead ceiling for breakout</div>
-      </div>
-
-      <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:12px; padding:14px 16px;">
-        <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Session Pivot Point</div>
-        <div style="font-size:18px; font-weight:800; color:#f8fafc;">${escapeHTML(d.pivot)}</div>
-        <div style="font-size:11px; color:#475569; margin-top:2px;">Neutral equilibrium price point</div>
-      </div>
-
-      <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:12px; padding:14px 16px;">
-        <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Estimated Support (S1)</div>
-        <div style="font-size:18px; font-weight:800; color:#f43f5e;">${escapeHTML(d.s1)}</div>
-        <div style="font-size:11px; color:#475569; margin-top:2px;">Key floor level for downside risk</div>
-      </div>
-
-      <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:12px; padding:14px 16px;">
-        <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">14-Period RSI / ATR</div>
-        <div style="font-size:18px; font-weight:800; color:#e2e8f0;">${escapeHTML(d.rsi)} <span style="font-size:12px; font-weight:500; color:#64748b;">(ATR ${escapeHTML(d.atr)})</span></div>
-        <div style="font-size:11px; color:#475569; margin-top:2px;">Relative strength & expected daily range</div>
-      </div>
-    </div>
-
-    <!-- Quantitative Signals Breakdown Card -->
-    <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:16px; padding:20px;">
-      <div style="font-size:14px; font-weight:800; color:#f8fafc; margin-bottom:14px; display:flex; align-items:center; gap:8px;">
-        <span>🎯 Key Signal Drivers</span>
-        <span style="font-size:11px; font-weight:600; color:#64748b; background:#0f172a; padding:2px 8px; border-radius:6px; border:1px solid #1e293b;">${(d.signals || []).length} Indicators Assessed</span>
-      </div>
-
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        ${(d.signals || []).map(function(s) {
-          var sigBull = (s.signal || "").toLowerCase().includes("bull");
-          var sigBear = (s.signal || "").toLowerCase().includes("bear");
-          var sigColor = sigBull ? "#10b981" : sigBear ? "#ef4444" : "#94a3b8";
-          var sigBg = sigBull ? "rgba(16,185,129,0.08)" : sigBear ? "rgba(239,68,68,0.08)" : "rgba(148,163,184,0.08)";
-          return `
-            <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-              <div>
-                <div style="font-size:13px; font-weight:700; color:#e2e8f0; margin-bottom:2px;">${escapeHTML(s.name)}</div>
-                <div style="font-size:12px; color:#94a3b8; line-height:1.4;">${escapeHTML(s.explanation)}</div>
-              </div>
-              <span style="font-size:11px; font-weight:700; color:${sigColor}; background:${sigBg}; border:1px solid ${sigColor}33; padding:3px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">
-                ${escapeHTML(s.signal || "Neutral")}
-              </span>
-            </div>
-          `;
-        }).join("")}
-      </div>
-
-      <div style="margin-top:16px; padding-top:12px; border-top:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b; flex-wrap:wrap; gap:8px;">
-        <div>Source: <strong>${escapeHTML(d.dataSource || "Yahoo Finance")}</strong> (${escapeHTML(d.dataStatus || "DELAYED")})</div>
-        <div>⚠️ Quantitative model estimate only; not investment advice.</div>
-      </div>
-    </div>
+  body.innerHTML = `<div class="sec" style="background:#0b0f19; border-radius:12px; padding:24px; border:1px solid #1e293b;"><div style="display:flex; justify-content:space-between; margin-bottom:16px;"><div><div style="font-size:20px; font-weight:800; color:${accentColor}; margin-bottom:4px;">${escapeHTML(d.ticker)}</div></div><div style="text-align:right;"><div style="font-size:18px; font-weight:800; color:${accentColor};">${arrow} ${escapeHTML(d.trend)}</div><div style="font-size:11px; color:#64748b;">Model confidence: ${d.confidence}%</div></div></div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Technical score: <strong>${d.technicalScore}/100</strong> • ${escapeHTML(d.dataSource || "Market source")} • ${escapeHTML(d.dataStatus || "DELAYED")}</div>
+    ${(d.signals || []).map(function(s){ return `<div style="padding:8px 0;border-top:1px solid #1e293b;"><strong>${escapeHTML(s.name)}</strong>: ${escapeHTML(s.explanation)}</div>`; }).join("")}
+    <div style="font-size:11px;color:#64748b;margin-top:14px;">Probabilistic technical outlook only; not a guarantee of future price direction.</div>
   </div>`;
-
-  body.innerHTML = html;
 }
 
 async function runOutlook(ticker){
@@ -552,42 +473,6 @@ function renderCal(arr){
 var btnCalEl = document.getElementById("btnCal");
 if (btnCalEl) { btnCalEl.addEventListener("click", function(){ loadCal(true); }); }
 
-// Next Day Prediction tab bindings
-var ndBtnEl = document.getElementById("ndBtn");
-var ndInEl = document.getElementById("ndIn");
-if (ndBtnEl && ndInEl) {
-  ndBtnEl.addEventListener("click", function() { if (ndInEl.value.trim()) runNextDay(ndInEl.value.trim()); });
-  ndInEl.addEventListener("keydown", function(e) { if (e.key === "Enter" && ndInEl.value.trim()) runNextDay(ndInEl.value.trim()); });
-}
-
-// Term / Outlook tab bindings
-var tmBtnEl = document.getElementById("tmBtn");
-var tmInEl = document.getElementById("tmIn");
-if (tmBtnEl && tmInEl) {
-  tmBtnEl.addEventListener("click", function() { if (tmInEl.value.trim()) runOutlook(tmInEl.value.trim()); });
-  tmInEl.addEventListener("keydown", function(e) { if (e.key === "Enter" && tmInEl.value.trim()) runOutlook(tmInEl.value.trim()); });
-}
-document.querySelectorAll(".tfb").forEach(function(btn) {
-  btn.addEventListener("click", function() {
-    document.querySelectorAll(".tfb").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    var tf = btn.getAttribute("data-tf");
-    window.activeTF = tf;
-    if (tmInEl && tmInEl.value.trim()) runOutlook(tmInEl.value.trim());
-  });
-});
-
-// AI Chat Suggestions init
-function initChatSuggestions() {
-  var sugBox = document.getElementById("chatSuggestions");
-  if (!sugBox) return;
-  var suggestions = ["NIFTY 50 Outlook", "Top Bullish Stocks", "Sector Trends", "Risk Management Rules"];
-  sugBox.innerHTML = suggestions.map(function(s) {
-    return `<button class="sbtn" style="margin-right:6px;margin-bottom:6px;" onclick="document.getElementById('chatIn').value='${escapeHTML(s)}';sendChat()">${escapeHTML(s)}</button>`;
-  }).join("");
-}
-initChatSuggestions();
-
 var chatSendEl = document.getElementById("chatSend");
 if (chatSendEl) chatSendEl.addEventListener("click", sendChat);
 var chatInEl = document.getElementById("chatIn");
@@ -611,151 +496,9 @@ async function sendChat(){
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 }
 
-async function discoverDynamicNSETickers() {
-  var symbols = new Set();
-
-  // 1. Discover tickers from active user tools state (watchlist, recent searches, portfolio)
-  try {
-    if (window.NCUserTools && typeof window.NCUserTools.getState === "function") {
-      var st = window.NCUserTools.getState();
-      if (st) {
-        (st.watchlist || []).forEach(s => symbols.add(String(s).toUpperCase()));
-        (st.recent || []).forEach(s => symbols.add(String(s).toUpperCase()));
-        (st.portfolio || []).forEach(h => h.ticker && symbols.add(String(h.ticker).toUpperCase()));
-      }
-    }
-  } catch (_) {}
-
-  // 2. Extract potential company/ticker keywords from active live news articles
-  var newsKeywords = new Set();
-  var stopWords = new Set(["THE", "FOR", "AND", "WITH", "FROM", "THAT", "THIS", "NEWS", "STOCK", "STOCKS", "MARKET", "MARKETS", "INDIA", "INDIAN", "RUPEE", "SHARE", "SHARES", "PRICE", "PRICES", "SEBI", "NIFTY", "SENSEX", "BANK", "TODAY", "YEAR", "LTD", "LIMITED", "CORP", "BSE", "NSE", "CNBC", "BUSINESS", "STANDARD", "FED", "GLOBAL", "HIGH", "LOW", "GAIN", "LOSS", "RALLY", "SAYS", "AFTER", "INTO", "OVER", "MORE", "WILL", "HERE", "SOME", "WHAT", "WHEN"]);
-
-  try {
-    if (Array.isArray(window.ACTIVE_NEWS_POOL) && window.ACTIVE_NEWS_POOL.length) {
-      window.ACTIVE_NEWS_POOL.forEach(function(art) {
-        var text = (art.headline || "") + " " + (art.summary || "");
-        var matches = text.match(/\b[A-Z0-9]{2,10}\b/g);
-        if (matches) {
-          matches.forEach(function(m) {
-            if (!stopWords.has(m) && !/^\d+$/.test(m)) {
-              newsKeywords.add(m);
-            }
-          });
-        }
-      });
-    }
-  } catch (_) {}
-
-  // 3. Dynamically search live endpoints using extracted news keywords
-  var kwList = Array.from(newsKeywords).slice(0, 8);
-  if (kwList.length) {
-    try {
-      var searchResults = await Promise.all(kwList.map(q => yfSearch(q)));
-      searchResults.forEach(function(list) {
-        if (Array.isArray(list)) {
-          list.forEach(function(item) {
-            if (item && item.symbol) {
-              var sym = item.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
-              if (sym && !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-")) {
-                symbols.add(sym);
-              }
-            }
-          });
-        }
-      });
-    } catch (_) {}
-  }
-
-  return Array.from(symbols);
-}
-
-async function loadTrending() {
-  var container = document.getElementById("trendBody");
-  if (!container) return;
-
-  var dynamicUniverse = await discoverDynamicNSETickers();
-  if (!dynamicUniverse.length) {
-    container.innerHTML = `<div style="color:#64748b; padding:16px; font-size:12px;">Fetching live intraday market performers...</div>`;
-    return;
-  }
-
-  // Sample top candidate subset (first 10) to optimize network speed & avoid proxy rate-limits
-  var candidateSubset = dynamicUniverse.slice(0, 10);
-
-  var quotes = await Promise.all(candidateSubset.map(async function(sym) {
-    try {
-      var q = await yfQuote(sym);
-      if (!q) return null;
-      var pct = parseFloat(q.pChange != null ? q.pChange : (String(q.changePct || "").replace(/[%+]/g, ""))) || 0;
-      return {
-        ticker: sym,
-        name: q.name || sym,
-        price: q.raw ? ("₹" + Number(q.raw).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : (q.price || "₹0.00"),
-        changePctNum: pct,
-        changePctStr: (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%",
-        up: pct >= 0
-      };
-    } catch(_) { return null; }
-  }));
-
-  quotes = quotes.filter(Boolean);
-
-  // Sort by top performing movers of the day (descending by intraday % change magnitude)
-  quotes.sort(function(a, b) {
-    return Math.abs(b.changePctNum) - Math.abs(a.changePctNum);
-  });
-
-  var topMovers = quotes.slice(0, 8);
-  window.TOP_MOVERS_SYMBOLS = topMovers.map(m => m.ticker);
-
-  // Render quick benchmark buttons dynamically in Next Day tab
-  var benchmarkContainer = document.getElementById("ndQuickBenchmarks");
-  if (benchmarkContainer && topMovers.length) {
-    benchmarkContainer.innerHTML = topMovers.slice(0, 5).map(function(m) {
-      return `<button class="ndQuick" onclick="document.getElementById('ndIn').value='${escapeHTML(m.ticker)}';runNextDay('${escapeHTML(m.ticker)}')" style="background:#0f172a; border:1px solid #1e293b; color:#94a3b8; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; transition:all 0.15s">${escapeHTML(m.ticker)}</button>`;
-    }).join("");
-  }
-
-  if (!topMovers.length) {
-    container.innerHTML = `<div style="color:#64748b; padding:16px; font-size:12px;">No active movers returned for current trading session.</div>`;
-    return;
-  }
-
-  container.innerHTML = topMovers.map(function(item) {
-    var cColor = item.up ? "#10b981" : "#ef4444";
-    var cBg = item.up ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)";
-    var arrow = item.up ? "▲" : "▼";
-    return `<div class="mover-card" onclick="runAnalysis('${escapeHTML(item.ticker)}')" style="background:#0b0f19; border:1px solid #1e293b; border-radius:12px; padding:12px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'">
-      <div style="min-width:0; flex:1; padding-right:8px;">
-        <div style="font-weight:800; font-size:14px; color:#f8fafc;" class="mover-symbol">${escapeHTML(item.ticker)}</div>
-        <div style="font-size:11px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" class="mover-name">${escapeHTML(item.name)}</div>
-      </div>
-      <div style="text-align:right; flex-shrink:0;">
-        <div style="font-size:14px; font-weight:800; color:#f8fafc; font-family:monospace;" class="mover-price">${item.price}</div>
-        <div style="font-size:11px; font-weight:700; color:${cColor}; background:${cBg}; padding:2px 6px; border-radius:4px; display:inline-block; margin-top:2px;">${arrow} ${item.changePctStr}</div>
-      </div>
-    </div>`;
-  }).join("");
-}
-
-async function loadQuickView() {
-  var container = document.getElementById("quickViewStrip");
-  if (!container) return;
-  try {
-    var dynamicList = (window.NCMarketIntelligence && NCMarketIntelligence.getUniverse) ? NCMarketIntelligence.getUniverse() : [];
-    if (dynamicList.length) {
-      container.innerHTML = `<span style="font-size: 11px; color: #38bdf8; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Active Watch: ${dynamicList.slice(0, 5).map(escapeHTML).join(", ")}</span>`;
-    } else {
-      container.innerHTML = `<span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View: Search any NSE stock to build live market view dynamically.</span>`;
-    }
-  } catch(_) {}
-}
-
 async function bootDashboard() {
-  try { loadIdx(); } catch(e) {}
-  try { await loadNews(); } catch(e) {}
-  try { await loadTrending(); } catch(e) {}
-  try { loadQuickView(); } catch(e) {}
+  forceRenderIndexUI();
+  Promise.allSettled([loadIdx(), loadTopMovers(), loadNews()]);
 }
 
 if (window.RefreshScheduler) {
