@@ -3,13 +3,15 @@
  */
 (function(){
 "use strict";
-function esc(v){return window.escapeHTML?window.escapeHTML(String(v==null?"":v)):String(v==null?"":v).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c];});}
+function esc(v){return window.escapeHTML?window.escapeHTML(String(v==null?"":v)):String(v==null?"":v).replace(/[&<>\"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];});}
 function pct(v){return v===null||v===undefined?"—":(v>0?"+":"")+Number(v).toFixed(2)+"%";}
 function ensure(){
   if(document.getElementById("ncMarketIntel")||!window.NCMarketIntelligence)return;
   var sec=document.createElement("section"); sec.id="ncMarketIntel"; sec.className="nc-mi";
   sec.innerHTML='<div class="nc-mi-head"><div><h2>Market Intelligence</h2><p>Market breadth, leaders and sector performance using an explicitly disclosed ticker universe.</p></div><button id="ncMiRefresh">Refresh intelligence</button></div><div id="ncMiBody"><div class="nc-mi-loading">Loading market intelligence…</div></div>';
-  var anchor=document.getElementById("ncUserWorkspace"), target=document.querySelector("main")||document.querySelector(".main")||document.body;
+  var anchor=document.getElementById("ncUserWorkspace");
+  // Prefer mounting inside the Home page so Market Intelligence appears only on Home; fall back to main/body
+  var target=document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
   if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(sec,anchor.nextSibling); else target.appendChild(sec);
   document.getElementById("ncMiRefresh").onclick=render; render();
 }
@@ -29,8 +31,8 @@ async function render(){
       '<div class="nc-mi-summary"><div><span>Advances</span><strong>'+b.advances+'</strong></div><div><span>Declines</span><strong>'+b.declines+'</strong></div><div><span>Unchanged</span><strong>'+b.unchanged+'</strong></div><div><span>A/D ratio</span><strong>'+(b.ratio===null?"—":b.ratio)+'</strong></div></div>'+
       '<div class="nc-mi-columns"><section><h3>Top gainers</h3>'+cards(l.gainers)+'</section><section><h3>Top losers</h3>'+cards(l.losers)+'</section></div>'+
       '<section class="nc-mi-block"><h3>Sector performance</h3><div class="nc-mi-sector">'+s.map(function(x){return '<div><strong>'+esc(x.sector)+'</strong><span class="'+(x.changePct>=0?"up":"down")+'">'+pct(x.changePct)+'</span><small>'+x.members+' available constituent(s)</small></div>';}).join("")+'</div><div class="nc-mi-note">Sector figures are simple averages of the disclosed constituent subset, not official sector-index returns.</div></section>';
-  }catch(e){body.innerHTML='<div class="errbox">⚠️ Market intelligence unavailable: '+esc(e.message||"Unknown error")+'</div>';}
+  }catch(e){body.innerHTML='<div class="errbox">⚠️ Market intelligence unavailable: '+esc(e.message||"Unknown error")+'</div>';} 
 }
-function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">Unavailable</div>')+'</div>';}
+function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">No rows available.</div>')+'</div>';}
 window.addEventListener("DOMContentLoaded",ensure);
 })();
