@@ -1,5 +1,6 @@
 /**
  * NC Markets Phase 4B — visible user tools workspace.
+ * 100% user-input driven workspace.
  */
 (function(){
 "use strict";
@@ -112,18 +113,10 @@ async function renderWatchlist(panel){
     return { ticker: t, q: q };
   }));
 
-  var presets = ["TCS", "RELIANCE", "INFY", "ICICIBANK", "TATAMOTORS"];
-  var presetChips = '<div style="margin-top:10px; font-size:12px; color:#94a3b8;">' +
-    '<span>Quick add popular stocks: </span>' +
-    presets.map(function(p){
-      return '<button type="button" class="ncuw-chip-btn" data-add-preset="' + esc(p) + '" style="background:#111827; border:1px solid #334155; color:#38bdf8; border-radius:6px; padding:3px 8px; margin:0 4px 4px 0; font-size:11px; cursor:pointer;">+ ' + esc(p) + '</button>';
-    }).join('') +
-  '</div>';
-
-  var formHtml = '<form id="ncWatchForm" class="ncuw-form">' +
-    '<input name="ticker" placeholder="Enter ticker (e.g. TCS or RELIANCE.NS)" required>' +
+  var formHtml = '<form id="ncWatchForm" class="ncuw-form" style="margin-bottom:16px;">' +
+    '<input name="ticker" placeholder="Enter stock symbol or company name (e.g. TCS, RELIANCE)" required>' +
     '<button type="submit">Add to Watchlist</button>' +
-  '</form>' + presetChips + '<div style="margin-bottom:16px;"></div>';
+  '</form>';
 
   var listHtml = "";
   if (rows.length) {
@@ -153,7 +146,7 @@ async function renderWatchlist(panel){
   } else {
     listHtml = '<div class="ncuw-empty">' +
       '<p style="margin:0 0 8px 0; font-weight:600;">Your watchlist is currently empty.</p>' +
-      '<p style="margin:0; font-size:12px;">Type a ticker above or click one of the quick add stock chips to monitor live quotes and technical signals.</p>' +
+      '<p style="margin:0; font-size:12px;">Type any stock symbol into the input form above to add it to your personalized watchlist.</p>' +
     '</div>';
   }
 
@@ -170,13 +163,6 @@ async function renderWatchlist(panel){
       }
     });
   }
-
-  panel.querySelectorAll("[data-add-preset]").forEach(function(b){
-    b.onclick = function(){
-      NCUserTools.addWatchlist(b.dataset.addPreset);
-      render();
-    };
-  });
 
   panel.querySelectorAll("[data-remove]").forEach(function(b){
     b.onclick = function(){
@@ -201,10 +187,10 @@ async function renderPortfolio(panel){
   var pnlClass = pnl >= 0 ? "up" : "down";
   var pnlSign = pnl >= 0 ? "+" : "";
 
-  var formHtml = '<form id="ncPortfolioForm" class="ncuw-form ncuw-form-wide">' +
-    '<input name="ticker" placeholder="Ticker (e.g. TCS)" required>' +
-    '<input name="quantity" type="number" min="0.0001" step="any" placeholder="Qty" required>' +
-    '<input name="averagePrice" placeholder="Avg Buy Price (₹)" type="number" step="any" required>' +
+  var formHtml = '<form id="ncPortfolioForm" class="ncuw-form ncuw-form-wide" style="margin-bottom:16px;">' +
+    '<input name="ticker" placeholder="Ticker symbol" required>' +
+    '<input name="quantity" type="number" min="0.0001" step="any" placeholder="Quantity" required>' +
+    '<input name="averagePrice" placeholder="Buy Price per Share (₹)" type="number" step="any" required>' +
     '<button type="submit">Add Holding</button>' +
   '</form>';
 
@@ -212,19 +198,6 @@ async function renderPortfolio(panel){
     '<div><span>Total Invested</span><strong>' + money(invested) + '</strong></div>' +
     '<div><span>Current Portfolio Value</span><strong>' + money(value) + '</strong></div>' +
     '<div><span>Total Return (P&amp;L)</span><strong class="' + pnlClass + '">' + pnlSign + money(pnl) + ' (' + pnlSign + pnlPct.toFixed(2) + '%)</strong></div>' +
-  '</div>';
-
-  var presets = [
-    { ticker: "TCS", qty: 10, price: 2342 },
-    { ticker: "RELIANCE", qty: 5, price: 1250 },
-    { ticker: "INFY", qty: 15, price: 1420 }
-  ];
-
-  var sampleChips = '<div style="margin-bottom:16px; font-size:12px; color:#94a3b8;">' +
-    '<span>Quick add sample holding: </span>' +
-    presets.map(function(p){
-      return '<button type="button" class="ncuw-sample-btn" data-sample-ticker="' + esc(p.ticker) + '" data-sample-qty="' + p.qty + '" data-sample-price="' + p.price + '" style="background:#111827; border:1px solid #334155; color:#38bdf8; border-radius:6px; padding:3px 8px; margin:0 4px 4px 0; font-size:11px; cursor:pointer;">+ ' + esc(p.ticker) + ' (' + p.qty + ' @ ₹' + p.price + ')</button>';
-    }).join('') +
   '</div>';
 
   var tableHtml = "";
@@ -256,11 +229,11 @@ async function renderPortfolio(panel){
   } else {
     tableHtml = '<div class="ncuw-empty">' +
       '<p style="margin:0 0 8px 0; font-weight:600;">No holdings in your portfolio.</p>' +
-      '<p style="margin:0; font-size:12px;">Add your bought stocks using the form above or click one of the quick sample buttons to track portfolio profit/loss live.</p>' +
+      '<p style="margin:0; font-size:12px;">Add your purchased stock positions using the form above to track live values and P&amp;L.</p>' +
     '</div>';
   }
 
-  panel.innerHTML = formHtml + sampleChips + summaryHtml + tableHtml;
+  panel.innerHTML = formHtml + summaryHtml + tableHtml;
 
   var portForm = panel.querySelector("#ncPortfolioForm");
   if (portForm) {
@@ -280,21 +253,6 @@ async function renderPortfolio(panel){
     };
   }
 
-  panel.querySelectorAll("[data-sample-ticker]").forEach(function(b){
-    b.onclick = function(){
-      try {
-        NCUserTools.addHolding({
-          ticker: b.dataset.sampleTicker,
-          quantity: b.dataset.sampleQty,
-          averagePrice: b.dataset.samplePrice
-        });
-        render();
-      } catch(e) {
-        alert(e.message);
-      }
-    };
-  });
-
   panel.querySelectorAll("[data-holding]").forEach(function(b){
     b.onclick = function(){
       NCUserTools.removeHolding(b.dataset.holding);
@@ -311,18 +269,13 @@ async function renderPortfolio(panel){
 
 async function renderCompare(panel){
   var s = state();
-  var defaultTickers = (s.watchlist && s.watchlist.length > 0) ? s.watchlist.slice(0, 5).join(", ") : "TCS, RELIANCE, INFY";
+  var initialValue = (s.watchlist && s.watchlist.length > 0) ? s.watchlist.slice(0, 5).join(", ") : "";
 
-  panel.innerHTML = '<div style="margin-bottom:12px;">' +
+  panel.innerHTML = '<div style="margin-bottom:16px;">' +
     '<form id="ncCompareForm" class="ncuw-form">' +
-      '<input name="tickers" value="' + esc(defaultTickers) + '" placeholder="Enter up to 5 tickers, comma-separated (e.g. TCS, RELIANCE, INFY)" required>' +
+      '<input name="tickers" value="' + esc(initialValue) + '" placeholder="Enter stock tickers separated by commas (e.g. TCS, RELIANCE, INFY)" required>' +
       '<button type="submit">Compare Metrics</button>' +
     '</form>' +
-    '<div style="font-size:12px; color:#94a3b8; margin-top:-8px; margin-bottom:12px;">' +
-      'Presets: ' +
-      '<button type="button" class="ncuw-preset-cmp" data-preset="TCS, INFY, WIT" style="background:none; border:none; color:#38bdf8; cursor:pointer; text-decoration:underline;">IT Sector</button> | ' +
-      '<button type="button" class="ncuw-preset-cmp" data-preset="ICICIBANK, SBIN, HDFCBANK" style="background:none; border:none; color:#38bdf8; cursor:pointer; text-decoration:underline;">Banking Giants</button>' +
-    '</div>' +
   '</div>' +
   '<div id="ncCompareResults"></div>';
 
@@ -330,6 +283,10 @@ async function renderCompare(panel){
   var out = panel.querySelector("#ncCompareResults");
 
   async function executeCompare(tickersStr){
+    if (!tickersStr || !tickersStr.trim()) {
+      out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to compare technical indicator scores and EMA trends.</div>';
+      return;
+    }
     out.innerHTML = '<div class="ncuw-loading">Comparing technical metrics for ' + esc(tickersStr) + '…</div>';
     var rawList = tickersStr.split(",").map(function(x){ return x.trim(); }).filter(Boolean);
     var rows = await NCUserTools.compare(rawList);
@@ -372,22 +329,19 @@ async function renderCompare(panel){
     executeCompare(val);
   };
 
-  panel.querySelectorAll(".ncuw-preset-cmp").forEach(function(b){
-    b.onclick = function(){
-      form.querySelector("input[name='tickers']").value = b.dataset.preset;
-      executeCompare(b.dataset.preset);
-    };
-  });
-
-  executeCompare(defaultTickers);
+  if (initialValue) {
+    executeCompare(initialValue);
+  } else {
+    out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to compare technical indicator scores and EMA trends.</div>';
+  }
 }
 
 async function renderScreener(panel){
   var s = state();
-  var defaultUniverse = (s.watchlist && s.watchlist.length > 0) ? s.watchlist.join(", ") : "TCS, RELIANCE, INFY, ICICIBANK, TATAMOTORS, SBIN";
+  var initialUniverse = (s.watchlist && s.watchlist.length > 0) ? s.watchlist.join(", ") : "";
 
-  panel.innerHTML = '<form id="ncScreenForm" class="ncuw-form">' +
-    '<input name="tickers" value="' + esc(defaultUniverse) + '" placeholder="Ticker universe, comma-separated" required>' +
+  panel.innerHTML = '<form id="ncScreenForm" class="ncuw-form" style="margin-bottom:16px;">' +
+    '<input name="tickers" value="' + esc(initialUniverse) + '" placeholder="Stock universe, comma-separated (e.g. TCS, RELIANCE, INFY)" required>' +
     '<select name="filter">' +
       '<option value="bullish">Bullish Momentum (Score ≥ 60)</option>' +
       '<option value="bearish">Bearish Outlook (Score ≤ 40)</option>' +
@@ -402,11 +356,16 @@ async function renderScreener(panel){
   var out = panel.querySelector("#ncScreenResults");
 
   async function executeScreener(){
-    out.innerHTML = '<div class="ncuw-loading">Screening stocks…</div>';
     var f = new FormData(form);
     var rawList = String(f.get("tickers") || "").split(",").map(function(x){ return x.trim(); }).filter(Boolean);
     var filterType = f.get("filter");
 
+    if (!rawList.length) {
+      out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to screen against technical filters.</div>';
+      return;
+    }
+
+    out.innerHTML = '<div class="ncuw-loading">Screening stocks…</div>';
     var res = await NCUserTools.screen(rawList, filterType);
 
     if (!res || !res.length) {
@@ -441,15 +400,19 @@ async function renderScreener(panel){
     executeScreener();
   };
 
-  executeScreener();
+  if (initialUniverse) {
+    executeScreener();
+  } else {
+    out.innerHTML = '<div class="ncuw-empty">Enter stock tickers above to screen against technical filters.</div>';
+  }
 }
 
 async function renderAlerts(panel){
   var s = state();
   var alerts = s.alerts || [];
 
-  var formHtml = '<form id="ncAlertForm" class="ncuw-form ncuw-form-wide">' +
-    '<input name="ticker" placeholder="Ticker (e.g. TCS)" required>' +
+  var formHtml = '<form id="ncAlertForm" class="ncuw-form ncuw-form-wide" style="margin-bottom:16px;">' +
+    '<input name="ticker" placeholder="Ticker symbol" required>' +
     '<select name="type">' +
       '<option value="priceAbove">Price goes above (₹)</option>' +
       '<option value="priceBelow">Price goes below (₹)</option>' +
@@ -479,7 +442,7 @@ async function renderAlerts(panel){
     }).join('') + '</div>';
   } else {
     listHtml = '<div class="ncuw-empty">' +
-      '<p style="margin:0 0 8px 0; font-weight:600;">No price alerts set.</p>' +
+      '<p style="margin:0 0 8px 0; font-weight:600;">No price alerts configured.</p>' +
       '<p style="margin:0; font-size:12px;">Create custom price threshold alerts using the form above to get notified when target price levels are crossed.</p>' +
     '</div>';
   }
@@ -518,7 +481,7 @@ async function renderRecent(panel){
   if (!rows.length) {
     panel.innerHTML = '<div class="ncuw-empty">' +
       '<p style="margin:0 0 8px 0; font-weight:600;">No recent searches found.</p>' +
-      '<p style="margin:0; font-size:12px;">Search or analyze any stock ticker from the header search bar or quick view options to build your search history.</p>' +
+      '<p style="margin:0; font-size:12px;">Search or analyze any stock ticker from the search bar to build your search history.</p>' +
     '</div>';
     return;
   }
