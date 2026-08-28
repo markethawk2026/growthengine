@@ -252,6 +252,7 @@ async function runAnalysis(ticker){
   window.LIVE_CHART_POOL.closes = [...closes];
   renderAnalysis(d);
 }
+window.runAnalysis = runAnalysis;
 
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
