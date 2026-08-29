@@ -204,7 +204,8 @@ async function loadTopMovers() {
     container.innerHTML = items.slice(0, 4).map(function(q) {
       var sym = q.name ? q.name : q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
-      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || sym)}')">
+      var tSym = q.ticker || sym;
+      return `<div class="tcard" data-ticker="${escapeHTML(tSym)}">
         <div style="flex:1;">
           <div style="font-size:12px; font-weight:700;">${escapeHTML(sym)}</div>
           <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
@@ -215,7 +216,7 @@ async function loadTopMovers() {
   } catch(e) {
     container.innerHTML = fallbackMovers.map(function(q) {
       var cColor = q.up ? "#22c55e" : "#ef4444";
-      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker)}')">
+      return `<div class="tcard" data-ticker="${escapeHTML(q.ticker)}">
         <div style="flex:1;">
           <div style="font-size:12px; font-weight:700;">${escapeHTML(q.name)}</div>
           <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
@@ -224,6 +225,12 @@ async function loadTopMovers() {
       </div>`;
     }).join("");
   }
+  container.querySelectorAll(".tcard[data-ticker]").forEach(function(card) {
+    card.onclick = function() {
+      var t = card.getAttribute("data-ticker");
+      if (t) runAnalysis(t);
+    };
+  });
 }
 
 async function runAnalysis(ticker){

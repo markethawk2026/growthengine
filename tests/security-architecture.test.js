@@ -24,5 +24,11 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   failures++;
 }
 
+// Verify no unsafe inline onclick="runAnalysis(" in main.js
+if (mainText.includes("onclick=\"runAnalysis(")) {
+  console.error("FAIL inline onclick runAnalysis found in main.js");
+  failures++;
+}
+
 if(failures)process.exit(1);
 console.log("PASS security architecture checks");
