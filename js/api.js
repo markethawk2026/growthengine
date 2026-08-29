@@ -12,6 +12,7 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
+  "DIRECT",
   "https://corsproxy.io/?url=",
   "https://api.allorigins.win/raw?url=",
   "https://thingproxy.freeboard.io/fetch/"
@@ -28,7 +29,7 @@ async function proxyFetch(url, timeoutMs = 5000) {
 
   for (var i = 0; i < PROXIES.length; i++) {
     try {
-      var targetUrl = PROXIES[i] + encodeURIComponent(url);
+      var targetUrl = PROXIES[i] === "DIRECT" ? url : PROXIES[i] + encodeURIComponent(url);
       var result = await window.RequestManager.request(targetUrl, {
         timeout: timeoutMs,
         retries: 1,
