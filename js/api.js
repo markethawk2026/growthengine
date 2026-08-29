@@ -61,16 +61,29 @@ async function yfQuote(ticker) {
     return window.CACHE.prices[ticker].d;
   }
 
-  var sym = ticker;
-  if (!sym.startsWith("^") && !sym.includes(".") && !sym.includes("=") && !sym.includes("-")) {
-    sym = sym + ".NS";
+  var symCandidates = [ticker];
+  if (!ticker.startsWith("^") && !ticker.includes(".") && !ticker.includes("=") && !ticker.includes("-")) {
+    symCandidates = [/^\d+$/.test(ticker) ? ticker + ".BO" : ticker + ".NS", ticker + ".BO", ticker + ".NS"];
   }
 
+  var cResult = null;
   try {
-    var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
-    var cJson = await proxyFetch(chartUrl);
-    var cResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
-    if (!cResult) return null;
+    for (var sIdx = 0; sIdx < symCandidates.length; sIdx++) {
+      var sym = symCandidates[sIdx];
+      try {
+        var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
+        var cJson = await proxyFetch(chartUrl);
+        var candResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
+        if (candResult && candResult.meta && candResult.meta.regularMarketPrice) {
+          cResult = candResult;
+          break;
+        }
+      } catch (innerErr) {
+        // Continue trying next symbol candidate
+      }
+    }
+
+    if (!cResult || !cResult.meta) return null;
 
     var m = cResult.meta;
     var price = m.regularMarketPrice;
