@@ -98,11 +98,7 @@ async function loadNews(targetTicker) {
     var queryTag = (ticker && ticker.length > 0) ? ticker.toUpperCase().replace("^", "") : "NSE INDIA";
     var articles = [];
     if (typeof yfNews === "function") { try { articles = await yfNews(queryTag); } catch(apiErr) { console.warn("News API error", apiErr); } }
-    window.ACTIVE_NEWS_POOL = (Array.isArray(articles) && articles.length > 0) ? articles : [
-      { id: "wire_1", headline: "RBI Keeps Benchmark Repo Rate Unchanged at 6.5%", source: "ECONOMIC TIMES", time: "10m ago", summary: "The Reserve Bank of India Monetary Policy Committee decided to maintain the policy repo rate with a focused stance on inflation control." },
-      { id: "wire_2", headline: "Nifty 50 Reclaims 22,000 Mark Led by Banking and IT Stocks", source: "CNBC MARKETS", time: "25m ago", summary: "Indian equity benchmarks witnessed broad-based buying momentum driven by strong institutional inflows." },
-      { id: "wire_3", headline: "IT Giants Report Strong Q4 Order Inflows Across Global Markets", source: "BUSINESS STANDARD", time: "1h ago", summary: "Major Indian technology firms highlighted resilient demand in cloud migration and digital transformation contracts." }
-    ];
+    window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
     var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
       layoutHtml += `<div id="card_${article.id}" class="gc news-card" onclick="window.viewArticleDetail('${article.id}')" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
@@ -190,18 +186,32 @@ function forceRenderIndexUI() {
 async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
-  var fallbackMovers = [
-    { ticker: "RELIANCE", name: "Reliance Industries", price: "₹2,980.50", changePct: "+1.45%", up: true },
-    { ticker: "TCS", name: "Tata Consultancy Services", price: "₹4,120.00", changePct: "+0.85%", up: true },
-    { ticker: "INFY", name: "Infosys Ltd", price: "₹1,840.20", changePct: "-0.62%", up: false },
-    { ticker: "HDFCBANK", name: "HDFC Bank Ltd", price: "₹1,650.75", changePct: "+1.10%", up: true }
-  ];
-  var symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK"];
   try {
-    var quotes = await Promise.all(symbols.map(function(s) { return yfQuote(s); }));
+    var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
+    var userSymbols = userState ? [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []) : [];
+    userSymbols = Array.from(new Set(userSymbols.filter(Boolean))).slice(0, 6);
+
+    if (!userSymbols.length) {
+      var searchRes = await yfSearch("NSE");
+      if (searchRes && searchRes.length) {
+        userSymbols = searchRes.map(function(r){ return r.symbol.replace(".NS", "").replace(".BO", ""); }).slice(0, 6);
+      }
+    }
+
+    if (!userSymbols.length) {
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Add stocks to watchlist or search tickers to see market movers.</div>';
+      return;
+    }
+
+    var quotes = await Promise.all(userSymbols.map(function(s) { return yfQuote(s); }));
     var valid = quotes.filter(function(q) { return q !== null; });
-    var items = valid.length ? valid : fallbackMovers;
-    container.innerHTML = items.slice(0, 4).map(function(q) {
+
+    if (!valid.length) {
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers data syncing...</div>';
+      return;
+    }
+
+    container.innerHTML = valid.slice(0, 6).map(function(q) {
       var sym = q.name ? q.name : q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
       return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || sym)}')">
@@ -213,16 +223,7 @@ async function loadTopMovers() {
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = fallbackMovers.map(function(q) {
-      var cColor = q.up ? "#22c55e" : "#ef4444";
-      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker)}')">
-        <div style="flex:1;">
-          <div style="font-size:12px; font-weight:700;">${escapeHTML(q.name)}</div>
-          <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
-        </div>
-        <div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(q.changePct)}</div>
-      </div>`;
-    }).join("");
+    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers syncing...</div>';
   }
 }
 
