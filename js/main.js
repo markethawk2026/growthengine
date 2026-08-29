@@ -58,13 +58,35 @@ if (siEl) {
 
 async function doSearch(q) {
   if (!ddEl) return;
-  ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching...</div>';
+  ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching live exchange...</div>';
   ddEl.classList.add("open");
-  var res = await yfSearch(q);
-  if (!res.length) { ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">No matches.</div>'; return; }
+
+  var queryClean = String(q || "").trim();
+  var res = await yfSearch(queryClean);
+
+  if (!res || !res.length) {
+    var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
+    var workspaceItems = userState ? [].concat(userState.recent || [], userState.watchlist || []) : [];
+    var matchedWorkspace = workspaceItems.filter(function(item) {
+      return item.toUpperCase().includes(queryClean.toUpperCase());
+    });
+
+    if (matchedWorkspace.length > 0) {
+      res = matchedWorkspace.slice(0, 5).map(function(sym) {
+        return { symbol: sym, longname: sym + " (Saved)", shortname: sym };
+      });
+    }
+  }
+
+  if (!res || !res.length) {
+    ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#64748b">No matching exchange stocks found for "' + escapeHTML(queryClean) + '"</div>';
+    return;
+  }
+
   ddEl.innerHTML = res.map(function(r){
-    var sym = r.symbol.replace(".NS", "").replace(".BO", "");
-    return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(r.longname || r.shortname || sym) + '</span></div>';
+    var sym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+    var displayName = r.longname || r.shortname || r.dispName || sym;
+    return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(displayName) + '</span></div>';
   }).join("");
 }
 if (ddEl) {
