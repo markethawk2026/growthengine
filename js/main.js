@@ -52,22 +52,43 @@ var ddTmr = null;
 if (siEl) {
   siEl.addEventListener("input", function(){
     clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ ddEl.classList.remove("open"); return; }
-    ddTmr = setTimeout(function(){ doSearch(q); }, 300);
+    // Render instant local/saved suggestions immediately on keypress
+    renderInstantSuggestions(q);
+    ddTmr = setTimeout(function(){ doSearch(q); }, 80);
   });
+}
+
+function renderInstantSuggestions(q) {
+  if (!ddEl) return;
+  var queryClean = String(q || "").trim().toUpperCase();
+  var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
+  var workspaceItems = userState ? [].concat(userState.recent || [], userState.watchlist || []) : [];
+  var matched = Array.from(new Set(workspaceItems)).filter(function(item) {
+    return item.toUpperCase().includes(queryClean);
+  }).slice(0, 4);
+
+  if (matched.length > 0) {
+    ddEl.innerHTML = matched.map(function(sym) {
+      return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(sym) + ' (Saved)</span></div>';
+    }).join("") + '<div style="padding:6px 14px;font-size:11px;color:#64748b;border-top:1px solid rgba(255,255,255,0.06)">Searching exchange...</div>';
+    ddEl.classList.add("open");
+  } else {
+    ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching live exchange...</div>';
+    ddEl.classList.add("open");
+  }
 }
 
 async function doSearch(q) {
   if (!ddEl) return;
-  ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching live exchange...</div>';
-  ddEl.classList.add("open");
-
   var queryClean = String(q || "").trim();
+  if (!queryClean) { ddEl.classList.remove("open"); return; }
+
   var res = await yfSearch(queryClean);
 
   if (!res || !res.length) {
     var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
     var workspaceItems = userState ? [].concat(userState.recent || [], userState.watchlist || []) : [];
-    var matchedWorkspace = workspaceItems.filter(function(item) {
+    var matchedWorkspace = Array.from(new Set(workspaceItems)).filter(function(item) {
       return item.toUpperCase().includes(queryClean.toUpperCase());
     });
 
@@ -80,6 +101,7 @@ async function doSearch(q) {
 
   if (!res || !res.length) {
     ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#64748b">No matching exchange stocks found for "' + escapeHTML(queryClean) + '"</div>';
+    ddEl.classList.add("open");
     return;
   }
 
@@ -88,6 +110,7 @@ async function doSearch(q) {
     var displayName = r.longname || r.shortname || r.dispName || sym;
     return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(displayName) + '</span></div>';
   }).join("");
+  ddEl.classList.add("open");
 }
 if (ddEl) {
   ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });

@@ -137,12 +137,20 @@ async function yfQuote(ticker) {
 }
 
 async function yfSearch(q) {
+  if (!q || !String(q).trim()) return [];
   try {
-    var url = YF_SEARCH + encodeURIComponent(q) + "&quotesCount=10&newsCount=0&enableFuzzyQuery=true&region=IN";
-    var j = await proxyFetch(url);
-    return (j.quotes || []).filter(function(r){
-      return r.quoteType === "EQUITY" && (r.exchange === "NSI" || r.exchange === "BOM" || r.symbol.endsWith(".NS") || r.symbol.endsWith(".BO"));
-    }).slice(0, 8);
+    var url = YF_SEARCH + encodeURIComponent(q) + "&quotesCount=12&newsCount=0&enableFuzzyQuery=true";
+    var j = await proxyFetch(url, 4000);
+    var quotes = (j && j.quotes) ? j.quotes : [];
+
+    var filtered = quotes.filter(function(r){
+      if (!r || !r.symbol) return false;
+      var sym = r.symbol.toUpperCase();
+      var ex = (r.exchange || "").toUpperCase();
+      return r.quoteType === "EQUITY" || ex === "NSI" || ex === "BOM" || sym.endsWith(".NS") || sym.endsWith(".BO");
+    });
+
+    return (filtered.length ? filtered : quotes.slice(0, 8)).slice(0, 8);
   } catch(e) { return []; }
 }
 
