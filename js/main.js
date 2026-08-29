@@ -38,7 +38,11 @@ function drawNativeChart(closes, volumes, up) {
 }
 
 function switchTab(name){
-  document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-tab") === name); });
+  document.querySelectorAll(".tab").forEach(function(t){
+    var isActive = t.getAttribute("data-tab") === name;
+    t.classList.toggle("active", isActive);
+    t.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
   document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
   if(name === "global") loadGlobal();
   if(name === "calendar") loadCal();
