@@ -13,10 +13,43 @@ function ensureUI(){
   var wrap=document.createElement("section");
   wrap.id="ncUserWorkspace";
   wrap.className="nc-user-workspace";
-  wrap.innerHTML='<div class="ncuw-head"><div><h2>Watchlist & Portfolio</h2><p>Watchlist, portfolio, comparison, screener and alerts stored locally in this browser.</p></div><button class="ncuw-refresh">Refresh</button></div><div class="ncuw-tabs"></div><div id="ncuwPanel"></div>';
+  wrap.innerHTML='<div class="ncuw-head"><div><h2>Investor Toolkit Workspace</h2><p>Watchlist, portfolio, Graham valuation, CSV export, and JSON backup/restore stored locally in this browser.</p></div><div style="display:flex;gap:8px;"><button id="btnExportCSV" class="ncuw-refresh" style="background:#0284c7;">Export CSV</button><button id="btnBackupJSON" class="ncuw-refresh" style="background:#16a34a;">Backup JSON</button><button id="btnRestoreJSON" class="ncuw-refresh" style="background:#d97706;">Restore</button><button class="ncuw-refresh">Refresh</button></div></div><div class="ncuw-tabs"></div><div id="ncuwPanel"></div>';
   var target=document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
   target.appendChild(wrap);
   wrap.querySelector(".ncuw-refresh").addEventListener("click",render);
+  wrap.querySelector("#btnExportCSV").addEventListener("click",function(){
+    var s=state();
+    if(active==="portfolio"){
+      NCUserTools.portfolioSnapshot().then(function(rows){ NCUserTools.exportToCSV(rows, "portfolio.csv"); });
+    } else {
+      var data=s.watchlist.map(function(t){ return { ticker: t }; });
+      NCUserTools.exportToCSV(data.length?data:[{ticker:""}], "watchlist.csv");
+    }
+  });
+  wrap.querySelector("#btnBackupJSON").addEventListener("click",function(){
+    var jsonStr=NCUserTools.backupWorkspace();
+    var blob=new Blob([jsonStr],{type:"application/json"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a");
+    a.href=url; a.download="nc-markets-workspace.json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+  wrap.querySelector("#btnRestoreJSON").addEventListener("click",function(){
+    var input=document.createElement("input"); input.type="file"; input.accept=".json";
+    input.onchange=function(e){
+      var file=e.target.files[0]; if(!file)return;
+      var reader=new FileReader();
+      reader.onload=function(evt){
+        try{
+          NCUserTools.restoreWorkspace(evt.target.result);
+          alert("Workspace restored successfully!");
+          render();
+        }catch(err){ alert(err.message); }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  });
   var tabs=[["watchlist","Watchlist"],["portfolio","Portfolio"],["compare","Compare"],["screener","Screener"],["alerts","Alerts"],["recent","Recent"]];
   var tabsEl=wrap.querySelector(".ncuw-tabs");
   tabs.forEach(function(t){
@@ -39,7 +72,7 @@ async function render(){
     else if(active==="screener") renderScreener(panel);
     else if(active==="alerts") renderAlerts(panel);
     else renderRecent(panel);
-  }catch(e){panel.innerHTML='<div class="errbox">⚠️ '+esc(e.message||"Unable to load workspace.")+'</div>';} 
+  }catch(e){panel.innerHTML='<div class="errbox">⚠️ '+esc(e.message||"Unable to load workspace.")+'</div>';}
 }
 async function renderWatchlist(panel){
   var s=state(), rows=await Promise.all(s.watchlist.map(async function(t){return {ticker:t,q:await yfQuote(t)};}));
@@ -52,9 +85,13 @@ async function renderWatchlist(panel){
 async function renderPortfolio(panel){
   var rows=await NCUserTools.portfolioSnapshot();
   var invested=rows.reduce(function(a,r){return a+r.invested;},0), value=rows.reduce(function(a,r){return a+(r.currentValue||0);},0);
+  var annualDivProj = value * 0.015; // Estimated 1.5% projected annual dividend yield
   panel.innerHTML='<form id="ncPortfolioForm" class="ncuw-form ncuw-form-wide"><input name="ticker" placeholder="Ticker" required><input name="quantity" type="number" min="0.0001" step="any" placeholder="Qty"><input name="averagePrice" placeholder="Average price" type="number" step="any"><button>Add holding</button></form>'+
-  '<div class="ncuw-summary"><div><span>Invested</span><strong>'+money(invested)+'</strong></div><div><span>Current value</span><strong>'+money(value)+'</strong></div><div><span>Total P&amp;L</span><strong>'+money(value-invested)+'</strong></div></div>'+
-  (rows.length?'<div class="ncuw-tablewrap"><table class="ncuw-table"><thead><tr><th>Stock</th><th>Qty</th><th>Avg.</th><th>Current</th><th>P&amp;L</th><th></th></tr></thead><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.ticker)+'</td><td>'+esc(r.quantity)+'</td><td>'+esc(r.averagePrice)+'</td><td>'+esc(r.currentPrice||'Unavailable')+'</td><td>'+esc(r.pnl||'')+'</td><td><button data-holding="'+esc(r.id)+'">Remove</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="ncuw-empty">No holdings.</div>');
+  '<div class="ncuw-summary"><div><span>Invested</span><strong>'+money(invested)+'</strong></div><div><span>Current value</span><strong>'+money(value)+'</strong></div><div><span>Total P&amp;L</span><strong>'+money(value-invested)+'</strong></div><div><span>Est. Annual Dividend</span><strong>'+money(annualDivProj)+'</strong></div></div>'+
+  (rows.length?'<div class="ncuw-tablewrap"><table class="ncuw-table"><thead><tr><th>Stock</th><th>Qty</th><th>Avg.</th><th>Current</th><th>P&amp;L</th><th>Est. Annual Div</th><th></th></tr></thead><tbody>'+rows.map(function(r){
+    var itemDiv = (r.currentValue || 0) * 0.015;
+    return '<tr><td>'+esc(r.ticker)+'</td><td>'+esc(r.quantity)+'</td><td>'+esc(r.averagePrice)+'</td><td>'+esc(r.currentPrice||'Unavailable')+'</td><td>'+esc(r.pnl!==null?money(r.pnl):'—')+'</td><td>'+money(itemDiv)+'</td><td><button data-holding="'+esc(r.id)+'">Remove</button></td></tr>';
+  }).join('')+'</tbody></table></div>':'<div class="ncuw-empty">No holdings.</div>');
   panel.querySelector("#ncPortfolioForm").onsubmit=function(e){e.preventDefault();var f=new FormData(e.target);try{NCUserTools.addHolding({ticker:f.get("ticker"),quantity:f.get("quantity"),averagePrice:f.get("averagePrice")});render();}catch(err){alert(err.message);}};
   panel.querySelectorAll("[data-holding]").forEach(function(b){b.onclick=function(){NCUserTools.removeHolding(b.dataset.holding);render();};});
 }
