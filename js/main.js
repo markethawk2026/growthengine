@@ -38,14 +38,27 @@ function drawNativeChart(closes, volumes, up) {
 }
 
 function switchTab(name){
-  document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-tab") === name); });
+  document.querySelectorAll(".tab").forEach(function(t){
+    var isActive = t.getAttribute("data-tab") === name;
+    t.classList.toggle("active", isActive);
+    t.setAttribute("aria-selected", isActive ? "true" : "false");
+    t.setAttribute("tabindex", isActive ? "0" : "-1");
+  });
   document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
   if(name === "global") loadGlobal();
   if(name === "calendar") loadCal();
   if(name === "nextday" && window.activeTickerNode) { var ndInput = document.getElementById("ndIn"); if(ndInput) { ndInput.value = window.activeTickerNode; runNextDay(window.activeTickerNode); } }
   if(name === "term" && window.activeTickerNode) { var tmInput = document.getElementById("tmIn"); if(tmInput) { tmInput.value = window.activeTickerNode; runOutlook(window.activeTickerNode); } }
 }
-document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
+document.querySelectorAll(".tab").forEach(function(t){
+  t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); });
+  t.addEventListener("keydown", function(e){
+    if(e.key === "Enter" || e.key === " "){
+      e.preventDefault();
+      switchTab(t.getAttribute("data-tab"));
+    }
+  });
+});
 
 var siEl = document.getElementById("si"), ddEl = document.getElementById("dd");
 var ddTmr = null;

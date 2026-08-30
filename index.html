@@ -38,17 +38,17 @@
   </div>
 </div>
 
-<div class="tabs">
-  <div class="tab active" data-tab="home"><span style="margin-right:4px;">⚡</span>Home</div>
-  <div class="tab" data-tab="analysis"><span style="margin-right:4px;">📊</span>Analysis</div>
-  <div class="tab" data-tab="nextday"><span style="margin-right:4px;">🎯</span>Next Day</div>
-  <div class="tab" data-tab="term"><span style="margin-right:4px;">📈</span>Outlook</div>
-  <div class="tab" data-tab="global"><span style="margin-right:4px;">🌐</span>Global</div>
-  <div class="tab" data-tab="calendar"><span style="margin-right:4px;">📅</span>Calendar</div>
-  <div class="tab" data-tab="chat"><span style="margin-right:4px;">🤖</span>NC AI</div>
+<div class="tabs" role="tablist" aria-label="Main Navigation">
+  <div class="tab active" role="tab" tabindex="0" aria-selected="true" aria-controls="pg-home" data-tab="home"><span style="margin-right:4px;">⚡</span>Home</div>
+  <div class="tab" role="tab" tabindex="-1" aria-selected="false" aria-controls="pg-analysis" data-tab="analysis"><span style="margin-right:4px;">📊</span>Analysis</div>
+  <div class="tab" role="tab" tabindex="-1" aria-selected="false" aria-controls="pg-nextday" data-tab="nextday"><span style="margin-right:4px;">🎯</span>Next Day</div>
+  <div class="tab" role="tab" tabindex="-1" aria-selected="false" aria-controls="pg-term" data-tab="term"><span style="margin-right:4px;">📈</span>Outlook</div>
+  <div class="tab" role="tab" tabindex="-1" aria-selected="false" aria-controls="pg-global" data-tab="global"><span style="margin-right:4px;">🌐</span>Global</div>
+  <div class="tab" role="tab" tabindex="-1" aria-selected="false" aria-controls="pg-calendar" data-tab="calendar"><span style="margin-right:4px;">📅</span>Calendar</div>
+  <div class="tab" role="tab" tabindex="-1" aria-selected="false" aria-controls="pg-chat" data-tab="chat"><span style="margin-right:4px;">🤖</span>NC AI</div>
 </div>
 
-<div class="page show" id="pg-home">
+<div class="page show" role="tabpanel" id="pg-home">
   <div style="margin-bottom: 14px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 4px;" id="quickViewStrip">
     <span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View: Syncing live sectors...</span>
   </div>
@@ -76,7 +76,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-analysis">
+<div class="page" role="tabpanel" id="pg-analysis">
   <div id="aBody">
     <div style="text-align:center;padding:60px 20px">
       <div style="font-size:40px;margin-bottom:12px">🔍</div>
@@ -86,7 +86,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-nextday">
+<div class="page" role="tabpanel" id="pg-nextday">
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
     <div style="display:flex;gap:8px">
@@ -97,7 +97,7 @@
   <div id="ndBody"></div>
 </div>
 
-<div class="page" id="pg-term">
+<div class="page" role="tabpanel" id="pg-term">
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📈 Short &amp; Long Term Outlook</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -113,7 +113,7 @@
   <div id="tmBody"></div>
 </div>
 
-<div class="page" id="pg-global">
+<div class="page" role="tabpanel" id="pg-global">
   <div class="sec">
     <div class="shr">
       <span class="stitle">🌍 Global Markets <span class="badge b-free">Yahoo Finance · Free</span></span>
@@ -123,7 +123,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-calendar">
+<div class="page" role="tabpanel" id="pg-calendar">
   <div class="sec">
     <div class="shr">
       <span class="stitle">📆 Events Calendar <span class="badge b-free">NSE · Free</span></span>
@@ -133,7 +133,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-chat">
+<div class="page" role="tabpanel" id="pg-chat">
   <div class="sec">
     <div class="stitle" style="margin-bottom:10px">🤖 NC AI Assistant <span class="badge b-free">100% Free</span></div>
     <div style="margin-bottom:10px" id="chatSuggestions"></div>

@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2026-08-30 - WAI-ARIA Tab Navigation Keyboard Pattern
+**Learning:** Custom `div`-based navigation tabs without WAI-ARIA roles (`role="tablist"`, `role="tab"`, `role="tabpanel"`) and roving `tabindex` are unrecognized by screen readers as tab controls and unnavigable for keyboard users.
+**Action:** Set `role="tablist"` on container, `role="tab"`, `aria-controls`, `aria-selected`, and `tabindex="0"` on active tab (`-1` on inactive), handle `Enter` and `Space` keypress events in JavaScript, and define `.tab:focus-visible` outline styles.
