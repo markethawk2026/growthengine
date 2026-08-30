@@ -232,31 +232,57 @@ async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
   try {
+    var candidateSymbols = [];
     var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
-    var userSymbols = userState ? [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []) : [];
-    userSymbols = Array.from(new Set(userSymbols.filter(Boolean))).slice(0, 6);
+    if (userState) {
+      candidateSymbols = [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []);
+    }
 
-    if (!userSymbols.length) {
-      var searchRes = await yfSearch("NSE");
+    // Extract ticker symbols dynamically from active market news headlines
+    if (window.ACTIVE_NEWS_POOL && window.ACTIVE_NEWS_POOL.length) {
+      window.ACTIVE_NEWS_POOL.forEach(function(art) {
+        var words = (art.headline || "").match(/\b[A-Z]{3,10}\b/g) || [];
+        words.forEach(function(w) {
+          if (!["THE", "FOR", "AND", "NEW", "RAW", "INR", "USD", "BSE", "NSE", "BANK", "NIFTY", "SENSEX", "STOCK", "STOCKS"].includes(w)) {
+            candidateSymbols.push(w);
+          }
+        });
+      });
+    }
+
+    candidateSymbols = Array.from(new Set(candidateSymbols.filter(Boolean)));
+
+    if (candidateSymbols.length < 4) {
+      var searchRes = await yfSearch("INDIA EQUITY");
       if (searchRes && searchRes.length) {
-        userSymbols = searchRes.map(function(r){ return r.symbol.replace(".NS", "").replace(".BO", ""); }).slice(0, 6);
+        searchRes.forEach(function(r) {
+          var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+          if (cleanSym) candidateSymbols.push(cleanSym);
+        });
       }
     }
 
-    if (!userSymbols.length) {
-      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Add stocks to watchlist or search tickers to see market movers.</div>';
+    candidateSymbols = Array.from(new Set(candidateSymbols)).slice(0, 8);
+
+    if (!candidateSymbols.length) {
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
       return;
     }
 
-    var quotes = await Promise.all(userSymbols.map(function(s) { return yfQuote(s); }));
-    var valid = quotes.filter(function(q) { return q !== null; });
+    var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
+    var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
 
     if (!valid.length) {
       container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers data syncing...</div>';
       return;
     }
 
-    container.innerHTML = valid.slice(0, 6).map(function(q) {
+    // Sort dynamically by highest absolute percentage change (top gainers/movers)
+    valid.sort(function(a, b) {
+      return Math.abs(parseFloat(b.changePct) || 0) - Math.abs(parseFloat(a.changePct) || 0);
+    });
+
+    container.innerHTML = valid.slice(0, 4).map(function(q) {
       var sym = q.name ? q.name : q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
       return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || sym)}')">
