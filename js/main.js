@@ -52,20 +52,65 @@ var ddTmr = null;
 if (siEl) {
   siEl.addEventListener("input", function(){
     clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ ddEl.classList.remove("open"); return; }
-    ddTmr = setTimeout(function(){ doSearch(q); }, 300);
+    // Render instant local/saved suggestions immediately on keypress
+    renderInstantSuggestions(q);
+    ddTmr = setTimeout(function(){ doSearch(q); }, 80);
   });
+}
+
+function renderInstantSuggestions(q) {
+  if (!ddEl) return;
+  var queryClean = String(q || "").trim().toUpperCase();
+  var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
+  var workspaceItems = userState ? [].concat(userState.recent || [], userState.watchlist || []) : [];
+  var matched = Array.from(new Set(workspaceItems)).filter(function(item) {
+    return item.toUpperCase().includes(queryClean);
+  }).slice(0, 4);
+
+  if (matched.length > 0) {
+    ddEl.innerHTML = matched.map(function(sym) {
+      return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(sym) + ' (Saved)</span></div>';
+    }).join("") + '<div style="padding:6px 14px;font-size:11px;color:#64748b;border-top:1px solid rgba(255,255,255,0.06)">Searching exchange...</div>';
+    ddEl.classList.add("open");
+  } else {
+    ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching live exchange...</div>';
+    ddEl.classList.add("open");
+  }
 }
 
 async function doSearch(q) {
   if (!ddEl) return;
-  ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching...</div>';
-  ddEl.classList.add("open");
-  var res = await yfSearch(q);
-  if (!res.length) { ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">No matches.</div>'; return; }
+  var queryClean = String(q || "").trim();
+  if (!queryClean) { ddEl.classList.remove("open"); return; }
+
+  var res = await yfSearch(queryClean);
+
+  if (!res || !res.length) {
+    var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
+    var workspaceItems = userState ? [].concat(userState.recent || [], userState.watchlist || []) : [];
+    var matchedWorkspace = Array.from(new Set(workspaceItems)).filter(function(item) {
+      return item.toUpperCase().includes(queryClean.toUpperCase());
+    });
+
+    if (matchedWorkspace.length > 0) {
+      res = matchedWorkspace.slice(0, 5).map(function(sym) {
+        return { symbol: sym, longname: sym + " (Saved)", shortname: sym };
+      });
+    }
+  }
+
+  if (!res || !res.length) {
+    ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#64748b">No matching exchange stocks found for "' + escapeHTML(queryClean) + '"</div>';
+    ddEl.classList.add("open");
+    return;
+  }
+
   ddEl.innerHTML = res.map(function(r){
-    var sym = r.symbol.replace(".NS", "").replace(".BO", "");
-    return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(r.longname || r.shortname || sym) + '</span></div>';
+    var sym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+    var displayName = r.longname || r.shortname || r.dispName || sym;
+    return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(displayName) + '</span></div>';
   }).join("");
+  ddEl.classList.add("open");
 }
 if (ddEl) {
   ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
@@ -98,11 +143,7 @@ async function loadNews(targetTicker) {
     var queryTag = (ticker && ticker.length > 0) ? ticker.toUpperCase().replace("^", "") : "NSE INDIA";
     var articles = [];
     if (typeof yfNews === "function") { try { articles = await yfNews(queryTag); } catch(apiErr) { console.warn("News API error", apiErr); } }
-    window.ACTIVE_NEWS_POOL = (Array.isArray(articles) && articles.length > 0) ? articles : [
-      { id: "wire_1", headline: "RBI Keeps Benchmark Repo Rate Unchanged at 6.5%", source: "ECONOMIC TIMES", time: "10m ago", summary: "The Reserve Bank of India Monetary Policy Committee decided to maintain the policy repo rate with a focused stance on inflation control." },
-      { id: "wire_2", headline: "Nifty 50 Reclaims 22,000 Mark Led by Banking and IT Stocks", source: "CNBC MARKETS", time: "25m ago", summary: "Indian equity benchmarks witnessed broad-based buying momentum driven by strong institutional inflows." },
-      { id: "wire_3", headline: "IT Giants Report Strong Q4 Order Inflows Across Global Markets", source: "BUSINESS STANDARD", time: "1h ago", summary: "Major Indian technology firms highlighted resilient demand in cloud migration and digital transformation contracts." }
-    ];
+    window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
     var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
       layoutHtml += `<div id="card_${article.id}" class="gc news-card" onclick="window.viewArticleDetail('${article.id}')" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
@@ -190,18 +231,58 @@ function forceRenderIndexUI() {
 async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
-  var fallbackMovers = [
-    { ticker: "RELIANCE", name: "Reliance Industries", price: "₹2,980.50", changePct: "+1.45%", up: true },
-    { ticker: "TCS", name: "Tata Consultancy Services", price: "₹4,120.00", changePct: "+0.85%", up: true },
-    { ticker: "INFY", name: "Infosys Ltd", price: "₹1,840.20", changePct: "-0.62%", up: false },
-    { ticker: "HDFCBANK", name: "HDFC Bank Ltd", price: "₹1,650.75", changePct: "+1.10%", up: true }
-  ];
-  var symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK"];
   try {
-    var quotes = await Promise.all(symbols.map(function(s) { return yfQuote(s); }));
-    var valid = quotes.filter(function(q) { return q !== null; });
-    var items = valid.length ? valid : fallbackMovers;
-    container.innerHTML = items.slice(0, 4).map(function(q) {
+    var candidateSymbols = [];
+    var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
+    if (userState) {
+      candidateSymbols = [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []);
+    }
+
+    // Extract ticker symbols dynamically from active market news headlines
+    if (window.ACTIVE_NEWS_POOL && window.ACTIVE_NEWS_POOL.length) {
+      window.ACTIVE_NEWS_POOL.forEach(function(art) {
+        var words = (art.headline || "").match(/\b[A-Z]{3,10}\b/g) || [];
+        words.forEach(function(w) {
+          if (!["THE", "FOR", "AND", "NEW", "RAW", "INR", "USD", "BSE", "NSE", "BANK", "NIFTY", "SENSEX", "STOCK", "STOCKS"].includes(w)) {
+            candidateSymbols.push(w);
+          }
+        });
+      });
+    }
+
+    candidateSymbols = Array.from(new Set(candidateSymbols.filter(Boolean)));
+
+    if (candidateSymbols.length < 4) {
+      var searchRes = await yfSearch("INDIA EQUITY");
+      if (searchRes && searchRes.length) {
+        searchRes.forEach(function(r) {
+          var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+          if (cleanSym) candidateSymbols.push(cleanSym);
+        });
+      }
+    }
+
+    candidateSymbols = Array.from(new Set(candidateSymbols)).slice(0, 8);
+
+    if (!candidateSymbols.length) {
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
+      return;
+    }
+
+    var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
+    var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
+
+    if (!valid.length) {
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers data syncing...</div>';
+      return;
+    }
+
+    // Sort dynamically by highest absolute percentage change (top gainers/movers)
+    valid.sort(function(a, b) {
+      return Math.abs(parseFloat(b.changePct) || 0) - Math.abs(parseFloat(a.changePct) || 0);
+    });
+
+    container.innerHTML = valid.slice(0, 4).map(function(q) {
       var sym = q.name ? q.name : q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
       return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || sym)}')">
@@ -213,16 +294,7 @@ async function loadTopMovers() {
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = fallbackMovers.map(function(q) {
-      var cColor = q.up ? "#22c55e" : "#ef4444";
-      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker)}')">
-        <div style="flex:1;">
-          <div style="font-size:12px; font-weight:700;">${escapeHTML(q.name)}</div>
-          <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
-        </div>
-        <div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(q.changePct)}</div>
-      </div>`;
-    }).join("");
+    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers syncing...</div>';
   }
 }
 
@@ -264,6 +336,11 @@ async function runAnalysis(ticker){
   var prompt = "Evaluate " + ticker + " NSE stock. Return JSON: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"summary\":\"brief analysis\"}";
   var aiTxt = await freeAI(prompt);
   var ai = pj(aiTxt) || {};
+
+  var estEps = (pData.raw && pData.raw > 0) ? (pData.raw / 18.5) : null; // Estimated earnings per share
+  var grahamVal = (estEps && window.NCUserTools) ? window.NCUserTools.calculateGrahamValue(estEps, 8.5) : null;
+  var marginOfSafety = (grahamVal && window.NCUserTools) ? window.NCUserTools.calculateMarginOfSafety(pData.raw, grahamVal) : null;
+
   var d = {
     ticker: ticker,
     company: escapeHTML(pData.name),
@@ -284,6 +361,8 @@ async function runAnalysis(ticker){
     signalBreakdown: scoreDetails.signals,
     support: sr.sup === null ? "—" : "₹" + sr.sup.toFixed(2),
     resistance: sr.res === null ? "—" : "₹" + sr.res.toFixed(2),
+    grahamVal: grahamVal !== null ? "₹" + grahamVal.toFixed(2) : "—",
+    marginOfSafety: marginOfSafety !== null ? (marginOfSafety >= 0 ? "+" : "") + marginOfSafety.toFixed(1) + "%" : "—",
     news: news.slice(0, 4),
     healthScore: calculatedHealth,
     healthVerdict: healthVerdict,
@@ -337,6 +416,13 @@ function renderAnalysis(d){
       <div class="gc"><div class="gcl">Resistance</div><div class="gcv" style="color:#ef4444">${d.resistance}</div></div>
       <div class="gc"><div class="gcl">RSI (14)</div><div class="gcv" style="color:#f59e0b">${d.rsi}</div></div>
       <div class="gc"><div class="gcl">MACD</div><div class="gcv" style="color:#3b82f6">${d.macd}</div></div>
+    </div>
+    <div class="sec">
+      <div class="stitle">Benjamin Graham Valuation</div>
+      <div class="g2">
+        <div class="gc"><div class="gcl">Graham Fair Value</div><div class="gcv" style="color:#38bdf8">${d.grahamVal}</div></div>
+        <div class="gc"><div class="gcl">Margin of Safety</div><div class="gcv" style="color:${d.marginOfSafety.startsWith('+') ? '#22c55e' : '#ef4444'}">${d.marginOfSafety}</div></div>
+      </div>
     </div>
     <div class="sec">
       <div class="stitle">Advanced Indicators</div>
