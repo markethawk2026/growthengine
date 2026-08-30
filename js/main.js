@@ -201,8 +201,13 @@ async function loadIdx() {
     }
     return null;
   }
-  var niftyData = await fetchMarketChart(niftyUrl);
-  var sensexData = await fetchMarketChart(sensexUrl);
+  // Fetch Nifty and Sensex market charts concurrently via Promise.all to avoid sequential network RTT waterfall latency
+  var indexResults = await Promise.all([
+    fetchMarketChart(niftyUrl),
+    fetchMarketChart(sensexUrl)
+  ]);
+  var niftyData = indexResults[0];
+  var sensexData = indexResults[1];
   if (niftyData) { window.LIVE_NIFTY_PRICE = niftyData.price; window.LIVE_NIFTY_CHG = niftyData.changePct; window.LIVE_NIFTY_UP = niftyData.up; }
   if (sensexData) { window.LIVE_SENSEX_PRICE = sensexData.price; window.LIVE_SENSEX_CHG = sensexData.changePct; window.LIVE_SENSEX_UP = sensexData.up; }
   if (!window.LIVE_NIFTY_PRICE) window.LIVE_NIFTY_PRICE = 22000;
