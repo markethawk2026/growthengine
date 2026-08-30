@@ -64,5 +64,5 @@ async function enhancedNews(query){
     if(!key||seen.has(key))return false; seen.add(key); return true;
   }).map(function(a){return Object.assign({},a,{estimatedSentiment:estimateSentiment(a)});});
 }
-window.NCMarketIntelligence={getUniverse:dynamicUniverse,getUniverse:dynamicUniverse,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
+window.NCMarketIntelligence={getUniverse:dynamicUniverse,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
 })();
