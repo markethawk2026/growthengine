@@ -38,21 +38,24 @@ function sanitizeHTML(html) {
 function sanitizeURL(url) {
   if (!url || typeof url !== 'string') return '';
   
-  const trimmed = url.trim().toLowerCase();
+  // Remove control characters (ASCII 0-31 and 127) and whitespace
+  const sanitized = url.replace(/[\x00-\x1F\x7F]/g, '').trim();
+  const lower = sanitized.toLowerCase();
   
-  // Block javascript:, data:, and other dangerous protocols
-  if (trimmed.startsWith('javascript:') || 
-      trimmed.startsWith('data:') || 
-      trimmed.startsWith('vbscript:') ||
-      trimmed.startsWith('onerror=')) {
+  // Block javascript:, data:, vbscript:, and protocol-relative URLs (//)
+  if (lower.startsWith('javascript:') ||
+      lower.startsWith('data:') ||
+      lower.startsWith('vbscript:') ||
+      lower.startsWith('onerror=') ||
+      lower.startsWith('//')) {
     return '';
   }
   
-  // Allow http, https, and relative URLs
-  if (trimmed.startsWith('http://') || 
-      trimmed.startsWith('https://') || 
-      trimmed.startsWith('/')) {
-    return url;
+  // Allow http://, https://, and relative paths starting with /
+  if (lower.startsWith('http://') ||
+      lower.startsWith('https://') ||
+      lower.startsWith('/')) {
+    return sanitized;
   }
   
   return '';
