@@ -241,14 +241,43 @@ async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
   try {
-    // Dynamic pool combining user workspace symbols and NIFTY 50 / SENSEX index constituents
-    var benchmarkPool = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "LT", "AXISBANK"];
+    var candidateSymbols = [];
     var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
-    var userSymbols = userState ? [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []) : [];
+    if (userState) {
+      candidateSymbols = [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []);
+    }
 
-    var candidateSymbols = Array.from(new Set([].concat(userSymbols, benchmarkPool).filter(Boolean))).slice(0, 8);
+    // Extract ticker symbols dynamically from active market news headlines
+    if (window.ACTIVE_NEWS_POOL && window.ACTIVE_NEWS_POOL.length) {
+      window.ACTIVE_NEWS_POOL.forEach(function(art) {
+        var words = (art.headline || "").match(/\b[A-Z]{3,10}\b/g) || [];
+        words.forEach(function(w) {
+          if (!["THE", "FOR", "AND", "NEW", "RAW", "INR", "USD", "BSE", "NSE", "BANK", "NIFTY", "SENSEX", "STOCK", "STOCKS"].includes(w)) {
+            candidateSymbols.push(w);
+          }
+        });
+      });
+    }
 
-    var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
+    candidateSymbols = Array.from(new Set(candidateSymbols.filter(Boolean)));
+
+    if (candidateSymbols.length < 4) {
+      var searchRes = await yfSearch("INDIA EQUITY");
+      if (searchRes && searchRes.length) {
+        searchRes.forEach(function(r) {
+          var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+          if (cleanSym) candidateSymbols.push(cleanSym);
+        });
+      }
+    }
+
+    candidateSymbols = Array.from(new Set(candidateSymbols)).slice(0, 8);
+
+    if (!candidateSymbols.length) {
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
+      return;
+    }
+   var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
     var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
 
     if (!valid.length) {
@@ -262,11 +291,12 @@ async function loadTopMovers() {
     });
 
     container.innerHTML = valid.slice(0, 4).map(function(q) {
-      var symName = q.name ? q.name : q.ticker;
+
+      var sym = q.name ? q.name : q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
-      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || symName)}')">
+      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || sym)}')">
         <div style="flex:1;">
-          <div style="font-size:12px; font-weight:700;">${escapeHTML(symName)}</div>
+          <div style="font-size:12px; font-weight:700;">${escapeHTML(sym)}</div>
           <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
         </div>
         <div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(q.changePct)}</div>
