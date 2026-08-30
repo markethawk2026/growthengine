@@ -277,8 +277,7 @@ async function loadTopMovers() {
       container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
       return;
     }
-
-    var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
+   var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
     var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
 
     if (!valid.length) {
@@ -292,6 +291,7 @@ async function loadTopMovers() {
     });
 
     container.innerHTML = valid.slice(0, 4).map(function(q) {
+
       var sym = q.name ? q.name : q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
       return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || sym)}')">
