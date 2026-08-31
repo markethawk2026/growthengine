@@ -23,6 +23,14 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   console.error("FAIL unescaped news article insertion in main.js");
   failures++;
 }
+if (!mainText.includes("escapeHTML(d.ticker)")) {
+  console.error("FAIL unescaped d.ticker insertion in main.js");
+  failures++;
+}
+if (mainText.includes("onclick=\"runAnalysis('") || mainText.includes("onclick=\"window.viewArticleDetail('")) {
+  console.error("FAIL inline event handler with string interpolation found in main.js");
+  failures++;
+}
 
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");

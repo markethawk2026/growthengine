@@ -150,10 +150,16 @@ async function loadNews(targetTicker) {
     window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
     var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
-      layoutHtml += `<div id="card_${article.id}" class="gc news-card" onclick="window.viewArticleDetail('${article.id}')" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
+      layoutHtml += `<div id="card_${article.id}" class="gc news-card" data-article-id="${escapeHTML(article.id)}" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
     });
     layoutHtml += `</div><div id="newsDetailPanel" class="gc" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center;"></div></div>`;
     container.innerHTML = layoutHtml;
+    container.querySelectorAll(".news-card").forEach(function(card) {
+      card.addEventListener("click", function() {
+        var id = card.getAttribute("data-article-id");
+        if (id) window.viewArticleDetail(id);
+      });
+    });
     if (window.ACTIVE_NEWS_POOL.length > 0) window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
   } catch (Error) {
     container.innerHTML = `<div style="color:#94a3b8; padding:24px; text-align:center;">News unavailable.</div>`;
@@ -274,7 +280,8 @@ async function loadMarketLeaders() {
     container.innerHTML = valid.slice(0, 4).map(function(q) {
       var symName = q.name ? q.name : q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
-      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || symName)}')">
+      var cleanTicker = q.ticker || symName;
+      return `<div class="tcard" data-ticker="${escapeHTML(cleanTicker)}">
         <div style="flex:1;">
           <div style="font-size:12px; font-weight:700;">${escapeHTML(symName)}</div>
           <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
@@ -282,6 +289,12 @@ async function loadMarketLeaders() {
         <div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(q.changePct)}</div>
       </div>`;
     }).join("");
+    container.querySelectorAll(".tcard").forEach(function(card) {
+      card.addEventListener("click", function() {
+        var t = card.getAttribute("data-ticker");
+        if (t) runAnalysis(t);
+      });
+    });
   } catch(e) {
     container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market leaders syncing...</div>';
   }
@@ -332,7 +345,7 @@ async function runAnalysis(ticker){
 
   var d = {
     ticker: ticker,
-    company: escapeHTML(pData.name),
+    company: pData.name,
     price: pData.price,
     changePct: pData.changePct,
     up: pData.up,
@@ -386,7 +399,7 @@ function renderAnalysis(d){
       <div class="ahdr">
         <div>
           <div class="anm">${escapeHTML(d.company)}</div>
-          <div class="asb">${d.ticker} · India</div>
+          <div class="asb">${escapeHTML(d.ticker)} · India</div>
           <div class="atgs"><span class="atg" style="color:${t.c};border-color:${t.b};background:${t.bg}">${d.trend}</span></div>
         </div>
         <div class="apr" style="margin-left:auto;text-align:right;">
