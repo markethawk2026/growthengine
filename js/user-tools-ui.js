@@ -13,10 +13,10 @@ function ensureUI(){
   var wrap=document.createElement("section");
   wrap.id="ncUserWorkspace";
   wrap.className="nc-user-workspace";
-  wrap.innerHTML='<div class="ncuw-head"><div><h2>Investor Toolkit Workspace</h2><p>Watchlist, portfolio, Graham valuation, CSV export, and JSON backup/restore stored locally in this browser.</p></div><div style="display:flex;gap:8px;"><button id="btnExportCSV" class="ncuw-refresh" style="background:#0284c7;">Export CSV</button><button id="btnBackupJSON" class="ncuw-refresh" style="background:#16a34a;">Backup JSON</button><button id="btnRestoreJSON" class="ncuw-refresh" style="background:#d97706;">Restore</button><button class="ncuw-refresh">Refresh</button></div></div><div class="ncuw-tabs"></div><div id="ncuwPanel"></div>';
+  wrap.innerHTML='<div class="ncuw-head"><div><h2>Investor Toolkit Workspace</h2><p>Watchlist, portfolio, Graham valuation, CSV export, and JSON backup/restore stored locally in this browser.</p></div><div style="display:flex;gap:8px;"><button id="btnExportCSV" class="ncuw-btn" style="background:#0284c7;">Export CSV</button><button id="btnBackupJSON" class="ncuw-btn" style="background:#16a34a;">Backup JSON</button><button id="btnRestoreJSON" class="ncuw-btn" style="background:#d97706;">Restore</button><button id="btnRefreshWorkspace" class="ncuw-refresh">Refresh</button></div></div><div class="ncuw-tabs"></div><div id="ncuwPanel"></div>';
   var target=document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
   target.appendChild(wrap);
-  wrap.querySelector(".ncuw-refresh").addEventListener("click",render);
+  wrap.querySelector("#btnRefreshWorkspace").addEventListener("click",render);
   wrap.querySelector("#btnExportCSV").addEventListener("click",function(){
     var s=state();
     if(active==="portfolio"){
