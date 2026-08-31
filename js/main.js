@@ -553,6 +553,18 @@ if (chatSendEl) chatSendEl.addEventListener("click", sendChat);
 var chatInEl = document.getElementById("chatIn");
 if (chatInEl) { chatInEl.addEventListener("keydown", function(e){ if(e.key === "Enter") sendChat(); }); }
 
+var ndBtnEl = document.getElementById("ndBtn"), ndInEl = document.getElementById("ndIn");
+if (ndBtnEl && ndInEl) {
+  ndBtnEl.addEventListener("click", function(){ if(ndInEl.value.trim()) runNextDay(ndInEl.value.trim()); });
+  ndInEl.addEventListener("keydown", function(e){ if(e.key === "Enter" && ndInEl.value.trim()) runNextDay(ndInEl.value.trim()); });
+}
+
+var tmBtnEl = document.getElementById("tmBtn"), tmInEl = document.getElementById("tmIn");
+if (tmBtnEl && tmInEl) {
+  tmBtnEl.addEventListener("click", function(){ if(tmInEl.value.trim()) runOutlook(tmInEl.value.trim()); });
+  tmInEl.addEventListener("keydown", function(e){ if(e.key === "Enter" && tmInEl.value.trim()) runOutlook(tmInEl.value.trim()); });
+}
+
 async function sendChat(){
   var inp = document.getElementById("chatIn");
   var q = inp.value.trim();
