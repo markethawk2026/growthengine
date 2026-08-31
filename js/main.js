@@ -3,7 +3,6 @@
  */
 
 var activeTF = "both", isLight = false, activeTickerNode = "NIFTY50";
-window.LIVE_CHART_POOL = window.LIVE_CHART_POOL || { closes: [] };
 
 function isUp(v){ return !String(v || "0").trim().startsWith("-"); }
 function fmtVol(v){ if(!v) return "—"; if(v > 10000000) return (v / 10000000).toFixed(1) + "Cr"; if(v > 100000) return (v / 100000).toFixed(1) + "L"; return String(v); }
@@ -238,43 +237,29 @@ function forceRenderIndexUI() {
   if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
 }
 
-async function loadMarketLeaders() {
+async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
   try {
-    var candidateSymbols = [];
+    // Dynamic pool combining user workspace symbols and NIFTY 50 / SENSEX index constituents
+    var benchmarkPool = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "LT", "AXISBANK"];
     var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
-    if (userState) {
-      candidateSymbols = [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []);
-    }
+    var userSymbols = userState ? [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []) : [];
 
-    // Query exchange search dynamically for active market equity symbols
-    try {
-      var searchRes = await yfSearch("NIFTY");
-      if (searchRes && searchRes.length) {
-        searchRes.forEach(function(r) {
-          var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
-          if (cleanSym && !candidateSymbols.includes(cleanSym)) candidateSymbols.push(cleanSym);
-        });
-      }
-    } catch (sErr) {}
-
-    candidateSymbols = Array.from(new Set(candidateSymbols.filter(Boolean))).slice(0, 8);
-
-    if (!candidateSymbols.length) {
-      candidateSymbols = ["NIFTY 50", "SENSEX"];
-    }
+    var candidateSymbols = Array.from(new Set([].concat(userSymbols, benchmarkPool).filter(Boolean))).slice(0, 8);
 
     var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
     var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
 
     if (!valid.length) {
-      // Fallback display for major market indices if individual equity rate limits are encountered
-      valid = [
-        { ticker: "NIFTY 50", name: "NIFTY 50", price: "₹" + (window.LIVE_NIFTY_PRICE || 22450.70).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2}), changePct: window.LIVE_NIFTY_CHG || "+0.42%", up: window.LIVE_NIFTY_UP !== false },
-        { ticker: "SENSEX", name: "SENSEX", price: "₹" + (window.LIVE_SENSEX_PRICE || 73880.25).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2}), changePct: window.LIVE_SENSEX_CHG || "+0.38%", up: window.LIVE_SENSEX_UP !== false }
-      ];
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers data syncing...</div>';
+      return;
     }
+
+    // Sort dynamically by highest absolute percentage change (top gainers/movers)
+    valid.sort(function(a, b) {
+      return Math.abs(parseFloat(b.changePct) || 0) - Math.abs(parseFloat(a.changePct) || 0);
+    });
 
     container.innerHTML = valid.slice(0, 4).map(function(q) {
       var symName = q.name ? q.name : q.ticker;
@@ -288,13 +273,7 @@ async function loadMarketLeaders() {
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = `<div class="tcard" onclick="runAnalysis('NIFTY 50')">
-      <div style="flex:1;">
-        <div style="font-size:12px; font-weight:700;">NIFTY 50</div>
-        <div style="font-size:10px; color:#64748b;">₹22,450.70</div>
-      </div>
-      <div style="font-size:12px; font-weight:700; color:#22c55e;">+0.42%</div>
-    </div>`;
+    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers syncing...</div>';
   }
 }
 
@@ -584,7 +563,7 @@ async function sendChat(){
 
 async function bootDashboard() {
   forceRenderIndexUI();
-  Promise.allSettled([loadIdx(), loadMarketLeaders(), loadNews()]);
+  Promise.allSettled([loadIdx(), loadTopMovers(), loadNews()]);
 }
 
 if (window.RefreshScheduler) {
