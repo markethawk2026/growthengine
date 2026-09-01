@@ -23,6 +23,10 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   console.error("FAIL unescaped news article insertion in main.js");
   failures++;
 }
+if (!mainText.includes("escapeHTML(n.time)")) {
+  console.error("FAIL unescaped news time insertion in renderAnalysis in main.js");
+  failures++;
+}
 
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");

@@ -382,7 +382,7 @@ function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
   var t = tSty(d.trend);
   var chartHTML = drawNativeChart(window.LIVE_CHART_POOL.closes.length ? window.LIVE_CHART_POOL.closes : d.closes, d.volumes, d.up);
-  var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${escapeHTML(n.headline)}</div><div class="nc-meta"><span>${escapeHTML(n.source)}</span>·<span>${n.time}</span></div></div>`).join("");
+  var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${escapeHTML(n.headline)}</div><div class="nc-meta"><span>${escapeHTML(n.source)}</span>·<span>${escapeHTML(n.time)}</span></div></div>`).join("");
   var aBodyEl = document.getElementById("aBody");
   if (!aBodyEl) return;
   window.CURRENT_ACTIVE_ANALYSIS_DATA = d;
