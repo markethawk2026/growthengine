@@ -241,18 +241,34 @@ async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
   try {
-    // Dynamic pool combining user workspace symbols and NIFTY 50 / SENSEX index constituents
-    var benchmarkPool = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "LT", "AXISBANK"];
+    var candidateSymbols = [];
     var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
-    var userSymbols = userState ? [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []) : [];
+    if (userState) {
+      candidateSymbols = [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []);
+    }
 
-    var candidateSymbols = Array.from(new Set([].concat(userSymbols, benchmarkPool).filter(Boolean))).slice(0, 8);
+    try {
+      var searchRes = await yfSearch("EQUITY");
+      if (searchRes && searchRes.length) {
+        searchRes.forEach(function(r) {
+          var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+          if (cleanSym && !candidateSymbols.includes(cleanSym)) candidateSymbols.push(cleanSym);
+        });
+      }
+    } catch (sErr) {}
+
+    candidateSymbols = Array.from(new Set(candidateSymbols.filter(Boolean))).slice(0, 8);
+
+    if (!candidateSymbols.length) {
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
+      return;
+    }
 
     var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
     var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
 
     if (!valid.length) {
-      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers data syncing...</div>';
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
       return;
     }
 
@@ -273,7 +289,7 @@ async function loadTopMovers() {
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market movers syncing...</div>';
+    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
   }
 }
 
