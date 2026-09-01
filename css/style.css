@@ -285,7 +285,8 @@ body.light .ncuw-table th {
 .ddr:last-child {
   border-bottom: none;
 }
-.ddr:hover {
+.ddr:hover,
+.ddr.active {
   background: #111d30;
 }
 .ddr-t {

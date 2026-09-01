@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Search Dropdown Keyboard Navigation
+**Learning:** Dynamic search inputs with popup suggestion lists are inaccessible to keyboard-only users unless arrow key handlers (`ArrowDown`/`ArrowUp`), selection key (`Enter`), and dismissal (`Escape`) are explicitly attached to the input field with corresponding active state visual highlights (`.ddr.active`).
+**Action:** Attach a keydown listener to search inputs to cycle through suggestion items with bounds wrapping, scroll focused items into view, and mirror `.hover` visual styling on `.active` keyboard items.

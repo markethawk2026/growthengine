@@ -52,9 +52,52 @@ function switchTab(name){
 document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
 
 var siEl = document.getElementById("si"), ddEl = document.getElementById("dd");
-var ddTmr = null;
+var ddTmr = null, currentDDIndex = -1;
+
+function updateDDHighlight(items) {
+  items.forEach(function(item, idx) {
+    var isActive = idx === currentDDIndex;
+    item.classList.toggle("active", isActive);
+    if (isActive && typeof item.scrollIntoView === "function") {
+      item.scrollIntoView({ block: "nearest" });
+    }
+  });
+}
+
 if (siEl) {
+  siEl.addEventListener("keydown", function(e) {
+    if (!ddEl || !ddEl.classList.contains("open")) return;
+    var items = ddEl.querySelectorAll(".ddr");
+    if (!items.length) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      currentDDIndex = (currentDDIndex + 1) % items.length;
+      updateDDHighlight(items);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      currentDDIndex = (currentDDIndex - 1 + items.length) % items.length;
+      updateDDHighlight(items);
+    } else if (e.key === "Enter") {
+      if (currentDDIndex >= 0 && currentDDIndex < items.length) {
+        e.preventDefault();
+        var selectedItem = items[currentDDIndex];
+        var ticker = selectedItem.getAttribute("data-t");
+        if (ticker) {
+          ddEl.classList.remove("open");
+          siEl.value = ticker;
+          currentDDIndex = -1;
+          runAnalysis(ticker);
+        }
+      }
+    } else if (e.key === "Escape") {
+      ddEl.classList.remove("open");
+      currentDDIndex = -1;
+    }
+  });
+
   siEl.addEventListener("input", function(){
+    currentDDIndex = -1;
     clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ ddEl.classList.remove("open"); return; }
     // Render instant local/saved suggestions immediately on keypress
     renderInstantSuggestions(q);
