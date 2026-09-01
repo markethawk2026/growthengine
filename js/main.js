@@ -237,7 +237,7 @@ function forceRenderIndexUI() {
   if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
 }
 
-async function loadMarketLeaders() {
+async function loadTopMovers() {
   var container = document.getElementById("trendBody");
   if (!container) return;
   try {
@@ -247,19 +247,20 @@ async function loadMarketLeaders() {
       candidateSymbols = [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []);
     }
 
-    // Query live exchange endpoints dynamically for present-day market leaders
-    var searchRes = await yfSearch("NIFTY");
-    if (searchRes && searchRes.length) {
-      searchRes.forEach(function(r) {
-        var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
-        if (cleanSym) candidateSymbols.push(cleanSym);
-      });
-    }
+    try {
+      var searchRes = await yfSearch("EQUITY");
+      if (searchRes && searchRes.length) {
+        searchRes.forEach(function(r) {
+          var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
+          if (cleanSym && !candidateSymbols.includes(cleanSym)) candidateSymbols.push(cleanSym);
+        });
+      }
+    } catch (sErr) {}
 
     candidateSymbols = Array.from(new Set(candidateSymbols.filter(Boolean))).slice(0, 8);
 
     if (!candidateSymbols.length) {
-      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market leaders...</div>';
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
       return;
     }
 
@@ -267,9 +268,14 @@ async function loadMarketLeaders() {
     var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
 
     if (!valid.length) {
-      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market leaders data syncing...</div>';
+      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
       return;
     }
+
+    // Sort dynamically by highest absolute percentage change (top gainers/movers)
+    valid.sort(function(a, b) {
+      return Math.abs(parseFloat(b.changePct) || 0) - Math.abs(parseFloat(a.changePct) || 0);
+    });
 
     container.innerHTML = valid.slice(0, 4).map(function(q) {
       var symName = q.name ? q.name : q.ticker;
@@ -283,7 +289,7 @@ async function loadMarketLeaders() {
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Market leaders syncing...</div>';
+    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
   }
 }
 
@@ -573,7 +579,7 @@ async function sendChat(){
 
 async function bootDashboard() {
   forceRenderIndexUI();
-  Promise.allSettled([loadIdx(), loadMarketLeaders(), loadNews()]);
+  Promise.allSettled([loadIdx(), loadTopMovers(), loadNews()]);
 }
 
 if (window.RefreshScheduler) {
