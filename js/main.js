@@ -554,6 +554,22 @@ function renderCal(arr){
 var btnCalEl = document.getElementById("btnCal");
 if (btnCalEl) { btnCalEl.addEventListener("click", function(){ loadCal(true); }); }
 
+var ndBtnEl = document.getElementById("ndBtn");
+var ndInEl = document.getElementById("ndIn");
+function submitNextDay() {
+  if (ndInEl && ndInEl.value.trim()) runNextDay(ndInEl.value.trim());
+}
+if (ndBtnEl) ndBtnEl.addEventListener("click", submitNextDay);
+if (ndInEl) ndInEl.addEventListener("keydown", function(e){ if(e.key === "Enter") submitNextDay(); });
+
+var tmBtnEl = document.getElementById("tmBtn");
+var tmInEl = document.getElementById("tmIn");
+function submitOutlook() {
+  if (tmInEl && tmInEl.value.trim()) runOutlook(tmInEl.value.trim());
+}
+if (tmBtnEl) tmBtnEl.addEventListener("click", submitOutlook);
+if (tmInEl) tmInEl.addEventListener("keydown", function(e){ if(e.key === "Enter") submitOutlook(); });
+
 var chatSendEl = document.getElementById("chatSend");
 if (chatSendEl) chatSendEl.addEventListener("click", sendChat);
 var chatInEl = document.getElementById("chatIn");
