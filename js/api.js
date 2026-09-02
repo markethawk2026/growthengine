@@ -45,6 +45,9 @@ async function proxyFetch(url, timeoutMs = 5000) {
   throw lastError || new Error("All available proxy pathways failed.");
 }
 
+// Bolt ⚡ Optimization: Deduplicate concurrent in-flight quote requests per ticker
+var inFlightQuotes = new Map();
+
 async function yfQuote(ticker) {
   const validTicker = validateTickerSymbol(ticker);
   if (!validTicker) {
@@ -60,92 +63,109 @@ async function yfQuote(ticker) {
     return window.CACHE.prices[ticker].d;
   }
 
-  var symCandidates = [ticker];
-  if (!ticker.startsWith("^") && !ticker.includes(".") && !ticker.includes("=") && !ticker.includes("-")) {
-    symCandidates = [/^\d+$/.test(ticker) ? ticker + ".BO" : ticker + ".NS", ticker + ".BO", ticker + ".NS"];
+  // Reuse in-flight Promise if ticker is already being fetched concurrently
+  if (inFlightQuotes.has(ticker)) {
+    return inFlightQuotes.get(ticker);
   }
 
-  var cResult = null;
-  try {
-    for (var sIdx = 0; sIdx < symCandidates.length; sIdx++) {
-      var sym = symCandidates[sIdx];
-      try {
-        var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
-        var cJson = await proxyFetch(chartUrl);
-        var candResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
-        if (candResult && candResult.meta && candResult.meta.regularMarketPrice) {
-          cResult = candResult;
-          break;
+  // Bolt ⚡ Optimization: Distinct candidate array to prevent redundant fallback attempts
+  var symCandidates = [ticker];
+  if (!ticker.startsWith("^") && !ticker.includes(".") && !ticker.includes("=") && !ticker.includes("-")) {
+    var primary = /^\d+$/.test(ticker) ? ticker + ".BO" : ticker + ".NS";
+    var secondary = primary.endsWith(".NS") ? ticker + ".BO" : ticker + ".NS";
+    symCandidates = [primary, secondary];
+  }
+
+  var fetchPromise = (async function() {
+    var cResult = null;
+    try {
+      for (var sIdx = 0; sIdx < symCandidates.length; sIdx++) {
+        var sym = symCandidates[sIdx];
+        try {
+          var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
+          var cJson = await proxyFetch(chartUrl);
+          var candResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
+          if (candResult && candResult.meta && candResult.meta.regularMarketPrice) {
+            cResult = candResult;
+            break;
+          }
+        } catch (innerErr) {
+          // Continue trying next symbol candidate
         }
-      } catch (innerErr) {
-        // Continue trying next symbol candidate
       }
+
+      if (!cResult || !cResult.meta) return null;
+
+      var m = cResult.meta;
+      var price = m.regularMarketPrice;
+
+      var quoteSeries = cResult.indicators.quote[0] || {};
+      var rawCloses = quoteSeries.close || [];
+      var rawHighs = quoteSeries.high || [];
+      var rawLows = quoteSeries.low || [];
+      var rawVolumes = quoteSeries.volume || [];
+      var cleanCloses = [];
+      var cleanHighs = [];
+      var cleanLows = [];
+      var cleanVolumes = [];
+      rawCloses.forEach(function(close, idx) {
+        if (close !== null && close !== undefined && Number.isFinite(Number(close))) {
+          cleanCloses.push(Number(close));
+          cleanHighs.push(Number.isFinite(Number(rawHighs[idx])) ? Number(rawHighs[idx]) : Number(close));
+          cleanLows.push(Number.isFinite(Number(rawLows[idx])) ? Number(rawLows[idx]) : Number(close));
+          cleanVolumes.push(Number.isFinite(Number(rawVolumes[idx])) ? Number(rawVolumes[idx]) : 0);
+        }
+      });
+
+      if(!cleanCloses.length) cleanCloses = [price, price];
+
+      var prevClose = m.previousClose || m.chartPreviousClose || price;
+      if (cleanCloses.length >= 2) {
+        if (Math.abs(cleanCloses[cleanCloses.length - 1] - price) < 0.05) {
+          prevClose = cleanCloses[cleanCloses.length - 2];
+        } else {
+          prevClose = cleanCloses[cleanCloses.length - 1];
+        }
+      }
+
+      var chg = price - prevClose;
+      var chgPct = (chg / prevClose) * 100;
+
+      var vFmt = typeof fmtVol === "function" ? fmtVol : String;
+      var cFmt = typeof fmtCap === "function" ? fmtCap : String;
+
+      var d = {
+        price:    "₹" + price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        raw:      price,
+        change:   (chg >= 0 ? "+" : "") + chg.toFixed(2),
+        changePct:(chg >= 0 ? "+" : "") + chgPct.toFixed(2) + "%",
+        high:     "₹" + (m.regularMarketDayHigh || price).toFixed(2),
+        low:      "₹" + (m.regularMarketDayLow || price).toFixed(2),
+        volume:   vFmt(m.regularMarketVolume || 0),
+        mktCap:   cFmt(m.marketCap || 0),
+        up:       chg >= 0,
+        name:     m.longName || m.shortName || ticker,
+        closes:   cleanCloses,
+        highs:    cleanHighs,
+        lows:     cleanLows,
+        volumes:  cleanVolumes,
+        times:    cResult.timestamp || [],
+        dataSource: 'Yahoo Finance',
+        dataStatus: 'DELAYED'
+      };
+      window.CACHE.prices[ticker] = { d: d, ts: Date.now() };
+      return d;
+    } catch(e) {
+      console.error("Failed to parse stock metrics for " + ticker, e);
+      return null;
     }
+  })();
 
-    if (!cResult || !cResult.meta) return null;
-
-    var m = cResult.meta;
-    var price = m.regularMarketPrice;
-    
-    var quoteSeries = cResult.indicators.quote[0] || {};
-    var rawCloses = quoteSeries.close || [];
-    var rawHighs = quoteSeries.high || [];
-    var rawLows = quoteSeries.low || [];
-    var rawVolumes = quoteSeries.volume || [];
-    var cleanCloses = [];
-    var cleanHighs = [];
-    var cleanLows = [];
-    var cleanVolumes = [];
-    rawCloses.forEach(function(close, idx) {
-      if (close !== null && close !== undefined && Number.isFinite(Number(close))) {
-        cleanCloses.push(Number(close));
-        cleanHighs.push(Number.isFinite(Number(rawHighs[idx])) ? Number(rawHighs[idx]) : Number(close));
-        cleanLows.push(Number.isFinite(Number(rawLows[idx])) ? Number(rawLows[idx]) : Number(close));
-        cleanVolumes.push(Number.isFinite(Number(rawVolumes[idx])) ? Number(rawVolumes[idx]) : 0);
-      }
-    });
-
-    if(!cleanCloses.length) cleanCloses = [price, price];
-
-    var prevClose = m.previousClose || m.chartPreviousClose || price;
-    if (cleanCloses.length >= 2) {
-      if (Math.abs(cleanCloses[cleanCloses.length - 1] - price) < 0.05) {
-        prevClose = cleanCloses[cleanCloses.length - 2];
-      } else {
-        prevClose = cleanCloses[cleanCloses.length - 1];
-      }
-    }
-
-    var chg = price - prevClose;
-    var chgPct = (chg / prevClose) * 100;
-
-    var vFmt = typeof fmtVol === "function" ? fmtVol : String;
-    var cFmt = typeof fmtCap === "function" ? fmtCap : String;
-
-    var d = {
-      price:    "₹" + price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      raw:      price,
-      change:   (chg >= 0 ? "+" : "") + chg.toFixed(2),
-      changePct:(chg >= 0 ? "+" : "") + chgPct.toFixed(2) + "%",
-      high:     "₹" + (m.regularMarketDayHigh || price).toFixed(2),
-      low:      "₹" + (m.regularMarketDayLow || price).toFixed(2),
-      volume:   vFmt(m.regularMarketVolume || 0),
-      mktCap:   cFmt(m.marketCap || 0),
-      up:       chg >= 0,
-      name:     m.longName || m.shortName || ticker,
-      closes:   cleanCloses,
-      highs:    cleanHighs,
-      lows:     cleanLows,
-      volumes:  cleanVolumes,
-      times:    cResult.timestamp || [],
-      dataSource: 'Yahoo Finance',
-      dataStatus: 'DELAYED'
-    };
-    window.CACHE.prices[ticker] = { d: d, ts: Date.now() };
-    return d;
-  } catch(e) { 
-    console.error("Failed to parse stock metrics for " + ticker, e);
-    return null; 
+  inFlightQuotes.set(ticker, fetchPromise);
+  try {
+    return await fetchPromise;
+  } finally {
+    inFlightQuotes.delete(ticker);
   }
 }
 

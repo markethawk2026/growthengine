@@ -32,8 +32,12 @@ async function breadth(symbols){
   var unchanged=rows.length-advances-declines;
   return {universe:universe,rows:rows,advances:advances,declines:declines,unchanged:unchanged,ratio:declines?Number((advances/declines).toFixed(2)):null};
 }
-async function leaders(symbols){
-  var b=await breadth(symbols), valid=b.rows.filter(function(r){return r.changePct!==null;});
+// Bolt ⚡ Optimization: Accept precomputed breadth result to prevent duplicate universe fetching
+async function leaders(symbolsOrBreadth){
+  var b = (symbolsOrBreadth && Array.isArray(symbolsOrBreadth.rows))
+    ? symbolsOrBreadth
+    : await breadth(symbolsOrBreadth);
+  var valid = b.rows.filter(function(r){return r.changePct!==null;});
   return {
     universe:b.universe,
     gainers:valid.slice().sort(function(a,b){return b.changePct-a.changePct;}).slice(0,5),
@@ -64,5 +68,5 @@ async function enhancedNews(query){
     if(!key||seen.has(key))return false; seen.add(key); return true;
   }).map(function(a){return Object.assign({},a,{estimatedSentiment:estimateSentiment(a)});});
 }
-window.NCMarketIntelligence={getUniverse:dynamicUniverse,getUniverse:dynamicUniverse,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
+window.NCMarketIntelligence={getUniverse:dynamicUniverse,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
 })();
