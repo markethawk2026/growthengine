@@ -43,5 +43,22 @@ if (typeof sandbox.sanitizeURL !== "function") {
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
 }
 
+// Verify sanitizeHTML behavior in js/security.js
+if (typeof sandbox.sanitizeHTML !== "function") {
+  console.error("FAIL sanitizeHTML is not defined in js/security.js");
+  failures++;
+} else {
+  const sanitizeHTML = sandbox.sanitizeHTML;
+  if (sanitizeHTML("<script>alert(1)</script>") !== "&lt;script&gt;alert(1)&lt;/script&gt;") {
+    console.error("FAIL script tag not escaped in sanitizeHTML"); failures++;
+  }
+  if (sanitizeHTML("<img src=x onerror=alert(1)>") !== "&lt;img src=x onerror=alert(1)&gt;") {
+    console.error("FAIL img onerror tag not escaped in sanitizeHTML"); failures++;
+  }
+  if (sanitizeHTML("Line 1<br>Line 2<br/>Line 3") !== "Line 1<br>Line 2<br>Line 3") {
+    console.error("FAIL valid <br> tags not restored correctly in sanitizeHTML"); failures++;
+  }
+}
+
 if(failures)process.exit(1);
 console.log("PASS security architecture checks");

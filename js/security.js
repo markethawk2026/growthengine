@@ -19,16 +19,17 @@ function escapeHTML(text) {
 }
 
 /**
- * Sanitize HTML by removing script tags and event handlers
- * Returns text content only, safe for display
+ * Sanitize HTML content by escaping all HTML special characters to prevent XSS,
+ * while safely restoring strict line breaks (<br>, <br/>) for display.
  */
 function sanitizeHTML(html) {
   if (!html || typeof html !== 'string') return '';
   
-  // Create a temporary container
-  const temp = document.createElement('div');
-  temp.textContent = html; // Using textContent prevents HTML parsing
-  return temp.innerHTML;
+  // Escape all HTML characters to prevent XSS execution
+  const escaped = escapeHTML(html);
+
+  // Safely restore only strict <br> and <br/> tags for text formatting
+  return escaped.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
 }
 
 /**
