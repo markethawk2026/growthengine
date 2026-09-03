@@ -387,10 +387,12 @@ body.light .ncuw-table th {
 
 .page {
   display: none;
-  padding: 12px;
+  padding: 16px 12px;
+  width: 100%;
   max-width: 860px;
   margin: 0 auto;
   animation: fadeIn 0.2s;
+  box-sizing: border-box;
 }
 .page.show {
   display: block;
@@ -399,8 +401,10 @@ body.light .ncuw-table th {
   background: #0b0e1a;
   border: 1px solid #1c2a45;
   border-radius: 13px;
-  padding: 13px;
-  margin-bottom: 11px;
+  padding: 16px;
+  margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .shr {
   display: flex;
@@ -1200,9 +1204,10 @@ body.light-theme .stitle {
 html,body{max-width:100%;overflow-x:hidden}
 main,.main{width:100%;max-width:var(--nc-page-max);margin-left:auto;margin-right:auto;box-sizing:border-box}
 .nc-user-workspace,.nc-mi{
-  width:calc(100% - (var(--nc-page-gap) * 2));
-  max-width:calc(var(--nc-page-max) - (var(--nc-page-gap) * 2));
-  margin:28px auto;
+  width:100%;
+  max-width:var(--nc-page-max);
+  margin:20px auto;
+  padding:20px;
   box-sizing:border-box;
   min-width:0;
 }
@@ -1243,7 +1248,7 @@ main,.main{width:100%;max-width:var(--nc-page-max);margin-left:auto;margin-right
 /* Latest-source regression and alignment repair */
 html,body{max-width:100%;overflow-x:hidden}
 main,.main{width:100%;max-width:860px;margin-left:auto;margin-right:auto;box-sizing:border-box}
-.nc-user-workspace,.nc-mi{width:calc(100% - 24px);max-width:836px;margin:24px auto;box-sizing:border-box;min-width:0}
+.nc-user-workspace,.nc-mi{width:100%;max-width:860px;margin:16px auto;padding:16px 12px;box-sizing:border-box;min-width:0}
 .ncuw-grid,.nc-mi-sector,.ncuw-summary,.nc-mi-summary,.nc-mi-columns{min-width:0}
 .ncuw-card,.nc-mi-sector>div,.ncuw-summary>div,.nc-mi-summary>div{min-width:0;overflow-wrap:anywhere}
 .ncuw-tablewrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
