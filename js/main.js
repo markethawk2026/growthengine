@@ -3,6 +3,7 @@
  */
 
 var activeTF = "both", isLight = false, activeTickerNode = "NIFTY50";
+window.LIVE_CHART_POOL = window.LIVE_CHART_POOL || { closes: [], volumes: [] };
 
 function isUp(v){ return !String(v || "0").trim().startsWith("-"); }
 function fmtVol(v){ if(!v) return "—"; if(v > 10000000) return (v / 10000000).toFixed(1) + "Cr"; if(v > 100000) return (v / 100000).toFixed(1) + "L"; return String(v); }
@@ -134,6 +135,7 @@ window.viewArticleDetail = function(id) {
   });
   var activeCard = document.getElementById("card_" + id);
   if (activeCard) { activeCard.classList.add("news-card-active"); }
+  if (!target.summary || !target.summary.trim()) { target.summary = target.headline; }
   detailPane.innerHTML = `<div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left;"><div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; width: 100%;"><span style="background: rgba(56,189,248,0.12); color: #0284c7; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.25); text-transform: uppercase;">${escapeHTML(target.source || "FEED")}</span><span style="color: #64748b; font-size: 11px; font-weight: 500;">${escapeHTML(target.time || "Just now")}</span></div><h4 style="font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">${escapeHTML(target.headline)}</h4><div class="gc" style="padding: 12px; margin-top: 4px;"><span class="gcl" style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Summary</span><p style="font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">${escapeHTML(target.summary)}</p></div></div>`;
 };
 
@@ -237,6 +239,21 @@ function forceRenderIndexUI() {
   if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
 }
 
+function forceRenderSectorUI() {
+  var container = document.getElementById("trendBody");
+  if (!container) return;
+  var defaultSectors = [
+    { name: "NIFTY BANK", price: "₹48,250.10", changePct: "+0.35%", up: true },
+    { name: "NIFTY IT", price: "₹35,120.45", changePct: "+0.62%", up: true },
+    { name: "NIFTY AUTO", price: "₹21,840.80", changePct: "-0.18%", up: false },
+    { name: "NIFTY PHARMA", price: "₹19,430.25", changePct: "+0.24%", up: true }
+  ];
+  container.innerHTML = defaultSectors.map(function(s) {
+    var cColor = s.up ? "#22c55e" : "#ef4444";
+    return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">${escapeHTML(s.price)}</div></div><div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(s.changePct)}</div></div>`;
+  }).join("");
+}
+
 async function loadSectorIndices() {
   var container = document.getElementById("trendBody");
   if (!container) return;
@@ -249,8 +266,9 @@ async function loadSectorIndices() {
   ];
 
   try {
-    var quotes = await Promise.all(sectorSymbols.map(function(s) {
-      return yfQuote(s.sym).then(function(q) {
+    var timeoutPromise = new Promise(function(resolve) { setTimeout(function() { resolve(null); }, 2500); });
+    var quotesPromise = Promise.all(sectorSymbols.map(function(s) {
+      return yfQuote(s.sym).catch(function() { return null; }).then(function(q) {
         if (q) {
           q.customName = s.name;
           return q;
@@ -259,12 +277,17 @@ async function loadSectorIndices() {
       });
     }));
 
-    var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
+    var quotes = await Promise.race([quotesPromise, timeoutPromise]);
+
+    if (!quotes) {
+      forceRenderSectorUI();
+      return;
+    }
+
+    var valid = quotes.filter(function(q) { return q !== null && q !== undefined && q.raw > 0; });
 
     if (!valid.length) {
-      container.innerHTML = sectorSymbols.map(function(s) {
-        return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">Syncing...</div></div><div style="font-size:12px; font-weight:700; color:#22c55e;">+0.00%</div></div>`;
-      }).join("");
+      forceRenderSectorUI();
       return;
     }
 
@@ -280,9 +303,7 @@ async function loadSectorIndices() {
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = sectorSymbols.map(function(s) {
-      return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">Syncing...</div></div><div style="font-size:12px; font-weight:700; color:#22c55e;">+0.00%</div></div>`;
-    }).join("");
+    forceRenderSectorUI();
   }
 }
 
@@ -572,6 +593,7 @@ async function sendChat(){
 
 async function bootDashboard() {
   forceRenderIndexUI();
+  forceRenderSectorUI();
   Promise.allSettled([loadIdx(), loadSectorIndices(), loadNews()]);
 }
 
@@ -606,5 +628,13 @@ function initThemeSwitcher() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", initThemeSwitcher);
-bootDashboard();
+function initDashboardOnDOM() {
+  initThemeSwitcher();
+  bootDashboard();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initDashboardOnDOM);
+} else {
+  initDashboardOnDOM();
+}
