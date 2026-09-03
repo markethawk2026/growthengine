@@ -16,7 +16,7 @@
 <body>
 
 <div class="bar">
-  <div style="display:flex;align-items:center;gap:0;flex-shrink:0;cursor:pointer" onclick="switchTab('home')">
+  <div style="display:flex;align-items:center;gap:0;flex-shrink:0;cursor:pointer" role="button" aria-label="NC Markets Home" tabindex="0" onclick="switchTab('home')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('home');}">
     <div style="position:relative;width:38px;height:38px;flex-shrink:0">
       <div style="position:absolute;inset:0;border-radius:12px;background:conic-gradient(from 0deg,#3b82f6,#06b6d4,#3b82f6);animation:logoSpin 4s linear infinite;opacity:.9"></div>
       <div style="position:absolute;inset:2px;border-radius:10px;background:#07090f;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#3b82f6;letter-spacing:-1px;">NC</div>
@@ -29,23 +29,23 @@
 
   <div class="sw" style="margin-left:10px">
     <span class="si">🔍</span>
-    <input id="si" type="text" placeholder="Search any NSE stock — RELIANCE, INFY, HFCL…"/>
+    <input id="si" type="text" placeholder="Search any NSE stock by ticker or company name…"/>
     <div class="dd" id="dd"></div>
   </div>
   <div class="bar-r">
     <div class="ldot"></div><span class="ltxt" id="liveIndicator">LIVE</span>
-    <button class="themeToggle" id="themeBtn">🌙</button>
+    <button class="themeToggle" id="themeBtn" aria-label="Switch to light mode" title="Switch to light mode">🌙</button>
   </div>
 </div>
 
-<div class="tabs">
-  <div class="tab active" data-tab="home">🏠 Home</div>
-  <div class="tab" data-tab="analysis">📊 Analysis</div>
-  <div class="tab" data-tab="nextday">📅 Next Day</div>
-  <div class="tab" data-tab="term">📈 Outlook</div>
-  <div class="tab" data-tab="global">🌍 Global</div>
-  <div class="tab" data-tab="calendar">📆 Calendar</div>
-  <div class="tab" data-tab="chat">🤖 NC AI</div>
+<div class="tabs" role="tablist" aria-label="Main Navigation">
+  <button type="button" class="tab active" role="tab" aria-selected="true" data-tab="home"><span style="margin-right:4px;">⚡</span>Home</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="analysis"><span style="margin-right:4px;">📊</span>Analysis</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="nextday"><span style="margin-right:4px;">🎯</span>Next Day</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="term"><span style="margin-right:4px;">📈</span>Outlook</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="global"><span style="margin-right:4px;">🌐</span>Global</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="calendar"><span style="margin-right:4px;">📅</span>Calendar</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="chat"><span style="margin-right:4px;">🤖</span>NC AI</button>
 </div>
 
 <div class="page show" id="pg-home">
@@ -61,7 +61,7 @@
   </div>
   <div class="sec">
     <div class="shr">
-      <span class="stitle">🔥 NSE Top Movers <span class="badge b-free">Live · Free</span></span>
+      <span class="stitle">📊 Key Sector Indices <span class="badge b-free">Live</span></span>
     </div>
     <div class="tgrid" id="trendBody">
       <div class="skel" style="height:58px"></div><div class="skel" style="height:58px"></div>
@@ -90,7 +90,7 @@
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
     <div style="display:flex;gap:8px">
-      <input id="ndIn" type="text" placeholder="NSE ticker — RELIANCE, TCS, HFCL…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
+      <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
       <button id="ndBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Predict</button>
     </div>
   </div>
@@ -142,7 +142,7 @@
     </div>
     <div class="crow">
       <input id="chatIn" type="text" placeholder="Ask about any stock, sector or market trend…"/>
-      <button class="csend" id="chatSend">↑</button>
+      <button class="csend" id="chatSend" aria-label="Send message" title="Send message">↑</button>
     </div>
   </div>
 </div>

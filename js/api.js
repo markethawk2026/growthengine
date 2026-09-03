@@ -60,16 +60,29 @@ async function yfQuote(ticker) {
     return window.CACHE.prices[ticker].d;
   }
 
-  var sym = ticker;
-  if (!sym.startsWith("^") && !sym.includes(".") && !sym.includes("=") && !sym.includes("-")) {
-    sym = sym + ".NS";
+  var symCandidates = [ticker];
+  if (!ticker.startsWith("^") && !ticker.includes(".") && !ticker.includes("=") && !ticker.includes("-")) {
+    symCandidates = [/^\d+$/.test(ticker) ? ticker + ".BO" : ticker + ".NS", ticker + ".BO", ticker + ".NS"];
   }
 
+  var cResult = null;
   try {
-    var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
-    var cJson = await proxyFetch(chartUrl);
-    var cResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
-    if (!cResult) return null;
+    for (var sIdx = 0; sIdx < symCandidates.length; sIdx++) {
+      var sym = symCandidates[sIdx];
+      try {
+        var chartUrl = YF_QUOTE + sym + "?interval=1d&range=1mo";
+        var cJson = await proxyFetch(chartUrl);
+        var candResult = cJson.chart && cJson.chart.result && cJson.chart.result[0];
+        if (candResult && candResult.meta && candResult.meta.regularMarketPrice) {
+          cResult = candResult;
+          break;
+        }
+      } catch (innerErr) {
+        // Continue trying next symbol candidate
+      }
+    }
+
+    if (!cResult || !cResult.meta) return null;
 
     var m = cResult.meta;
     var price = m.regularMarketPrice;
@@ -137,12 +150,20 @@ async function yfQuote(ticker) {
 }
 
 async function yfSearch(q) {
+  if (!q || !String(q).trim()) return [];
   try {
-    var url = YF_SEARCH + encodeURIComponent(q) + "&quotesCount=10&newsCount=0&enableFuzzyQuery=true&region=IN";
-    var j = await proxyFetch(url);
-    return (j.quotes || []).filter(function(r){
-      return r.quoteType === "EQUITY" && (r.exchange === "NSI" || r.exchange === "BOM" || r.symbol.endsWith(".NS") || r.symbol.endsWith(".BO"));
-    }).slice(0, 8);
+    var url = YF_SEARCH + encodeURIComponent(q) + "&quotesCount=12&newsCount=0&enableFuzzyQuery=true";
+    var j = await proxyFetch(url, 4000);
+    var quotes = (j && j.quotes) ? j.quotes : [];
+
+    var filtered = quotes.filter(function(r){
+      if (!r || !r.symbol) return false;
+      var sym = r.symbol.toUpperCase();
+      var ex = (r.exchange || "").toUpperCase();
+      return r.quoteType === "EQUITY" || ex === "NSI" || ex === "BOM" || sym.endsWith(".NS") || sym.endsWith(".BO");
+    });
+
+    return (filtered.length ? filtered : quotes.slice(0, 8)).slice(0, 8);
   } catch(e) { return []; }
 }
 
@@ -182,10 +203,10 @@ async function yfNews(q) {
 
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
-              headline: escapeHTML(title),
-              source: escapeHTML(source.name.toUpperCase()),
+              headline: title,
+              source: source.name.toUpperCase(),
               time: new Date().toLocaleTimeString(),
-              summary: escapeHTML(summaryClean)
+              summary: summaryClean
             });
           }
         });

@@ -84,5 +84,79 @@ async function checkAlerts(){
   return triggered;
 }
 
-window.NCUserTools={getState:getState,addWatchlist:addWatchlist,removeWatchlist:removeWatchlist,addRecent:addRecent,addHolding:addHolding,removeHolding:removeHolding,setPreference:setPreference,addAlert:addAlert,removeAlert:removeAlert,portfolioSnapshot:portfolioSnapshot,compare:compare,screen:screen,checkAlerts:checkAlerts};
+function calculateGrahamValue(eps, g, AAA_YIELD) {
+  eps = Number(eps); g = Number(g);
+  if (!Number.isFinite(eps) || eps <= 0) return null;
+  var growthRate = Number.isFinite(g) ? Math.min(Math.max(g, 0), 25) : 8.5;
+  var y = Number.isFinite(AAA_YIELD) ? AAA_YIELD : 7.2; // Standard benchmark yield
+  // Benjamin Graham formula: V = (EPS * (8.5 + 2g) * 4.4) / Y
+  var intrinsicValue = (eps * (8.5 + (2 * growthRate)) * 4.4) / y;
+  return Math.max(0, intrinsicValue);
+}
+
+function calculateMarginOfSafety(price, intrinsicValue) {
+  price = Number(price); intrinsicValue = Number(intrinsicValue);
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(intrinsicValue) || intrinsicValue <= 0) return null;
+  var mos = ((intrinsicValue - price) / intrinsicValue) * 100;
+  return mos;
+}
+
+function backupWorkspace() {
+  return JSON.stringify(getState(), null, 2);
+}
+
+function restoreWorkspace(jsonString) {
+  try {
+    var parsed = JSON.parse(jsonString);
+    if (!parsed || typeof parsed !== "object") throw new Error("Invalid workspace JSON backup.");
+    state = Object.assign({}, defaults, parsed, { preferences: Object.assign({}, defaults.preferences, parsed.preferences || {}) });
+    save();
+    return true;
+  } catch (err) {
+    throw new Error("Failed to restore workspace: " + err.message);
+  }
+}
+
+function exportToCSV(data, filename) {
+  if (!Array.isArray(data) || !data.length) return;
+  var headers = Object.keys(data[0]);
+  var csvRows = [headers.join(",")];
+  data.forEach(function(row) {
+    var values = headers.map(function(h) {
+      var val = row[h] === null || row[h] === undefined ? "" : String(row[h]);
+      return '"' + val.replace(/"/g, '""') + '"';
+    });
+    csvRows.push(values.join(","));
+  });
+  var csvString = csvRows.join("\n");
+  var blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename || "export.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+window.NCUserTools={
+  getState:getState,
+  addWatchlist:addWatchlist,
+  removeWatchlist:removeWatchlist,
+  addRecent:addRecent,
+  addHolding:addHolding,
+  removeHolding:removeHolding,
+  setPreference:setPreference,
+  addAlert:addAlert,
+  removeAlert:removeAlert,
+  portfolioSnapshot:portfolioSnapshot,
+  compare:compare,
+  screen:screen,
+  checkAlerts:checkAlerts,
+  calculateGrahamValue:calculateGrahamValue,
+  calculateMarginOfSafety:calculateMarginOfSafety,
+  backupWorkspace:backupWorkspace,
+  restoreWorkspace:restoreWorkspace,
+  exportToCSV:exportToCSV
+};
 })();
