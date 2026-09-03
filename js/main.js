@@ -564,9 +564,9 @@ async function sendChat(){
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
   var prompt = "You are NC AI, financial co-pilot. " + q;
   var txt = await freeAI(prompt);
-  var stylizedText = txt ? txt.replace(/\n/g, "<br>") : "No response.";
+  var stylizedText = escapeHTML(txt || "No response.").replace(/\n/g, "<br>");
   var targetMsgEl = document.getElementById(tid);
-  if (targetMsgEl) targetMsgEl.innerHTML = sanitizeHTML(stylizedText);
+  if (targetMsgEl) targetMsgEl.innerHTML = stylizedText;
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 }
 

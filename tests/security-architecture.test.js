@@ -23,6 +23,10 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   console.error("FAIL unescaped news article insertion in main.js");
   failures++;
 }
+if (!mainText.includes('escapeHTML(txt || "No response.").replace(/\\n/g, "<br>")')) {
+  console.error("FAIL sendChat output encoding missing in main.js");
+  failures++;
+}
 
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");
@@ -41,6 +45,17 @@ if (typeof sandbox.sanitizeURL !== "function") {
   if (sanitizeURL("javascript:alert(1)") !== "") { console.error("FAIL javascript: protocol allowed"); failures++; }
   if (sanitizeURL("java\x01script:alert(1)") !== "") { console.error("FAIL obfuscated javascript: protocol allowed"); failures++; }
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
+}
+
+if (typeof sandbox.safeJSONParse !== "function") {
+  console.error("FAIL safeJSONParse is not defined in js/security.js");
+  failures++;
+} else {
+  const safeJSONParse = sandbox.safeJSONParse;
+  const fallback = { default: true };
+  if (safeJSONParse("null", fallback) !== fallback) { console.error("FAIL safeJSONParse returned null instead of fallback for 'null' input"); failures++; }
+  if (safeJSONParse('{"valid":true}', fallback).valid !== true) { console.error("FAIL safeJSONParse failed to parse valid JSON"); failures++; }
+  if (safeJSONParse('invalid json', fallback) !== fallback) { console.error("FAIL safeJSONParse failed to return fallback on invalid JSON"); failures++; }
 }
 
 if(failures)process.exit(1);
