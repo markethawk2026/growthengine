@@ -12,27 +12,14 @@
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#0b0f19">
   <link rel="icon" href="assets/branding/favicon-32.png">
-
-  <!-- Compact header styles for mini live indices (moved from page body into header) -->
-  <style>
-    /* Mini live index in header */
-    .bar .idxTop { display:flex; gap:8px; align-items:center; margin-left:12px; }
-    .bar .idxTop .gc { background: transparent; border: none; padding:6px 8px; min-width:84px; border-radius:8px; }
-    .bar .idxTop .gcl { font-size:9px; color:#94a3b8; margin-bottom:2px; letter-spacing:0.4px; }
-    .bar .idxTop .gcv { font-size:13px; font-weight:800; font-family:monospace; line-height:1; }
-    .bar .idxTop .gcs { font-size:11px; color:#94a3b8; margin-top:2px; }
-    .bar .idxTop .gcv, .bar .idxTop .gcs { color: #eef2ff; }
-    body.light .bar .idxTop .gcv, body.light .bar .idxTop .gcs { color: #0f172a; }
-    @media (max-width:640px) { .bar .idxTop { display:none; } }
-  </style>
 </head>
 <body>
 
 <div class="bar">
-  <div style="display:flex;align-items:center;gap:0;flex-shrink:0;cursor:pointer" role="button" aria-label="NC Markets Home" tabindex="0" onclick="switchTab('home')" onkeydown="if(event.key==='Enter')switchTab('home')">
+  <div style="display:flex;align-items:center;gap:0;flex-shrink:0;cursor:pointer" role="button" aria-label="NC Markets Home" tabindex="0" onclick="switchTab('home')" onkeydown="if(event.key==='Ent[...]">
     <div style="position:relative;width:38px;height:38px;flex-shrink:0">
       <div style="position:absolute;inset:0;border-radius:12px;background:conic-gradient(from 0deg,#3b82f6,#06b6d4,#3b82f6);animation:logoSpin 4s linear infinite;opacity:.9"></div>
-      <div style="position:absolute;inset:2px;border-radius:10px;background:#07090f;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#3b82f6;letter-spaci[...]">
+      <div style="position:absolute;inset:2px;border-radius:10px;background:#07090f;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#3b82f6;letter-spaci[...]
     </div>
     <div style="margin-left:9px;line-height:1.1">
       <div style="font-size:13px;font-weight:900;letter-spacing:.5px;color:#3b82f6">NC Markets</div>
@@ -47,8 +34,6 @@
   </div>
   <div class="bar-r">
     <div class="ldot"></div><span class="ltxt" id="liveIndicator">LIVE</span>
-    <!-- moved mini NIFTY & SENSEX widget up here for quick glance near theme toggle -->
-    <div id="idxCards" class="idxTop" aria-live="polite"></div>
     <button class="themeToggle" id="themeBtn" aria-label="Switch to light mode" title="Switch to light mode">🌙</button>
   </div>
 </div>
@@ -83,7 +68,12 @@
       <div class="skel" style="height:58px"></div><div class="skel" style="height:58px"></div>
     </div>
   </div>
-  <!-- NIFTY & SENSEX moved to header for compact always-visible view -->
+  <div class="sec">
+    <div class="shr"><span class="stitle">📊 NIFTY &amp; SENSEX <span class="badge b-free">Live</span></span></div>
+    <div class="g2" id="idxCards">
+      <div class="skel" style="height:68px"></div><div class="skel" style="height:68px"></div>
+    </div>
+  </div>
 </div>
 
 <div class="page" id="pg-analysis">
@@ -100,7 +90,7 @@
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
     <div style="display:flex;gap:8px">
-      <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13[...]"/>
+      <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
       <button id="ndBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Predict</button>
     </div>
   </div>
@@ -111,7 +101,7 @@
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📈 Short &amp; Long Term Outlook</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="tmIn" type="text" placeholder="NSE ticker…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:n[...]"/>
+      <input id="tmIn" type="text" placeholder="NSE ticker…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
       <button id="tmBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Go</button>
     </div>
     <div class="tfbtns">
@@ -139,7 +129,7 @@
       <span class="stitle">📆 Events Calendar <span class="badge b-free">NSE · Free</span></span>
       <button class="sbtn" id="btnCal">↻ Refresh</button>
     </div>
-    <div id="calBody"><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px"></div></div[...]>
+    <div id="calBody"><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px"></div></div>
   </div>
 </div>
 
