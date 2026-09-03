@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2026-09-03 - Search Suggestion Dropdown Keyboard Navigation & ARIA
+**Learning:** Custom autocomplete and search suggestion dropdowns constructed with `<div>` elements are invisible to screen readers and inaccessible to keyboard users unless explicitly decorated with `role="listbox"` on the dropdown container and `role="option"`, `tabindex="0"`, and `aria-label` on individual suggestions. Furthermore, keyboard users expect `Escape` to dismiss the dropdown and `ArrowDown`/`ArrowUp` to navigate suggestions.
+**Action:** Always render search suggestion items with `role="option"` and `tabindex="0"`, and attach keyboard event handlers for `Escape` dismissal, `ArrowDown`/`ArrowUp` focus traversal, and `Enter`/`Space` option selection.
