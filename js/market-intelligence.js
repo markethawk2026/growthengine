@@ -42,12 +42,20 @@ async function leaders(symbols){
   };
 }
 async function sectorPerformance(){
-  var output=[];
-  for(var name in SECTORS){
-    var rows=await quoteRows(SECTORS[name]);
-    var changes=rows.map(function(r){return r.changePct;}).filter(function(v){return v!==null;});
-    output.push({sector:name,changePct:changes.length?Number((changes.reduce(function(a,b){return a+b;},0)/changes.length).toFixed(2)):null,members:rows.length,universe:SECTORS[name]});
-  }
+  // Performance optimization (Bolt ⚡): Run sector quote fetching in parallel using Promise.all
+  // instead of sequentially awaiting quoteRows for each sector in a loop.
+  // Reduces sectorPerformance execution latency from O(N * T) to O(T) where N is sector count and T is request time.
+  var sectorNames = Object.keys(SECTORS);
+  var output = await Promise.all(sectorNames.map(async function(name){
+    var rows = await quoteRows(SECTORS[name]);
+    var changes = rows.map(function(r){return r.changePct;}).filter(function(v){return v!==null;});
+    return {
+      sector: name,
+      changePct: changes.length ? Number((changes.reduce(function(a,b){return a+b;},0)/changes.length).toFixed(2)) : null,
+      members: rows.length,
+      universe: SECTORS[name]
+    };
+  }));
   return output.sort(function(a,b){return (b.changePct||-999)-(a.changePct||-999);});
 }
 function estimateSentiment(article){
