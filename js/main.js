@@ -60,6 +60,14 @@ if (siEl) {
     renderInstantSuggestions(q);
     ddTmr = setTimeout(function(){ doSearch(q); }, 80);
   });
+  siEl.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" && ddEl) {
+      ddEl.classList.remove("open");
+    } else if (e.key === "ArrowDown" && ddEl && ddEl.classList.contains("open")) {
+      var firstOpt = ddEl.querySelector(".ddr");
+      if (firstOpt) { e.preventDefault(); firstOpt.focus(); }
+    }
+  });
 }
 
 function renderInstantSuggestions(q) {
@@ -73,7 +81,7 @@ function renderInstantSuggestions(q) {
 
   if (matched.length > 0) {
     ddEl.innerHTML = matched.map(function(sym) {
-      return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(sym) + ' (Saved)</span></div>';
+      return '<div class="ddr" role="option" tabindex="0" data-t="' + escapeHTML(sym) + '" aria-label="' + escapeHTML(sym) + ' saved"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(sym) + ' (Saved)</span></div>';
     }).join("") + '<div style="padding:6px 14px;font-size:11px;color:#64748b;border-top:1px solid rgba(255,255,255,0.06)">Searching exchange...</div>';
     ddEl.classList.add("open");
   } else {
@@ -112,12 +120,38 @@ async function doSearch(q) {
   ddEl.innerHTML = res.map(function(r){
     var sym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
     var displayName = r.longname || r.shortname || r.dispName || sym;
-    return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(displayName) + '</span></div>';
+    return '<div class="ddr" role="option" tabindex="0" data-t="' + escapeHTML(sym) + '" aria-label="' + escapeHTML(sym) + ' - ' + escapeHTML(displayName) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(displayName) + '</span></div>';
   }).join("");
   ddEl.classList.add("open");
 }
 if (ddEl) {
-  ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
+  function selectDdr(r) {
+    if(!r) return;
+    ddEl.classList.remove("open");
+    if(siEl) siEl.value = r.getAttribute("data-t");
+    runAnalysis(r.getAttribute("data-t"));
+  }
+  ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ selectDdr(r); } });
+  ddEl.addEventListener("keydown", function(e) {
+    var r = e.target.closest(".ddr");
+    if (!r) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      selectDdr(r);
+    } else if (e.key === "Escape") {
+      ddEl.classList.remove("open");
+      if (siEl) siEl.focus();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      var next = r.nextElementSibling;
+      if (next && next.classList.contains("ddr")) next.focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      var prev = r.previousElementSibling;
+      if (prev && prev.classList.contains("ddr")) prev.focus();
+      else if (siEl) siEl.focus();
+    }
+  });
 }
 document.addEventListener("click", function(e){ if(ddEl && !e.target.closest(".sw")) ddEl.classList.remove("open"); });
 
