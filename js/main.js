@@ -3,6 +3,7 @@
  */
 
 var activeTF = "both", isLight = false, activeTickerNode = "NIFTY50";
+window.LIVE_CHART_POOL = window.LIVE_CHART_POOL || { closes: [], volumes: [] };
 
 function isUp(v){ return !String(v || "0").trim().startsWith("-"); }
 function fmtVol(v){ if(!v) return "—"; if(v > 10000000) return (v / 10000000).toFixed(1) + "Cr"; if(v > 100000) return (v / 100000).toFixed(1) + "L"; return String(v); }
@@ -134,6 +135,7 @@ window.viewArticleDetail = function(id) {
   });
   var activeCard = document.getElementById("card_" + id);
   if (activeCard) { activeCard.classList.add("news-card-active"); }
+  if (!target.summary || !target.summary.trim()) { target.summary = target.headline; }
   detailPane.innerHTML = `<div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left;"><div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; width: 100%;"><span style="background: rgba(56,189,248,0.12); color: #0284c7; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.25); text-transform: uppercase;">${escapeHTML(target.source || "FEED")}</span><span style="color: #64748b; font-size: 11px; font-weight: 500;">${escapeHTML(target.time || "Just now")}</span></div><h4 style="font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">${escapeHTML(target.headline)}</h4><div class="gc" style="padding: 12px; margin-top: 4px;"><span class="gcl" style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Summary</span><p style="font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">${escapeHTML(target.summary)}</p></div></div>`;
 };
 
@@ -214,27 +216,35 @@ async function loadIdx() {
   var sensexData = indexResults[1];
   if (niftyData) { window.LIVE_NIFTY_PRICE = niftyData.price; window.LIVE_NIFTY_CHG = niftyData.changePct; window.LIVE_NIFTY_UP = niftyData.up; }
   if (sensexData) { window.LIVE_SENSEX_PRICE = sensexData.price; window.LIVE_SENSEX_CHG = sensexData.changePct; window.LIVE_SENSEX_UP = sensexData.up; }
-  if (!window.LIVE_NIFTY_PRICE) window.LIVE_NIFTY_PRICE = 22000;
-  if (!window.LIVE_SENSEX_PRICE) window.LIVE_SENSEX_PRICE = 72000;
-  if (!window.LIVE_NIFTY_CHG) window.LIVE_NIFTY_CHG = "+0.00%";
-  if (!window.LIVE_SENSEX_CHG) window.LIVE_SENSEX_CHG = "+0.00%";
   forceRenderIndexUI();
 }
 
 function forceRenderIndexUI() {
-  if (!window.LIVE_NIFTY_PRICE) window.LIVE_NIFTY_PRICE = 22450.70;
-  if (!window.LIVE_SENSEX_PRICE) window.LIVE_SENSEX_PRICE = 73880.25;
-  if (!window.LIVE_NIFTY_CHG) window.LIVE_NIFTY_CHG = "+0.42%";
-  if (!window.LIVE_SENSEX_CHG) window.LIVE_SENSEX_CHG = "+0.38%";
-  if (window.LIVE_NIFTY_UP === undefined) window.LIVE_NIFTY_UP = true;
-  if (window.LIVE_SENSEX_UP === undefined) window.LIVE_SENSEX_UP = true;
-  var nColor = window.LIVE_NIFTY_UP ? "#22c55e" : "#ef4444";
-  var sColor = window.LIVE_SENSEX_UP ? "#22c55e" : "#ef4444";
-  var nArrow = window.LIVE_NIFTY_UP ? "▲" : "▼";
-  var sArrow = window.LIVE_SENSEX_UP ? "▲" : "▼";
-  var generatedHTML = `<div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">NIFTY 50</div><div class="gcv" style="color:${nColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_NIFTY_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${nColor}; font-size:11px; font-weight:600; margin-top:2px;">${nArrow} ${window.LIVE_NIFTY_CHG}</div></div><div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">SENSEX</div><div class="gcv" style="color:${sColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_SENSEX_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${sColor}; font-size:11px; font-weight:600; margin-top:2px;">${sArrow} ${window.LIVE_SENSEX_CHG}</div></div>`;
+  var nPriceStr = window.LIVE_NIFTY_PRICE ? window.LIVE_NIFTY_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2}) : "Syncing...";
+  var sPriceStr = window.LIVE_SENSEX_PRICE ? window.LIVE_SENSEX_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2}) : "Syncing...";
+  var nChg = window.LIVE_NIFTY_CHG || "—";
+  var sChg = window.LIVE_SENSEX_CHG || "—";
+  var nColor = window.LIVE_NIFTY_UP === true ? "#22c55e" : (window.LIVE_NIFTY_UP === false ? "#ef4444" : "#64748b");
+  var sColor = window.LIVE_SENSEX_UP === true ? "#22c55e" : (window.LIVE_SENSEX_UP === false ? "#ef4444" : "#64748b");
+  var nArrow = window.LIVE_NIFTY_UP === true ? "▲" : (window.LIVE_NIFTY_UP === false ? "▼" : "");
+  var sArrow = window.LIVE_SENSEX_UP === true ? "▲" : (window.LIVE_SENSEX_UP === false ? "▼" : "");
+  var generatedHTML = `<div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">NIFTY 50</div><div class="gcv" style="color:${nColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${nPriceStr}</div><div class="gcs" style="color:${nColor}; font-size:11px; font-weight:600; margin-top:2px;">${nArrow} ${nChg}</div></div><div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">SENSEX</div><div class="gcv" style="color:${sColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${sPriceStr}</div><div class="gcs" style="color:${sColor}; font-size:11px; font-weight:600; margin-top:2px;">${sArrow} ${sChg}</div></div>`;
   var explicitWrapper = document.getElementById("idxCards");
   if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
+}
+
+function forceRenderSectorUI() {
+  var container = document.getElementById("trendBody");
+  if (!container) return;
+  var sectorSymbols = [
+    { name: "NIFTY BANK" },
+    { name: "NIFTY IT" },
+    { name: "NIFTY AUTO" },
+    { name: "NIFTY PHARMA" }
+  ];
+  container.innerHTML = sectorSymbols.map(function(s) {
+    return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">Syncing...</div></div><div style="font-size:12px; font-weight:700; color:#64748b;">—</div></div>`;
+  }).join("");
 }
 
 async function loadSectorIndices() {
@@ -249,8 +259,9 @@ async function loadSectorIndices() {
   ];
 
   try {
-    var quotes = await Promise.all(sectorSymbols.map(function(s) {
-      return yfQuote(s.sym).then(function(q) {
+    var timeoutPromise = new Promise(function(resolve) { setTimeout(function() { resolve(null); }, 2500); });
+    var quotesPromise = Promise.all(sectorSymbols.map(function(s) {
+      return yfQuote(s.sym).catch(function() { return null; }).then(function(q) {
         if (q) {
           q.customName = s.name;
           return q;
@@ -259,12 +270,17 @@ async function loadSectorIndices() {
       });
     }));
 
-    var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
+    var quotes = await Promise.race([quotesPromise, timeoutPromise]);
+
+    if (!quotes) {
+      forceRenderSectorUI();
+      return;
+    }
+
+    var valid = quotes.filter(function(q) { return q !== null && q !== undefined && q.raw > 0; });
 
     if (!valid.length) {
-      container.innerHTML = sectorSymbols.map(function(s) {
-        return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">Syncing...</div></div><div style="font-size:12px; font-weight:700; color:#22c55e;">+0.00%</div></div>`;
-      }).join("");
+      forceRenderSectorUI();
       return;
     }
 
@@ -280,9 +296,7 @@ async function loadSectorIndices() {
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = sectorSymbols.map(function(s) {
-      return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">Syncing...</div></div><div style="font-size:12px; font-weight:700; color:#22c55e;">+0.00%</div></div>`;
-    }).join("");
+    forceRenderSectorUI();
   }
 }
 
@@ -572,6 +586,7 @@ async function sendChat(){
 
 async function bootDashboard() {
   forceRenderIndexUI();
+  forceRenderSectorUI();
   Promise.allSettled([loadIdx(), loadSectorIndices(), loadNews()]);
 }
 
@@ -606,5 +621,13 @@ function initThemeSwitcher() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", initThemeSwitcher);
-bootDashboard();
+function initDashboardOnDOM() {
+  initThemeSwitcher();
+  bootDashboard();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initDashboardOnDOM);
+} else {
+  initDashboardOnDOM();
+}

@@ -12,12 +12,12 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
-  "https://corsproxy.io/?url=",
   "https://api.allorigins.win/raw?url=",
   "https://thingproxy.freeboard.io/fetch/"
 ];
 
 function fresh(ts, t) { return ts && (Date.now() - ts) < t; }
+window.fresh = fresh;
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 /**
@@ -199,7 +199,8 @@ async function yfNews(q) {
             
             var summaryClean = item.description 
               ? item.description.replace(/<[^>]*>/g, '').trim() 
-              : "";
+              : (title || "Live market coverage and updates.");
+            if (!summaryClean) summaryClean = title || "Live market coverage and updates.";
 
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),

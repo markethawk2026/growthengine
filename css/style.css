@@ -3,17 +3,17 @@
   padding: 0;
   box-sizing: border-box;
 }
-body {
+html, body {
+  display: block !important;
   background: #07090f;
   color: #eef2ff;
   font-family: 'Segoe UI', system-ui, sans-serif;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: 100%;
-  margin: 0;
-  padding: 0;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden !important;
 }
 body.light {
   background: #f8fafc;
@@ -223,15 +223,15 @@ body.light .ncuw-table th {
   background: #0b0e1a;
   border-bottom: 1px solid #1c2a45;
   height: 54px;
-  display: flex;
+  display: flex !important;
   align-items: center;
   padding: 0 14px;
   gap: 10px;
   position: sticky;
   top: 0;
   z-index: 100;
-  width: 100%;
-  flex-shrink: 0;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 .sw {
   flex: 1;
@@ -365,14 +365,14 @@ body.light .ncuw-table th {
 }
 
 .tabs {
-  display: flex;
+  display: flex !important;
   background: #0b0e1a;
   border-bottom: 1px solid #1c2a45;
   padding: 0 10px;
   overflow-x: auto;
   scrollbar-width: none;
-  width: 100%;
-  flex-shrink: 0;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 .tabs::-webkit-scrollbar {
   display: none;
@@ -396,17 +396,16 @@ body.light .ncuw-table th {
 }
 
 .page {
-  display: none;
+  display: none !important;
   padding: 16px 12px;
-  width: 100%;
-  max-width: 860px;
-  margin: 0 auto;
+  width: 100% !important;
+  max-width: 860px !important;
+  margin: 0 auto !important;
   animation: fadeIn 0.2s;
-  box-sizing: border-box;
-  flex: 1;
+  box-sizing: border-box !important;
 }
 .page.show {
-  display: block;
+  display: block !important;
 }
 .sec {
   background: #0b0e1a;
