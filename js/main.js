@@ -237,59 +237,52 @@ function forceRenderIndexUI() {
   if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
 }
 
-async function loadTopMovers() {
+async function loadSectorIndices() {
   var container = document.getElementById("trendBody");
   if (!container) return;
+
+  var sectorSymbols = [
+    { sym: "^NSEBANK", name: "NIFTY BANK" },
+    { sym: "^CNXIT", name: "NIFTY IT" },
+    { sym: "^CNXAUTO", name: "NIFTY AUTO" },
+    { sym: "^CNXPHARMA", name: "NIFTY PHARMA" }
+  ];
+
   try {
-    var candidateSymbols = [];
-    var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
-    if (userState) {
-      candidateSymbols = [].concat(userState.watchlist || [], (userState.portfolio || []).map(function(h){return h.ticker;}), userState.recent || []);
-    }
+    var quotes = await Promise.all(sectorSymbols.map(function(s) {
+      return yfQuote(s.sym).then(function(q) {
+        if (q) {
+          q.customName = s.name;
+          return q;
+        }
+        return null;
+      });
+    }));
 
-    try {
-      var searchRes = await yfSearch("EQUITY");
-      if (searchRes && searchRes.length) {
-        searchRes.forEach(function(r) {
-          var cleanSym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
-          if (cleanSym && !candidateSymbols.includes(cleanSym)) candidateSymbols.push(cleanSym);
-        });
-      }
-    } catch (sErr) {}
-
-    candidateSymbols = Array.from(new Set(candidateSymbols.filter(Boolean))).slice(0, 8);
-
-    if (!candidateSymbols.length) {
-      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
-      return;
-    }
-
-    var quotes = await Promise.all(candidateSymbols.map(function(s) { return yfQuote(s); }));
     var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
 
     if (!valid.length) {
-      container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
+      container.innerHTML = sectorSymbols.map(function(s) {
+        return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">Syncing...</div></div><div style="font-size:12px; font-weight:700; color:#22c55e;">+0.00%</div></div>`;
+      }).join("");
       return;
     }
 
-    // Sort dynamically by highest absolute percentage change (top gainers/movers)
-    valid.sort(function(a, b) {
-      return Math.abs(parseFloat(b.changePct) || 0) - Math.abs(parseFloat(a.changePct) || 0);
-    });
-
-    container.innerHTML = valid.slice(0, 4).map(function(q) {
-      var symName = q.name ? q.name : q.ticker;
+    container.innerHTML = valid.map(function(q) {
+      var dispName = q.customName || q.name || q.ticker;
       var cColor = q.up ? "#22c55e" : "#ef4444";
-      return `<div class="tcard" onclick="runAnalysis('${escapeHTML(q.ticker || symName)}')">
+      return `<div class="tcard">
         <div style="flex:1;">
-          <div style="font-size:12px; font-weight:700;">${escapeHTML(symName)}</div>
+          <div style="font-size:12px; font-weight:700;">${escapeHTML(dispName)}</div>
           <div style="font-size:10px; color:#64748b;">${escapeHTML(q.price)}</div>
         </div>
         <div style="font-size:12px; font-weight:700; color:${cColor};">${escapeHTML(q.changePct)}</div>
       </div>`;
     }).join("");
   } catch(e) {
-    container.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1; padding:12px; text-align:center;">Syncing live market movers...</div>';
+    container.innerHTML = sectorSymbols.map(function(s) {
+      return `<div class="tcard"><div style="flex:1;"><div style="font-size:12px; font-weight:700;">${escapeHTML(s.name)}</div><div style="font-size:10px; color:#64748b;">Syncing...</div></div><div style="font-size:12px; font-weight:700; color:#22c55e;">+0.00%</div></div>`;
+    }).join("");
   }
 }
 
@@ -579,7 +572,7 @@ async function sendChat(){
 
 async function bootDashboard() {
   forceRenderIndexUI();
-  Promise.allSettled([loadIdx(), loadTopMovers(), loadNews()]);
+  Promise.allSettled([loadIdx(), loadSectorIndices(), loadNews()]);
 }
 
 if (window.RefreshScheduler) {
