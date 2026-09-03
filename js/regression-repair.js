@@ -1,21 +1,34 @@
-(function(){
-"use strict";
-function go(id){var e=document.getElementById(id);if(e){e.scrollIntoView({behavior:"smooth",block:"start"});return true;}return false;}
-function install(){
-  var nav=document.querySelector(".nav")||document.querySelector("nav");
-  if(nav&&!document.getElementById("ncIntegratedAdvancedNav")){
-    var w=document.createElement("span");w.id="ncIntegratedAdvancedNav";w.className="nc-integrated-nav";
-    [["Watchlist","ncUserWorkspace"],["Market Intelligence","ncMarketIntel"]].forEach(function(x){
-      var b=document.createElement("button");b.type="button";b.className="nav-item nc-advanced-nav-item";b.textContent=x[0];b.onclick=function(){go(x[1]);};w.appendChild(b);
-    });nav.appendChild(w);
-  }
-  var original=window.runAnalysis;
-  if(typeof original==="function"){
-    window.runAnalysis=async function(ticker){
-      try{return await original(ticker);}
-      catch(err){console.error("Analysis failed:",err);if(window.NCProductPolish&&NCProductPolish.announce)NCProductPolish.announce("Analysis could not be completed.");throw err;}
-    };
-  }
-}
-window.addEventListener("DOMContentLoaded",install);
-})();
+document.addEventListener("DOMContentLoaded", function() {
+  var style = document.createElement("style");
+  style.id = "nc-layout-repair";
+  style.textContent = `
+    html, body {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      min-height: 100vh !important;
+      overflow-x: hidden !important;
+    }
+    .bar {
+      width: 100% !important;
+      flex-shrink: 0 !important;
+      box-sizing: border-box !important;
+    }
+    .tabs {
+      width: 100% !important;
+      flex-shrink: 0 !important;
+      box-sizing: border-box !important;
+    }
+    .page {
+      width: 100% !important;
+      max-width: 860px !important;
+      margin: 0 auto !important;
+      flex: 1 0 auto !important;
+      box-sizing: border-box !important;
+    }
+  `;
+  document.head.appendChild(style);
+});
