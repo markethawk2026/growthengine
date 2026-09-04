@@ -300,7 +300,7 @@ async function runAnalysis(ticker){
   switchTab("analysis");
   var body = document.getElementById("aBody");
   if(window.CACHE.analysis[ticker] && fresh(window.CACHE.analysis[ticker].ts, window.TTL.m)) { renderAnalysis(window.CACHE.analysis[ticker].d); return; }
-  if (body) body.innerHTML = ldng("Analyzing " + ticker + "...");
+  if (body) body.innerHTML = ldng("Analyzing " + escapeHTML(ticker) + "...");
   var pData = await yfQuote(ticker);
   if(!pData) { if (body) body.innerHTML = '<div class="errbox">⚠️ Ticker unavailable</div>'; return; }
   var closes = pData.closes;
