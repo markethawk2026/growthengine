@@ -506,14 +506,28 @@ async function runOutlook(ticker){
 async function loadGlobal(force){
   if(!force && window.CACHE.global && fresh(window.CACHE.gTs, window.TTL.s)) { renderGlobal(window.CACHE.global); return; }
   var gBodyEl = document.getElementById("gBody");
+  var btnGlobalEl = document.getElementById("btnGlobal");
   if (gBodyEl) gBodyEl.innerHTML = skels(80, 2);
+  if (btnGlobalEl) {
+    btnGlobalEl.disabled = true;
+    btnGlobalEl.setAttribute("aria-busy", "true");
+    btnGlobalEl.innerHTML = '<span class="mspn"></span> Loading...';
+  }
   try {
     var symbols = ["^NSEI", "^BSESN", "^GSPC"];
     var results = await Promise.all(symbols.map(s => yfQuote(s)));
     window.CACHE.global = results;
     window.CACHE.gTs = Date.now();
     renderGlobal(results);
-  } catch(e) { if (gBodyEl) gBodyEl.innerHTML = '<div class="errbox">⚠️ Global data unavailable</div>'; }
+  } catch(e) {
+    if (gBodyEl) gBodyEl.innerHTML = '<div class="errbox">⚠️ Global data unavailable</div>';
+  } finally {
+    if (btnGlobalEl) {
+      btnGlobalEl.disabled = false;
+      btnGlobalEl.setAttribute("aria-busy", "false");
+      btnGlobalEl.innerHTML = '↻ Refresh';
+    }
+  }
 }
 
 function renderGlobal(arr){
@@ -528,14 +542,28 @@ if (btnGlobalEl) { btnGlobalEl.addEventListener("click", function(){ loadGlobal(
 async function loadCal(force){
   if(!force && window.CACHE.cal && fresh(window.CACHE.cTs, window.TTL.l)) { renderCal(window.CACHE.cal); return; }
   var calBodyEl = document.getElementById("calBody");
+  var btnCalEl = document.getElementById("btnCal");
   if (calBodyEl) calBodyEl.innerHTML = skels(56, 3);
+  if (btnCalEl) {
+    btnCalEl.disabled = true;
+    btnCalEl.setAttribute("aria-busy", "true");
+    btnCalEl.innerHTML = '<span class="mspn"></span> Loading...';
+  }
   try {
     var aiTxt = await freeAI("List 3 Indian corporate events. JSON: [{\"date\":\"DD MMM\",\"company\":\"Name\"}]");
     var arr = pja(aiTxt) || [];
     window.CACHE.cal = arr;
     window.CACHE.cTs = Date.now();
     renderCal(arr);
-  } catch(e) { if (calBodyEl) calBodyEl.innerHTML = '<div class="errbox">⚠️ Calendar unavailable</div>'; }
+  } catch(e) {
+    if (calBodyEl) calBodyEl.innerHTML = '<div class="errbox">⚠️ Calendar unavailable</div>';
+  } finally {
+    if (btnCalEl) {
+      btnCalEl.disabled = false;
+      btnCalEl.setAttribute("aria-busy", "false");
+      btnCalEl.innerHTML = '↻ Refresh';
+    }
+  }
 }
 
 function renderCal(arr){
