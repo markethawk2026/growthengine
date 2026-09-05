@@ -4,7 +4,9 @@ const path=require("path");
 const assert=require("assert");
 
 const apiPath=path.join(__dirname,"..","js","api.js");
+const miPath=path.join(__dirname,"..","js","market-intelligence.js");
 const source=fs.readFileSync(apiPath,"utf8");
+const miSource=fs.readFileSync(miPath,"utf8");
 const sandbox={
   window:{TTL:{s:1000,m:60000}},
   console:console,
@@ -16,6 +18,7 @@ const sandbox={
 sandbox.window.window=sandbox.window;
 vm.createContext(sandbox);
 vm.runInContext(source,sandbox);
+vm.runInContext(miSource,sandbox);
 
 const tests=[];
 function test(name,fn){tests.push({name,fn});}
@@ -58,6 +61,22 @@ test("Technical score stays within 0..100",()=>{
     ema200:sandbox.calcEMA(s,200)
   }).score;
   assert.ok(score>=0&&score<=100);
+});
+
+test("NCMarketIntelligence.leaders reuses pre-computed breadth without redundant quote fetching",async ()=>{
+  const mockBreadth={
+    universe:["AAPL","MSFT","GOOGL"],
+    rows:[
+      {ticker:"AAPL",name:"Apple",price:150,changePct:2.5,volume:1000},
+      {ticker:"MSFT",name:"Microsoft",price:300,changePct:-1.2,volume:2000},
+      {ticker:"GOOGL",name:"Google",price:2800,changePct:0.5,volume:1500}
+    ],
+    advances:2,declines:1,unchanged:0,ratio:2
+  };
+  const leadersResult=await sandbox.window.NCMarketIntelligence.leaders(mockBreadth);
+  assert.strictEqual(leadersResult.gainers[0].ticker,"AAPL");
+  assert.strictEqual(leadersResult.losers[0].ticker,"MSFT");
+  assert.strictEqual(leadersResult.volumeLeaders[0].ticker,"MSFT");
 });
 
 let passed=0;
