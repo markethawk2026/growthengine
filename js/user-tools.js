@@ -120,10 +120,17 @@ function restoreWorkspace(jsonString) {
 function exportToCSV(data, filename) {
   if (!Array.isArray(data) || !data.length) return;
   var headers = Object.keys(data[0]);
-  var csvRows = [headers.join(",")];
+  var sanitizedHeaders = headers.map(function(h) {
+    var str = String(h);
+    if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
+    return '"' + str.replace(/"/g, '""') + '"';
+  });
+  var csvRows = [sanitizedHeaders.join(",")];
   data.forEach(function(row) {
     var values = headers.map(function(h) {
       var val = row[h] === null || row[h] === undefined ? "" : String(row[h]);
+      // Prevent CSV Formula Injection by prefixing formula triggers with a single quote
+      if (/^[=+\-@\t\r]/.test(val)) val = "'" + val;
       return '"' + val.replace(/"/g, '""') + '"';
     });
     csvRows.push(values.join(","));
