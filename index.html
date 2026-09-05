@@ -136,7 +136,12 @@
 <div class="page" id="pg-chat">
   <div class="sec">
     <div class="stitle" style="margin-bottom:10px">🤖 NC AI Assistant <span class="badge b-free">100% Free</span></div>
-    <div style="margin-bottom:10px" id="chatSuggestions"></div>
+    <div style="margin-bottom:10px" id="chatSuggestions" role="group" aria-label="Suggested prompts">
+      <button type="button" class="csg" data-prompt="What is the current technical outlook for NIFTY 50?">📈 NIFTY Outlook</button>
+      <button type="button" class="csg" data-prompt="How do RSI and MACD indicators work?">📊 Technical Indicators</button>
+      <button type="button" class="csg" data-prompt="What are essential risk management rules for swing trading?">🛡️ Risk Management</button>
+      <button type="button" class="csg" data-prompt="Explain Graham fair value estimation formula.">💡 Graham Valuation</button>
+    </div>
     <div class="cmsgs" id="chatMsgs" style="max-height: 400px; overflow-y: auto;">
       <div class="cm cmai">👋 Hi! I'm NC AI, your financial market co-pilot. Ask me any question about technical setups, market trends, or investment strategies!</div>
     </div>
