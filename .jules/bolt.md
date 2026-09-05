@@ -1,0 +1,3 @@
+## 2025-09-05 - Avoid Redundant Composite Function Execution in Parallel Data Pipelines
+**Learning:** In composite dashboard functions like `render()`, invoking parallel sub-functions (`breadth()`, `leaders()`) can trigger duplicate calculations when one sub-function depends on the result of another. In this codebase, `leaders()` re-invoked `breadth()`, doubling quote processing requests for up to 50 tickers.
+**Action:** Design sub-functions to accept either raw arguments or pre-computed parent results, and launch non-dependent async tasks concurrently while reusing pre-computed results for dependent tasks.
