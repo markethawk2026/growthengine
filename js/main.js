@@ -551,6 +551,20 @@ var chatSendEl = document.getElementById("chatSend");
 if (chatSendEl) chatSendEl.addEventListener("click", sendChat);
 var chatInEl = document.getElementById("chatIn");
 if (chatInEl) { chatInEl.addEventListener("keydown", function(e){ if(e.key === "Enter") sendChat(); }); }
+var chatSugEl = document.getElementById("chatSuggestions");
+if (chatSugEl) {
+  chatSugEl.addEventListener("click", function(e) {
+    var btn = e.target.closest(".csg");
+    if (btn) {
+      var promptText = btn.getAttribute("data-prompt");
+      var inp = document.getElementById("chatIn");
+      if (inp && promptText) {
+        inp.value = promptText;
+        inp.focus();
+      }
+    }
+  });
+}
 
 async function sendChat(){
   var inp = document.getElementById("chatIn");
