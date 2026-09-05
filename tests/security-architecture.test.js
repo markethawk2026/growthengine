@@ -35,12 +35,49 @@ if (typeof sandbox.sanitizeURL !== "function") {
   console.error("FAIL sanitizeURL is not defined in js/security.js");
   failures++;
 } else {
-  const sanitizeURL = sandbox.sanitizeURL;
+  const sanitizeURL = sandbox.sandbox ? sandbox.sandbox.sanitizeURL : sandbox.sanitizeURL;
   if (sanitizeURL("https://example.com") !== "https://example.com") { console.error("FAIL valid https URL rejected"); failures++; }
   if (sanitizeURL("  /relative/path  ") !== "/relative/path") { console.error("FAIL relative path rejected or untrimmed"); failures++; }
   if (sanitizeURL("javascript:alert(1)") !== "") { console.error("FAIL javascript: protocol allowed"); failures++; }
   if (sanitizeURL("java\x01script:alert(1)") !== "") { console.error("FAIL obfuscated javascript: protocol allowed"); failures++; }
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
+}
+
+// Verify CSV Formula Injection sanitization in js/user-tools.js
+const userToolsCode = fs.readFileSync(path.join(jsdir, "user-tools.js"), "utf8");
+let createdBlobContent = null;
+const userToolsSandbox = {
+  window: { dispatchEvent: () => {} },
+  localStorage: { getItem: () => null, setItem: () => {} },
+  CustomEvent: function() {},
+  Blob: function(parts) { createdBlobContent = parts.join(""); },
+  URL: { createObjectURL: () => "blob:mock" },
+  document: {
+    body: { appendChild: () => {}, removeChild: () => {} },
+    createElement: () => ({ setAttribute: () => {}, click: () => {} })
+  }
+};
+vm.createContext(userToolsSandbox);
+vm.runInContext(userToolsCode, userToolsSandbox);
+
+if (!userToolsSandbox.window.NCUserTools || typeof userToolsSandbox.window.NCUserTools.exportToCSV !== "function") {
+  console.error("FAIL NCUserTools.exportToCSV is not defined");
+  failures++;
+} else {
+  userToolsSandbox.window.NCUserTools.exportToCSV([
+    { ticker: "=CMD('calc')", price: "+100", change: "-5", name: "@EVIL", tab: "\tTAB", normal: "RELIANCE" }
+  ], "test.csv");
+
+  if (!createdBlobContent ||
+      !createdBlobContent.includes('"' + "'=CMD('calc')\"") ||
+      !createdBlobContent.includes('"' + "'+100\"") ||
+      !createdBlobContent.includes('"' + "'-5\"") ||
+      !createdBlobContent.includes('"' + "'@EVIL\"") ||
+      !createdBlobContent.includes('"' + "'\tTAB\"") ||
+      !createdBlobContent.includes('"RELIANCE"')) {
+    console.error("FAIL CSV Formula Injection not properly sanitized:", createdBlobContent);
+    failures++;
+  }
 }
 
 if(failures)process.exit(1);
