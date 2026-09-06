@@ -51,10 +51,10 @@ function sanitizeURL(url) {
     return '';
   }
   
-  // Allow http://, https://, and relative paths starting with /
+  // Allow http://, https://, and relative paths starting with / (excluding // or /\ bypasses)
   if (lower.startsWith('http://') ||
       lower.startsWith('https://') ||
-      lower.startsWith('/')) {
+      (lower.startsWith('/') && lower[1] !== '/' && lower[1] !== '\\')) {
     return sanitized;
   }
   
