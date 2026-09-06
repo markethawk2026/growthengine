@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Full WAI-ARIA Tab Navigation & Arrow Key Support
+**Learning:** Navigation tabs structured as a `tablist` require `aria-controls` on tab buttons and `aria-labelledby` on `tabpanel` containers. Implementing a roving `tabindex` (`0` for active, `-1` for inactive) along with `ArrowLeft`, `ArrowRight`, `Home`, and `End` key listeners enables seamless keyboard navigation without requiring repetitive Tab key presses across all items.
+**Action:** Always link tabs to page panels with explicit ARIA control attributes, maintain roving `tabindex`, and bind arrow keys on `role="tablist"` elements for full WAI-ARIA accessibility compliance.

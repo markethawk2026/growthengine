@@ -42,6 +42,7 @@ function switchTab(name){
     var isActive = t.getAttribute("data-tab") === name;
     t.classList.toggle("active", isActive);
     t.setAttribute("aria-selected", isActive ? "true" : "false");
+    t.setAttribute("tabindex", isActive ? "0" : "-1");
   });
   document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
   if(name === "global") loadGlobal();
@@ -50,6 +51,30 @@ function switchTab(name){
   if(name === "term" && window.activeTickerNode) { var tmInput = document.getElementById("tmIn"); if(tmInput) { tmInput.value = window.activeTickerNode; runOutlook(window.activeTickerNode); } }
 }
 document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
+
+var mainTabList = document.querySelector('.tabs[role="tablist"]');
+if (mainTabList) {
+  mainTabList.addEventListener("keydown", function(e) {
+    var tabs = Array.from(mainTabList.querySelectorAll(".tab"));
+    var currentIdx = tabs.indexOf(document.activeElement);
+    if (currentIdx === -1) return;
+    var nextIdx = -1;
+    if (e.key === "ArrowRight") {
+      nextIdx = (currentIdx + 1) % tabs.length;
+    } else if (e.key === "ArrowLeft") {
+      nextIdx = (currentIdx - 1 + tabs.length) % tabs.length;
+    } else if (e.key === "Home") {
+      nextIdx = 0;
+    } else if (e.key === "End") {
+      nextIdx = tabs.length - 1;
+    }
+    if (nextIdx !== -1) {
+      e.preventDefault();
+      tabs[nextIdx].focus();
+      switchTab(tabs[nextIdx].getAttribute("data-tab"));
+    }
+  });
+}
 
 var siEl = document.getElementById("si"), ddEl = document.getElementById("dd");
 var ddTmr = null;

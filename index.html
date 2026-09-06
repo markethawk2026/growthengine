@@ -39,16 +39,16 @@
 </div>
 
 <div class="tabs" role="tablist" aria-label="Main Navigation">
-  <button type="button" class="tab active" role="tab" aria-selected="true" data-tab="home"><span style="margin-right:4px;">⚡</span>Home</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="analysis"><span style="margin-right:4px;">📊</span>Analysis</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="nextday"><span style="margin-right:4px;">🎯</span>Next Day</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="term"><span style="margin-right:4px;">📈</span>Outlook</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="global"><span style="margin-right:4px;">🌐</span>Global</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="calendar"><span style="margin-right:4px;">📅</span>Calendar</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="chat"><span style="margin-right:4px;">🤖</span>NC AI</button>
+  <button type="button" class="tab active" role="tab" id="tab-home" aria-controls="pg-home" aria-selected="true" tabindex="0" data-tab="home"><span style="margin-right:4px;">⚡</span>Home</button>
+  <button type="button" class="tab" role="tab" id="tab-analysis" aria-controls="pg-analysis" aria-selected="false" tabindex="-1" data-tab="analysis"><span style="margin-right:4px;">📊</span>Analysis</button>
+  <button type="button" class="tab" role="tab" id="tab-nextday" aria-controls="pg-nextday" aria-selected="false" tabindex="-1" data-tab="nextday"><span style="margin-right:4px;">🎯</span>Next Day</button>
+  <button type="button" class="tab" role="tab" id="tab-term" aria-controls="pg-term" aria-selected="false" tabindex="-1" data-tab="term"><span style="margin-right:4px;">📈</span>Outlook</button>
+  <button type="button" class="tab" role="tab" id="tab-global" aria-controls="pg-global" aria-selected="false" tabindex="-1" data-tab="global"><span style="margin-right:4px;">🌐</span>Global</button>
+  <button type="button" class="tab" role="tab" id="tab-calendar" aria-controls="pg-calendar" aria-selected="false" tabindex="-1" data-tab="calendar"><span style="margin-right:4px;">📅</span>Calendar</button>
+  <button type="button" class="tab" role="tab" id="tab-chat" aria-controls="pg-chat" aria-selected="false" tabindex="-1" data-tab="chat"><span style="margin-right:4px;">🤖</span>NC AI</button>
 </div>
 
-<div class="page show" id="pg-home">
+<div class="page show" id="pg-home" role="tabpanel" aria-labelledby="tab-home" tabindex="0">
   <div style="margin-bottom: 14px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 4px;" id="quickViewStrip">
     <span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View: Syncing live sectors...</span>
   </div>
@@ -76,7 +76,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-analysis">
+<div class="page" id="pg-analysis" role="tabpanel" aria-labelledby="tab-analysis" tabindex="0">
   <div id="aBody">
     <div style="text-align:center;padding:60px 20px">
       <div style="font-size:40px;margin-bottom:12px">🔍</div>
@@ -86,7 +86,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-nextday">
+<div class="page" id="pg-nextday" role="tabpanel" aria-labelledby="tab-nextday" tabindex="0">
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
     <div style="display:flex;gap:8px">
@@ -97,7 +97,7 @@
   <div id="ndBody"></div>
 </div>
 
-<div class="page" id="pg-term">
+<div class="page" id="pg-term" role="tabpanel" aria-labelledby="tab-term" tabindex="0">
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📈 Short &amp; Long Term Outlook</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -113,7 +113,7 @@
   <div id="tmBody"></div>
 </div>
 
-<div class="page" id="pg-global">
+<div class="page" id="pg-global" role="tabpanel" aria-labelledby="tab-global" tabindex="0">
   <div class="sec">
     <div class="shr">
       <span class="stitle">🌍 Global Markets <span class="badge b-free">Yahoo Finance · Free</span></span>
@@ -123,7 +123,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-calendar">
+<div class="page" id="pg-calendar" role="tabpanel" aria-labelledby="tab-calendar" tabindex="0">
   <div class="sec">
     <div class="shr">
       <span class="stitle">📆 Events Calendar <span class="badge b-free">NSE · Free</span></span>
@@ -133,7 +133,7 @@
   </div>
 </div>
 
-<div class="page" id="pg-chat">
+<div class="page" id="pg-chat" role="tabpanel" aria-labelledby="tab-chat" tabindex="0">
   <div class="sec">
     <div class="stitle" style="margin-bottom:10px">🤖 NC AI Assistant <span class="badge b-free">100% Free</span></div>
     <div style="margin-bottom:10px" id="chatSuggestions"></div>

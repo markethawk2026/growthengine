@@ -3,6 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "test": "node tests/financial-indicators.test.js && node tests/security-architecture.test.js"
+    "test": "node tests/financial-indicators.test.js && node tests/security-architecture.test.js && node tests/tab-accessibility.test.js"
   }
 }
