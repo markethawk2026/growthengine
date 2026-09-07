@@ -442,25 +442,32 @@ function renderAnalysis(d){
 
 async function runNextDay(ticker){
   ticker = ticker.toUpperCase().trim();
+  if(!ticker) return;
+  var btn = document.getElementById("ndBtn");
+  if(btn){ btn.disabled = true; btn.textContent = "Predicting..."; }
   var body = document.getElementById("ndBody");
   if (body) body.innerHTML = ldng("Calculating next-session technical outlook...");
-  var p = await yfQuote(ticker);
-  if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
+  try {
+    var p = await yfQuote(ticker);
+    if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
 
-  var rsi = calcRSI(p.closes, 14);
-  var macdDetails = calcMACDDetails(p.closes);
-  var ema20 = calcEMA(p.closes, 20);
-  var ema50 = calcEMA(p.closes, 50);
-  var ema200 = calcEMA(p.closes, 200);
-  var scoreDetails = buildTechnicalScore(p.closes, { rsi:rsi, macdDetails:macdDetails, ema20:ema20, ema50:ema50, ema200:ema200 });
-  var score = scoreDetails.score === null ? 50 : scoreDetails.score;
-  var trend = score >= 60 ? "Bullish" : score <= 40 ? "Bearish" : "Neutral";
-  var confidence = Math.min(90, Math.max(50, Math.round(50 + Math.abs(score - 50) * 0.8)));
-  renderND({
-    ticker:ticker, price:p.price, trend:trend, confidence:confidence,
-    technicalScore:score, signals:scoreDetails.signals,
-    dataSource:p.dataSource, dataStatus:p.dataStatus
-  });
+    var rsi = calcRSI(p.closes, 14);
+    var macdDetails = calcMACDDetails(p.closes);
+    var ema20 = calcEMA(p.closes, 20);
+    var ema50 = calcEMA(p.closes, 50);
+    var ema200 = calcEMA(p.closes, 200);
+    var scoreDetails = buildTechnicalScore(p.closes, { rsi:rsi, macdDetails:macdDetails, ema20:ema20, ema50:ema50, ema200:ema200 });
+    var score = scoreDetails.score === null ? 50 : scoreDetails.score;
+    var trend = score >= 60 ? "Bullish" : score <= 40 ? "Bearish" : "Neutral";
+    var confidence = Math.min(90, Math.max(50, Math.round(50 + Math.abs(score - 50) * 0.8)));
+    renderND({
+      ticker:ticker, price:p.price, trend:trend, confidence:confidence,
+      technicalScore:score, signals:scoreDetails.signals,
+      dataSource:p.dataSource, dataStatus:p.dataStatus
+    });
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = "Predict"; }
+  }
 }
 
 function renderND(d) {
@@ -478,30 +485,54 @@ function renderND(d) {
 
 async function runOutlook(ticker){
   ticker = ticker.toUpperCase().trim();
+  if(!ticker) return;
+  var btn = document.getElementById("tmBtn");
+  if(btn){ btn.disabled = true; btn.textContent = "Loading..."; }
   var body = document.getElementById("tmBody");
   if (body) body.innerHTML = ldng("Building scenario-based outlook...");
-  var p = await yfQuote(ticker);
-  if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
+  try {
+    var p = await yfQuote(ticker);
+    if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
 
-  var price = Number(p.raw);
-  var atr = calcATR(p.highs, p.lows, p.closes, 14);
-  var sr = calcSR(p.closes);
-  var riskUnit = atr || (price * 0.03);
-  var scenarios = [
-    { name:"Bull case", target:price + 2*riskUnit, condition:"Momentum remains constructive and resistance is cleared.", color:"#22c55e" },
-    { name:"Base case", target:price, condition:"Price consolidates around the current trend without a decisive breakout.", color:"#f59e0b" },
-    { name:"Bear case", target:Math.max(0, price - 2*riskUnit), condition:"Support fails and downside momentum expands.", color:"#ef4444" }
-  ];
-  var scenarioHTML = scenarios.map(function(s){
-    return `<div class="gc"><div class="gcl">${s.name}</div><div class="gcv" style="color:${s.color}">₹${s.target.toFixed(2)}</div><div style="font-size:11px;color:#94a3b8;margin-top:6px;">${escapeHTML(s.condition)}</div></div>`;
-  }).join("");
-  body.innerHTML = `<div class="sec" style="background:#0b0f19;padding:24px;border-radius:12px;border:1px solid #1e293b;">
-    <h3 style="margin:0 0 12px;">${escapeHTML(ticker)} Scenario Outlook</h3>
-    <div class="g4">${scenarioHTML}</div>
-    <div style="font-size:12px;color:#94a3b8;margin-top:14px;">ATR (14): ${atr !== null ? "₹"+atr.toFixed(2) : "Unavailable"} • Support: ${sr.sup !== null ? "₹"+sr.sup.toFixed(2) : "Unavailable"} • Resistance: ${sr.res !== null ? "₹"+sr.res.toFixed(2) : "Unavailable"}</div>
-    <div style="font-size:11px;color:#64748b;margin-top:10px;">Scenarios are deterministic technical ranges based on current price and volatility, not guaranteed forecasts.</div>
-  </div>`;
+    var price = Number(p.raw);
+    var atr = calcATR(p.highs, p.lows, p.closes, 14);
+    var sr = calcSR(p.closes);
+    var riskUnit = atr || (price * 0.03);
+    var scenarios = [
+      { name:"Bull case", target:price + 2*riskUnit, condition:"Momentum remains constructive and resistance is cleared.", color:"#22c55e" },
+      { name:"Base case", target:price, condition:"Price consolidates around the current trend without a decisive breakout.", color:"#f59e0b" },
+      { name:"Bear case", target:Math.max(0, price - 2*riskUnit), condition:"Support fails and downside momentum expands.", color:"#ef4444" }
+    ];
+    var scenarioHTML = scenarios.map(function(s){
+      return `<div class="gc"><div class="gcl">${s.name}</div><div class="gcv" style="color:${s.color}">₹${s.target.toFixed(2)}</div><div style="font-size:11px;color:#94a3b8;margin-top:6px;">${escapeHTML(s.condition)}</div></div>`;
+    }).join("");
+    body.innerHTML = `<div class="sec" style="background:#0b0f19;padding:24px;border-radius:12px;border:1px solid #1e293b;">
+      <h3 style="margin:0 0 12px;">${escapeHTML(ticker)} Scenario Outlook</h3>
+      <div class="g4">${scenarioHTML}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:14px;">ATR (14): ${atr !== null ? "₹"+atr.toFixed(2) : "Unavailable"} • Support: ${sr.sup !== null ? "₹"+sr.sup.toFixed(2) : "Unavailable"} • Resistance: ${sr.res !== null ? "₹"+sr.res.toFixed(2) : "Unavailable"}</div>
+      <div style="font-size:11px;color:#64748b;margin-top:10px;">Scenarios are deterministic technical ranges based on current price and volatility, not guaranteed forecasts.</div>
+    </div>`;
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = "Go"; }
+  }
 }
+
+function initPredictionForms() {
+  var ndBtn = document.getElementById("ndBtn"), ndIn = document.getElementById("ndIn");
+  if(ndBtn && ndIn) {
+    var execND = function() { var val = ndIn.value.trim(); if(val) runNextDay(val); };
+    ndBtn.addEventListener("click", execND);
+    ndIn.addEventListener("keydown", function(e) { if(e.key === "Enter") execND(); });
+  }
+
+  var tmBtn = document.getElementById("tmBtn"), tmIn = document.getElementById("tmIn");
+  if(tmBtn && tmIn) {
+    var execTM = function() { var val = tmIn.value.trim(); if(val) runOutlook(val); };
+    tmBtn.addEventListener("click", execTM);
+    tmIn.addEventListener("keydown", function(e) { if(e.key === "Enter") execTM(); });
+  }
+}
+document.addEventListener("DOMContentLoaded", initPredictionForms);
 
 async function loadGlobal(force){
   if(!force && window.CACHE.global && fresh(window.CACHE.gTs, window.TTL.s)) { renderGlobal(window.CACHE.global); return; }

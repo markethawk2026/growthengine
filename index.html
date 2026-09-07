@@ -29,7 +29,7 @@
 
   <div class="sw" style="margin-left:10px">
     <span class="si">🔍</span>
-    <input id="si" type="text" placeholder="Search any NSE stock by ticker or company name…"/>
+    <input id="si" type="text" placeholder="Search any NSE stock by ticker or company name…" aria-label="Search NSE stock by ticker or company name"/>
     <div class="dd" id="dd"></div>
   </div>
   <div class="bar-r">
@@ -90,8 +90,8 @@
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
     <div style="display:flex;gap:8px">
-      <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
-      <button id="ndBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Predict</button>
+      <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" aria-label="Enter NSE ticker symbol for next day prediction" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
+      <button id="ndBtn" type="button" aria-label="Predict next day price direction" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Predict</button>
     </div>
   </div>
   <div id="ndBody"></div>
@@ -101,8 +101,8 @@
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📈 Short &amp; Long Term Outlook</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="tmIn" type="text" placeholder="NSE ticker…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
-      <button id="tmBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Go</button>
+      <input id="tmIn" type="text" placeholder="NSE ticker…" aria-label="Enter NSE ticker symbol for outlook" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
+      <button id="tmBtn" type="button" aria-label="Generate stock outlook scenario" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Go</button>
     </div>
     <div class="tfbtns">
       <button class="tfb active" data-tf="both">📋 Both</button>
@@ -117,7 +117,7 @@
   <div class="sec">
     <div class="shr">
       <span class="stitle">🌍 Global Markets <span class="badge b-free">Yahoo Finance · Free</span></span>
-      <button class="sbtn" id="btnGlobal">↻ Refresh</button>
+      <button class="sbtn" id="btnGlobal" type="button" aria-label="Refresh global market indices">↻ Refresh</button>
     </div>
     <div id="gBody"><div class="skel" style="height:80px;margin-bottom:8px"></div><div class="skel" style="height:80px;margin-bottom:8px"></div><div class="skel" style="height:80px"></div></div>
   </div>
@@ -127,7 +127,7 @@
   <div class="sec">
     <div class="shr">
       <span class="stitle">📆 Events Calendar <span class="badge b-free">NSE · Free</span></span>
-      <button class="sbtn" id="btnCal">↻ Refresh</button>
+      <button class="sbtn" id="btnCal" type="button" aria-label="Refresh corporate events calendar">↻ Refresh</button>
     </div>
     <div id="calBody"><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px"></div></div>
   </div>
@@ -141,8 +141,8 @@
       <div class="cm cmai">👋 Hi! I'm NC AI, your financial market co-pilot. Ask me any question about technical setups, market trends, or investment strategies!</div>
     </div>
     <div class="crow">
-      <input id="chatIn" type="text" placeholder="Ask about any stock, sector or market trend…"/>
-      <button class="csend" id="chatSend" aria-label="Send message" title="Send message">↑</button>
+      <input id="chatIn" type="text" placeholder="Ask about any stock, sector or market trend…" aria-label="Ask NC AI assistant a question"/>
+      <button class="csend" id="chatSend" type="button" aria-label="Send message" title="Send message">↑</button>
     </div>
   </div>
 </div>

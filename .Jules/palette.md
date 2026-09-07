@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Interactive Prediction Form Submission and Loading Feedback
+**Learning:** Text inputs paired with action buttons (such as ticker prediction or outlook forms) frustrate users if pressing the 'Enter' key does not trigger form submission or if action buttons remain enabled during async processing (leading to double clicks).
+**Action:** Always bind both 'Enter' keydown events on text inputs and 'click' events on action buttons, and provide immediate disabled/loading feedback on the button while async calculation finishes.
