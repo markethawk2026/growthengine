@@ -42,12 +42,12 @@ function sanitizeURL(url) {
   const sanitized = url.replace(/[\x00-\x1F\x7F]/g, '').trim();
   const lower = sanitized.toLowerCase();
   
-  // Block javascript:, data:, vbscript:, and protocol-relative URLs (//)
+  // Block javascript:, data:, vbscript:, and protocol-relative URLs (//, /\, /\\)
   if (lower.startsWith('javascript:') ||
       lower.startsWith('data:') ||
       lower.startsWith('vbscript:') ||
       lower.startsWith('onerror=') ||
-      lower.startsWith('//')) {
+      /^\/[/\\]/.test(lower)) {
     return '';
   }
   
