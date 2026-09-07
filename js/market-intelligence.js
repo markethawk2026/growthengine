@@ -50,10 +50,15 @@ async function sectorPerformance(){
   }
   return output.sort(function(a,b){return (b.changePct||-999)-(a.changePct||-999);});
 }
+// ⚡ Bolt: Hoisted sentiment analysis regular expressions outside estimateSentiment()
+// to avoid re-instantiating and re-compiling Regex objects on every news article evaluation.
+var POSITIVE_SENTIMENT_REGEX=/\b(gain|gains|rise|rises|surge|growth|beat|beats|profit|strong|record|upgrade|bullish)\b/gi;
+var NEGATIVE_SENTIMENT_REGEX=/\b(fall|falls|drop|drops|loss|weak|miss|misses|downgrade|bearish|risk|slump|decline)\b/gi;
+
 function estimateSentiment(article){
   var text=((article&&article.headline)||"")+" "+((article&&article.summary)||"");
-  var positive=(text.match(/\b(gain|gains|rise|rises|surge|growth|beat|beats|profit|strong|record|upgrade|bullish)\b/gi)||[]).length;
-  var negative=(text.match(/\b(fall|falls|drop|drops|loss|weak|miss|misses|downgrade|bearish|risk|slump|decline)\b/gi)||[]).length;
+  var positive=(text.match(POSITIVE_SENTIMENT_REGEX)||[]).length;
+  var negative=(text.match(NEGATIVE_SENTIMENT_REGEX)||[]).length;
   return positive>negative?"Positive":negative>positive?"Negative":"Neutral";
 }
 async function enhancedNews(query){
