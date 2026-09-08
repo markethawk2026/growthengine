@@ -229,65 +229,93 @@ async function loadIdx() {
 
 window.activeMarketRegion = "india";
 
-window.MARKET_SUMMARY_DATA = {
+window.MARKET_REGION_SYMBOLS = {
   india: [
-    { ticker: "NIFTY 50", sym: "^NSEI", price: 23676.20, changePct: "-0.43%", up: false },
-    { ticker: "SENSEX", sym: "^BSESN", price: 75747.01, changePct: "-0.51%", up: false },
-    { ticker: "NIFTY BANK", sym: "^NSEBANK", price: 49850.15, changePct: "+0.28%", up: true },
-    { ticker: "NIFTY IT", sym: "^CNXIT", price: 38420.80, changePct: "+0.71%", up: true }
+    { ticker: "NIFTY 50", sym: "^NSEI" },
+    { ticker: "SENSEX", sym: "^BSESN" },
+    { ticker: "NIFTY BANK", sym: "^NSEBANK" },
+    { ticker: "NIFTY IT", sym: "^CNXIT" }
   ],
   us: [
-    { ticker: "S&P 500", sym: "^GSPC", price: 5718.60, changePct: "-0.38%", up: false },
-    { ticker: "Dow Jones", sym: "^DJI", price: 43414.25, changePct: "-0.51%", up: false },
-    { ticker: "Nasdaq", sym: "^IXIC", price: 18506.99, changePct: "-0.29%", up: false },
-    { ticker: "Russell 2000", sym: "^RUT", price: 2275.65, changePct: "+0.25%", up: true }
+    { ticker: "S&P 500", sym: "^GSPC" },
+    { ticker: "Dow Jones", sym: "^DJI" },
+    { ticker: "Nasdaq", sym: "^IXIC" },
+    { ticker: "Russell 2000", sym: "^RUT" }
   ],
   global: [
-    { ticker: "FTSE 100", sym: "^FTSE", price: 8222.13, changePct: "-0.08%", up: false },
-    { ticker: "DAX", sym: "^GDAXI", price: 18606.53, changePct: "-0.15%", up: false },
-    { ticker: "Nikkei 225", sym: "^N225", price: 38513.33, changePct: "+0.17%", up: true },
-    { ticker: "Hang Seng", sym: "^HSI", price: 17345.57, changePct: "-0.27%", up: false }
+    { ticker: "FTSE 100", sym: "^FTSE" },
+    { ticker: "DAX", sym: "^GDAXI" },
+    { ticker: "Nikkei 225", sym: "^N225" },
+    { ticker: "Hang Seng", sym: "^HSI" }
   ],
   crypto: [
-    { ticker: "Bitcoin", sym: "BTC-USD", price: 64931.61, changePct: "+1.13%", up: true },
-    { ticker: "Ethereum", sym: "ETH-USD", price: 3496.02, changePct: "+0.66%", up: true },
-    { ticker: "Solana", sym: "SOL-USD", price: 145.66, changePct: "+2.40%", up: true },
-    { ticker: "XRP", sym: "XRP-USD", price: 0.58, changePct: "+0.16%", up: true }
+    { ticker: "Bitcoin", sym: "BTC-USD" },
+    { ticker: "Ethereum", sym: "ETH-USD" },
+    { ticker: "Solana", sym: "SOL-USD" },
+    { ticker: "XRP", sym: "XRP-USD" }
   ]
 };
 
-function forceRenderIndexUI() {
-  if (window.LIVE_NIFTY_PRICE) {
-    window.MARKET_SUMMARY_DATA.india[0].price = window.LIVE_NIFTY_PRICE;
-    window.MARKET_SUMMARY_DATA.india[0].changePct = window.LIVE_NIFTY_CHG;
-    window.MARKET_SUMMARY_DATA.india[0].up = window.LIVE_NIFTY_UP;
-  }
-  if (window.LIVE_SENSEX_PRICE) {
-    window.MARKET_SUMMARY_DATA.india[1].price = window.LIVE_SENSEX_PRICE;
-    window.MARKET_SUMMARY_DATA.india[1].changePct = window.LIVE_SENSEX_CHG;
-    window.MARKET_SUMMARY_DATA.india[1].up = window.LIVE_SENSEX_UP;
-  }
+window.MARKET_SUMMARY_CACHE = {};
 
+async function fetchRegionData(region) {
+  var symbols = window.MARKET_REGION_SYMBOLS[region] || window.MARKET_REGION_SYMBOLS.india;
+  var quotes = await Promise.all(symbols.map(async function(item) {
+    try {
+      var q = await yfQuote(item.sym);
+      if (q && q.raw) {
+        return {
+          ticker: item.ticker,
+          sym: item.sym,
+          price: q.raw,
+          changePct: q.changePct,
+          up: q.up
+        };
+      }
+    } catch (_) {}
+    return null;
+  }));
+
+  var valid = quotes.filter(Boolean);
+  if (valid.length > 0) {
+    window.MARKET_SUMMARY_CACHE[region] = valid;
+  }
+}
+
+async function forceRenderIndexUI() {
   var currentRegion = window.activeMarketRegion || "india";
-  var items = window.MARKET_SUMMARY_DATA[currentRegion] || window.MARKET_SUMMARY_DATA.india;
+  var wrapper = document.getElementById("idxCards");
+  if (!wrapper) return;
 
-  var generatedHTML = items.map(function(item) {
+  var cached = window.MARKET_SUMMARY_CACHE[currentRegion];
+  if (!cached) {
+    wrapper.innerHTML = `<div class="skel" style="height:76px"></div><div class="skel" style="height:76px"></div><div class="skel" style="height:76px"></div><div class="skel" style="height:76px"></div>`;
+    await fetchRegionData(currentRegion);
+    cached = window.MARKET_SUMMARY_CACHE[currentRegion];
+  }
+
+  if (!cached || !cached.length) {
+    wrapper.innerHTML = `<div style="padding:16px; color:#94a3b8; font-size:12px;">Syncing market summary...</div>`;
+    return;
+  }
+
+  var generatedHTML = cached.map(function(item) {
     var color = item.up ? "#22c55e" : "#ef4444";
     var bgBadge = item.up ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)";
     var borderBadge = item.up ? "rgba(34, 197, 94, 0.25)" : "rgba(239, 68, 68, 0.25)";
     var arrow = item.up ? "▲" : "▼";
     var currSymbol = currentRegion === "india" ? "₹" : (currentRegion === "us" || currentRegion === "crypto" ? "$" : "");
+    var formattedPrice = typeof item.price === "number" ? item.price.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2}) : escapeHTML(String(item.price));
     return `<div class="gc index-card-gf" style="padding:14px 16px; text-align:left; border-radius:12px; background:#0f1525; border:1px solid #1c2a45; transition: transform 0.2s ease, border-color 0.2s ease;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
         <div class="gcl" style="font-size:11px; font-weight:700; text-transform:uppercase; color:#94a3b8; letter-spacing:0.5px;">${escapeHTML(item.ticker)}</div>
         <span style="font-size:10px; font-weight:700; color:${color}; background:${bgBadge}; border:1px solid ${borderBadge}; padding:2px 7px; border-radius:12px;">${arrow} ${escapeHTML(item.changePct)}</span>
       </div>
-      <div class="gcv" style="font-family: 'Segoe UI', system-ui, sans-serif; font-size:18px; font-weight:800; color:#eef2ff;">${currSymbol}${item.price.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+      <div class="gcv" style="font-family: 'Segoe UI', system-ui, sans-serif; font-size:18px; font-weight:800; color:#eef2ff;">${currSymbol}${formattedPrice}</div>
     </div>`;
   }).join("");
 
-  var explicitWrapper = document.getElementById("idxCards");
-  if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; }
+  wrapper.innerHTML = generatedHTML;
 }
 
 function initMarketChips() {

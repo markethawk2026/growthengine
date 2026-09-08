@@ -12,15 +12,25 @@ document.addEventListener("DOMContentLoaded", function() {
       min-height: 100vh !important;
       overflow-x: hidden !important;
     }
+    body {
+      display: flex !important;
+      flex-direction: column !important;
+    }
     .bar {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
       width: 100% !important;
       flex-shrink: 0 !important;
       box-sizing: border-box !important;
     }
     .tabs {
+      display: flex !important;
+      flex-direction: row !important;
       width: 100% !important;
       flex-shrink: 0 !important;
       box-sizing: border-box !important;
+      justify-content: flex-start !important;
     }
     .page {
       width: 100% !important;
