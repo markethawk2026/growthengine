@@ -4,6 +4,12 @@
 
 var activeTF = "both", isLight = false, activeTickerNode = "NIFTY50";
 
+function escapeHTML(str) {
+  return String(str == null ? "" : str).replace(/[&<>"']/g, function(c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
 function isUp(v){ return !String(v || "0").trim().startsWith("-"); }
 function fmtVol(v){ if(!v) return "—"; if(v > 10000000) return (v / 10000000).toFixed(1) + "Cr"; if(v > 100000) return (v / 100000).toFixed(1) + "L"; return String(v); }
 function fmtCap(v){ if(!v) return "—"; if(v > 1e12) return "₹" + (v / 1e12).toFixed(1) + "T"; if(v > 1e9) return "₹" + (v / 1e9).toFixed(0) + "B"; return "₹" + (v / 1e7).toFixed(0) + "Cr"; }
@@ -221,20 +227,82 @@ async function loadIdx() {
   forceRenderIndexUI();
 }
 
+window.activeMarketRegion = "india";
+
+window.MARKET_SUMMARY_DATA = {
+  india: [
+    { ticker: "NIFTY 50", sym: "^NSEI", price: 23676.20, changePct: "-0.43%", up: false },
+    { ticker: "SENSEX", sym: "^BSESN", price: 75747.01, changePct: "-0.51%", up: false },
+    { ticker: "NIFTY BANK", sym: "^NSEBANK", price: 49850.15, changePct: "+0.28%", up: true },
+    { ticker: "NIFTY IT", sym: "^CNXIT", price: 38420.80, changePct: "+0.71%", up: true }
+  ],
+  us: [
+    { ticker: "S&P 500", sym: "^GSPC", price: 5718.60, changePct: "-0.38%", up: false },
+    { ticker: "Dow Jones", sym: "^DJI", price: 43414.25, changePct: "-0.51%", up: false },
+    { ticker: "Nasdaq", sym: "^IXIC", price: 18506.99, changePct: "-0.29%", up: false },
+    { ticker: "Russell 2000", sym: "^RUT", price: 2275.65, changePct: "+0.25%", up: true }
+  ],
+  global: [
+    { ticker: "FTSE 100", sym: "^FTSE", price: 8222.13, changePct: "-0.08%", up: false },
+    { ticker: "DAX", sym: "^GDAXI", price: 18606.53, changePct: "-0.15%", up: false },
+    { ticker: "Nikkei 225", sym: "^N225", price: 38513.33, changePct: "+0.17%", up: true },
+    { ticker: "Hang Seng", sym: "^HSI", price: 17345.57, changePct: "-0.27%", up: false }
+  ],
+  crypto: [
+    { ticker: "Bitcoin", sym: "BTC-USD", price: 64931.61, changePct: "+1.13%", up: true },
+    { ticker: "Ethereum", sym: "ETH-USD", price: 3496.02, changePct: "+0.66%", up: true },
+    { ticker: "Solana", sym: "SOL-USD", price: 145.66, changePct: "+2.40%", up: true },
+    { ticker: "XRP", sym: "XRP-USD", price: 0.58, changePct: "+0.16%", up: true }
+  ]
+};
+
 function forceRenderIndexUI() {
-  if (!window.LIVE_NIFTY_PRICE) window.LIVE_NIFTY_PRICE = 22450.70;
-  if (!window.LIVE_SENSEX_PRICE) window.LIVE_SENSEX_PRICE = 73880.25;
-  if (!window.LIVE_NIFTY_CHG) window.LIVE_NIFTY_CHG = "+0.42%";
-  if (!window.LIVE_SENSEX_CHG) window.LIVE_SENSEX_CHG = "+0.38%";
-  if (window.LIVE_NIFTY_UP === undefined) window.LIVE_NIFTY_UP = true;
-  if (window.LIVE_SENSEX_UP === undefined) window.LIVE_SENSEX_UP = true;
-  var nColor = window.LIVE_NIFTY_UP ? "#22c55e" : "#ef4444";
-  var sColor = window.LIVE_SENSEX_UP ? "#22c55e" : "#ef4444";
-  var nArrow = window.LIVE_NIFTY_UP ? "▲" : "▼";
-  var sArrow = window.LIVE_SENSEX_UP ? "▲" : "▼";
-  var generatedHTML = `<div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">NIFTY 50</div><div class="gcv" style="color:${nColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_NIFTY_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${nColor}; font-size:11px; font-weight:600; margin-top:2px;">${nArrow} ${window.LIVE_NIFTY_CHG}</div></div><div class="gc" style="flex:1; padding:12px; text-align:left;"><div class="gcl" style="font-size:10px; font-weight:700; text-transform:uppercase;">SENSEX</div><div class="gcv" style="color:${sColor}; font-family:monospace; font-size:16px; font-weight:800; margin-top:2px;">${window.LIVE_SENSEX_PRICE.toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="gcs" style="color:${sColor}; font-size:11px; font-weight:600; margin-top:2px;">${sArrow} ${window.LIVE_SENSEX_CHG}</div></div>`;
+  if (window.LIVE_NIFTY_PRICE) {
+    window.MARKET_SUMMARY_DATA.india[0].price = window.LIVE_NIFTY_PRICE;
+    window.MARKET_SUMMARY_DATA.india[0].changePct = window.LIVE_NIFTY_CHG;
+    window.MARKET_SUMMARY_DATA.india[0].up = window.LIVE_NIFTY_UP;
+  }
+  if (window.LIVE_SENSEX_PRICE) {
+    window.MARKET_SUMMARY_DATA.india[1].price = window.LIVE_SENSEX_PRICE;
+    window.MARKET_SUMMARY_DATA.india[1].changePct = window.LIVE_SENSEX_CHG;
+    window.MARKET_SUMMARY_DATA.india[1].up = window.LIVE_SENSEX_UP;
+  }
+
+  var currentRegion = window.activeMarketRegion || "india";
+  var items = window.MARKET_SUMMARY_DATA[currentRegion] || window.MARKET_SUMMARY_DATA.india;
+
+  var generatedHTML = items.map(function(item) {
+    var color = item.up ? "#22c55e" : "#ef4444";
+    var bgBadge = item.up ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)";
+    var borderBadge = item.up ? "rgba(34, 197, 94, 0.25)" : "rgba(239, 68, 68, 0.25)";
+    var arrow = item.up ? "▲" : "▼";
+    var currSymbol = currentRegion === "india" ? "₹" : (currentRegion === "us" || currentRegion === "crypto" ? "$" : "");
+    return `<div class="gc index-card-gf" style="padding:14px 16px; text-align:left; border-radius:12px; background:#0f1525; border:1px solid #1c2a45; transition: transform 0.2s ease, border-color 0.2s ease;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div class="gcl" style="font-size:11px; font-weight:700; text-transform:uppercase; color:#94a3b8; letter-spacing:0.5px;">${escapeHTML(item.ticker)}</div>
+        <span style="font-size:10px; font-weight:700; color:${color}; background:${bgBadge}; border:1px solid ${borderBadge}; padding:2px 7px; border-radius:12px;">${arrow} ${escapeHTML(item.changePct)}</span>
+      </div>
+      <div class="gcv" style="font-family: 'Segoe UI', system-ui, sans-serif; font-size:18px; font-weight:800; color:#eef2ff;">${currSymbol}${item.price.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+    </div>`;
+  }).join("");
+
   var explicitWrapper = document.getElementById("idxCards");
-  if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; return; }
+  if (explicitWrapper) { explicitWrapper.innerHTML = generatedHTML; }
+}
+
+function initMarketChips() {
+  var chipContainer = document.getElementById("marketChips");
+  if (!chipContainer) return;
+  chipContainer.addEventListener("click", function(e) {
+    var chip = e.target.closest(".mchip");
+    if (!chip) return;
+    var region = chip.getAttribute("data-region");
+    if (!region) return;
+    chipContainer.querySelectorAll(".mchip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    window.activeMarketRegion = region;
+    forceRenderIndexUI();
+  });
 }
 
 async function loadSectorIndices() {
@@ -571,6 +639,7 @@ async function sendChat(){
 }
 
 async function bootDashboard() {
+  initMarketChips();
   forceRenderIndexUI();
   Promise.allSettled([loadIdx(), loadSectorIndices(), loadNews()]);
 }
