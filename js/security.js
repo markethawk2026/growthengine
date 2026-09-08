@@ -40,7 +40,9 @@ function sanitizeURL(url) {
   
   // Remove control characters (ASCII 0-31 and 127) and whitespace
   const sanitized = url.replace(/[\x00-\x1F\x7F]/g, '').trim();
-  const lower = sanitized.toLowerCase();
+  // Normalize backslashes (\) to forward slashes (/) to prevent protocol-relative bypasses like /\evil.com or /\\evil.com
+  const normalized = sanitized.replace(/\\/g, '/');
+  const lower = normalized.toLowerCase();
   
   // Block javascript:, data:, vbscript:, and protocol-relative URLs (//)
   if (lower.startsWith('javascript:') ||
