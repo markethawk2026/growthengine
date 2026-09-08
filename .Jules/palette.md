@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - ARIA Pressed State and Keyboard Support for Dynamic Cards & Chips
+**Learning:** Custom interactive elements (like region selection chip buttons or dynamically rendered news cards) are hidden from screen readers and keyboard users when rendered as generic `div`s without `role="button"`, `tabindex="0"`, `aria-pressed`, or `onkeydown` handlers.
+**Action:** Always assign `role="button"`, `tabindex="0"`, descriptive `aria-label`, and Space/Enter key handlers to custom cards, and maintain `aria-pressed="true|false"` state dynamically on chip selection buttons.

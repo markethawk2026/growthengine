@@ -156,7 +156,7 @@ async function loadNews(targetTicker) {
     window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
     var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
-      layoutHtml += `<div id="card_${article.id}" class="gc news-card" onclick="window.viewArticleDetail('${article.id}')" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
+      layoutHtml += `<div id="card_${article.id}" class="gc news-card" role="button" tabindex="0" aria-label="${escapeHTML(article.headline)}" onclick="window.viewArticleDetail('${article.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.viewArticleDetail('${article.id}');}" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
     });
     layoutHtml += `</div><div id="newsDetailPanel" class="gc" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center;"></div></div>`;
     container.innerHTML = layoutHtml;
@@ -326,8 +326,11 @@ function initMarketChips() {
     if (!chip) return;
     var region = chip.getAttribute("data-region");
     if (!region) return;
-    chipContainer.querySelectorAll(".mchip").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active");
+    chipContainer.querySelectorAll(".mchip").forEach(function(c) {
+      var isActive = (c === chip);
+      c.classList.toggle("active", isActive);
+      c.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
     window.activeMarketRegion = region;
     forceRenderIndexUI();
   });
