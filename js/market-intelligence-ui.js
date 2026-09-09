@@ -13,6 +13,12 @@ function ensure(){
   // Prefer mounting inside the Home page so Market Intelligence appears only on Home; fall back to main/body
   var target=document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
   if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(sec,anchor.nextSibling); else target.appendChild(sec);
+  sec.addEventListener("click", function(e) {
+    var item = e.target.closest("[data-mi-ticker]");
+    if (item && typeof window.runAnalysis === "function") {
+      window.runAnalysis(item.getAttribute("data-mi-ticker"));
+    }
+  });
   document.getElementById("ncMiRefresh").onclick=render; render();
 }
 async function render(){
@@ -36,7 +42,7 @@ async function render(){
     window.MOVER_DATA_CACHE = l;
   }catch(e){body.innerHTML='<div class="errbox">⚠️ Market intelligence unavailable: '+esc(e.message||"Unknown error")+'</div>';} 
 }
-function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div onclick="runAnalysis(\''+esc(r.ticker)+'\')" style="cursor:pointer"><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">No rows available.</div>')+'</div>';}
+function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div data-mi-ticker="'+esc(r.ticker)+'" style="cursor:pointer"><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">No rows available.</div>')+'</div>';}
 
 window.switchMoverTab = function(type) {
   var tabs = document.querySelectorAll(".mover-tab");
