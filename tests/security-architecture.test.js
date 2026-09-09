@@ -24,6 +24,17 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   failures++;
 }
 
+// Verify safe event delegation in market-intelligence-ui.js
+const miText = fs.readFileSync(path.join(jsdir, "market-intelligence-ui.js"), "utf8");
+if (miText.includes('onclick="runAnalysis(')) {
+  console.error("FAIL inline onclick string interpolation in market-intelligence-ui.js");
+  failures++;
+}
+if (!miText.includes('data-mi-ticker=')) {
+  console.error("FAIL missing data-mi-ticker attribute delegation in market-intelligence-ui.js");
+  failures++;
+}
+
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");
 const secCode = fs.readFileSync(path.join(jsdir, "security.js"), "utf8");
