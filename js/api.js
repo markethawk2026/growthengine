@@ -288,15 +288,21 @@ function calcEMA(closes, p) {
   return Number(ema.toFixed(2));
 }
 
+// Performance optimization: Pre-allocate output array and compute initial SMA via direct loop
+// to eliminate intermediate array allocations (`slice`, `reduce`, `push`) during technical indicators calculation.
 function calcEMASeries(values, p) {
-  if (!Array.isArray(values) || values.length < p) return [];
-  var result = new Array(p - 1).fill(null);
-  var ema = values.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
-  result.push(ema);
+  var len = Array.isArray(values) ? values.length : 0;
+  if (len < p) return [];
+  var result = new Array(len);
+  for (var idx = 0; idx < p - 1; idx++) result[idx] = null;
+  var sum = 0;
+  for (var idx = 0; idx < p; idx++) sum += values[idx];
+  var ema = sum / p;
+  result[p - 1] = ema;
   var k = 2 / (p + 1);
-  for (var i = p; i < values.length; i++) {
+  for (var i = p; i < len; i++) {
     ema = values[i] * k + ema * (1 - k);
-    result.push(ema);
+    result[i] = ema;
   }
   return result;
 }
