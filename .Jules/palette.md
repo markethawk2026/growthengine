@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Form Input Keyboard Navigation and ARIA Accessibility
+**Learning:** Text input fields inside standalone tool forms (like ticker query inputs) frustrate users if pressing the Enter key does not trigger form submission or if screen readers lack descriptive input labels.
+**Action:** Always provide explicit `aria-label` attributes on form inputs and attach `keydown` listeners (`e.key === "Enter"`) to allow keyboard submission alongside click events.

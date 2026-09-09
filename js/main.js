@@ -703,5 +703,42 @@ function initThemeSwitcher() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", initThemeSwitcher);
+function initFormInteractions() {
+  var ndBtn = document.getElementById("ndBtn");
+  var ndIn = document.getElementById("ndIn");
+  if (ndBtn && ndIn) {
+    var triggerND = function() {
+      var val = ndIn.value.trim();
+      if (val) {
+        window.activeTickerNode = val;
+        runNextDay(val);
+      }
+    };
+    ndBtn.addEventListener("click", triggerND);
+    ndIn.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") triggerND();
+    });
+  }
+
+  var tmBtn = document.getElementById("tmBtn");
+  var tmIn = document.getElementById("tmIn");
+  if (tmBtn && tmIn) {
+    var triggerTM = function() {
+      var val = tmIn.value.trim();
+      if (val) {
+        window.activeTickerNode = val;
+        runOutlook(val);
+      }
+    };
+    tmBtn.addEventListener("click", triggerTM);
+    tmIn.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") triggerTM();
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  initThemeSwitcher();
+  initFormInteractions();
+});
 bootDashboard();
