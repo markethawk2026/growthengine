@@ -41,6 +41,8 @@ if (typeof sandbox.sanitizeURL !== "function") {
   if (sanitizeURL("javascript:alert(1)") !== "") { console.error("FAIL javascript: protocol allowed"); failures++; }
   if (sanitizeURL("java\x01script:alert(1)") !== "") { console.error("FAIL obfuscated javascript: protocol allowed"); failures++; }
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
+  if (sanitizeURL("/\\evil.com/xss") !== "") { console.error("FAIL scheme-relative URL with backslash allowed"); failures++; }
+  if (sanitizeURL("/\\\\evil.com/xss") !== "") { console.error("FAIL scheme-relative URL with double backslash allowed"); failures++; }
 }
 
 if(failures)process.exit(1);
