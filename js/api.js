@@ -280,33 +280,43 @@ function calcRSI(closes, p) {
   return Number((100 - (100 / (1 + avgGain / avgLoss))).toFixed(1));
 }
 
+// Optimized single-pass EMA computation eliminating array slicing and reduce callbacks
 function calcEMA(closes, p) {
   if (!Array.isArray(closes) || closes.length < p) return null;
   var k = 2 / (p + 1);
-  var ema = closes.slice(0, p).reduce(function(a, b){ return a + b; }, 0) / p;
-  for (var i = p; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
+  var sum = 0;
+  for (var i = 0; i < p; i++) sum += closes[i];
+  var ema = sum / p;
+  for (var j = p; j < closes.length; j++) ema = closes[j] * k + ema * (1 - k);
   return Number(ema.toFixed(2));
 }
 
+// Pre-allocated array output for EMA series to avoid dynamic reallocation
 function calcEMASeries(values, p) {
   if (!Array.isArray(values) || values.length < p) return [];
-  var result = new Array(p - 1).fill(null);
-  var ema = values.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
-  result.push(ema);
+  var len = values.length;
+  var result = new Array(len);
+  for (var i = 0; i < p - 1; i++) result[i] = null;
+  var sum = 0;
+  for (var j = 0; j < p; j++) sum += values[j];
+  var ema = sum / p;
+  result[p - 1] = ema;
   var k = 2 / (p + 1);
-  for (var i = p; i < values.length; i++) {
-    ema = values[i] * k + ema * (1 - k);
-    result.push(ema);
+  for (var m = p; m < len; m++) {
+    ema = values[m] * k + ema * (1 - k);
+    result[m] = ema;
   }
   return result;
 }
 
+// Optimized MACD calculation using fixed-size arrays and direct indexed calculation
 function calcMACDDetails(closes) {
   if (!Array.isArray(closes) || closes.length < 35) return null;
   var e12 = calcEMASeries(closes, 12);
   var e26 = calcEMASeries(closes, 26);
-  var macdSeries = [];
-  for (var i = 25; i < closes.length; i++) macdSeries.push(e12[i] - e26[i]);
+  var len = closes.length;
+  var macdSeries = new Array(len - 25);
+  for (var i = 25; i < len; i++) macdSeries[i - 25] = e12[i] - e26[i];
   if (macdSeries.length < 9) return null;
   var signalSeries = calcEMASeries(macdSeries, 9);
   var macd = macdSeries[macdSeries.length - 1];
@@ -336,26 +346,37 @@ function calcVWAP(closes, volumes) {
   return totalVolume > 0 ? Number((pv / totalVolume).toFixed(2)) : null;
 }
 
+// Optimized ATR computation with direct running accumulator and zero intermediate array allocations
 function calcATR(highs, lows, closes, p) {
   p = p || 14;
   if (!Array.isArray(highs) || !Array.isArray(lows) || !Array.isArray(closes) || closes.length < p + 1) return null;
-  var trueRanges = [];
-  for (var i = 1; i < closes.length; i++) {
-    trueRanges.push(Math.max(
+  var len = closes.length;
+  if (len - 1 < p) return null;
+  var trSum = 0;
+  for (var i = 1; i <= p; i++) {
+    var tr = Math.max(
       highs[i] - lows[i],
       Math.abs(highs[i] - closes[i - 1]),
       Math.abs(lows[i] - closes[i - 1])
-    ));
+    );
+    trSum += tr;
   }
-  if (trueRanges.length < p) return null;
-  var atr = trueRanges.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
-  for (var j = p; j < trueRanges.length; j++) atr = ((atr * (p - 1)) + trueRanges[j]) / p;
+  var atr = trSum / p;
+  for (var j = p + 1; j < len; j++) {
+    var trNext = Math.max(
+      highs[j] - lows[j],
+      Math.abs(highs[j] - closes[j - 1]),
+      Math.abs(lows[j] - closes[j - 1])
+    );
+    atr = ((atr * (p - 1)) + trNext) / p;
+  }
   return Number(atr.toFixed(2));
 }
 
+// Optimized Support & Resistance using shallow slice instead of empty concat
 function calcSR(closes) {
   if (!Array.isArray(closes) || closes.length < 5) return { sup: null, res: null };
-  var sorted = [].concat(closes).sort(function(a, b){ return a - b; });
+  var sorted = closes.slice().sort(function(a, b){ return a - b; });
   return {
     sup: Number(sorted[Math.floor(sorted.length * .1)].toFixed(2)),
     res: Number(sorted[Math.floor(sorted.length * .9)].toFixed(2))
