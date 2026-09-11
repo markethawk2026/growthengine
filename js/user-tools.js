@@ -108,8 +108,27 @@ function backupWorkspace() {
 function restoreWorkspace(jsonString) {
   try {
     var parsed = JSON.parse(jsonString);
-    if (!parsed || typeof parsed !== "object") throw new Error("Invalid workspace JSON backup.");
-    state = Object.assign({}, defaults, parsed, { preferences: Object.assign({}, defaults.preferences, parsed.preferences || {}) });
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Invalid workspace JSON backup.");
+    }
+    var watchlist = Array.isArray(parsed.watchlist) ? Array.from(new Set(parsed.watchlist.map(cleanTicker).filter(Boolean))) : [];
+    var recent = Array.isArray(parsed.recent) ? Array.from(new Set(parsed.recent.map(cleanTicker).filter(Boolean))).slice(0, 12) : [];
+    var portfolio = Array.isArray(parsed.portfolio) ? parsed.portfolio.map(function(h) {
+      if (!h || typeof h !== "object") return null;
+      var t = cleanTicker(h.ticker), q = Number(h.quantity), p = Number(h.averagePrice);
+      if (!t || !Number.isFinite(q) || q <= 0 || !Number.isFinite(p) || p < 0) return null;
+      return { id: String(h.id || Date.now().toString(36) + "_" + t), ticker: t, quantity: q, averagePrice: p, purchaseDate: h.purchaseDate ? String(h.purchaseDate) : null };
+    }).filter(Boolean) : [];
+    var alerts = Array.isArray(parsed.alerts) ? parsed.alerts.map(function(a) {
+      if (!a || typeof a !== "object") return null;
+      var t = cleanTicker(a.ticker), thr = Number(a.threshold);
+      if (!t || !Number.isFinite(thr)) return null;
+      var type = a.type === "priceBelow" ? "priceBelow" : "priceAbove";
+      return { id: String(a.id || Date.now().toString(36) + "_" + t), ticker: t, type: type, threshold: thr, createdAt: Number(a.createdAt) || Date.now(), triggered: !!a.triggered };
+    }).filter(Boolean) : [];
+    var prefs = (parsed.preferences && typeof parsed.preferences === "object") ? parsed.preferences : {};
+
+    state = { watchlist: watchlist, recent: recent, portfolio: portfolio, alerts: alerts, preferences: Object.assign({}, defaults.preferences, prefs) };
     save();
     return true;
   } catch (err) {

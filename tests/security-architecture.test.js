@@ -43,5 +43,68 @@ if (typeof sandbox.sanitizeURL !== "function") {
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
 }
 
+// Verify restoreWorkspace validation in js/user-tools.js
+const userToolsCode = fs.readFileSync(path.join(jsdir, "user-tools.js"), "utf8");
+let storageMock = {};
+const userToolsSandbox = {
+  window: { dispatchEvent: () => {} },
+  CustomEvent: class {},
+  localStorage: {
+    getItem: (k) => storageMock[k] || null,
+    setItem: (k, v) => { storageMock[k] = String(v); }
+  }
+};
+vm.createContext(userToolsSandbox);
+vm.runInContext(userToolsCode, userToolsSandbox);
+
+const NCUserTools = userToolsSandbox.window.NCUserTools;
+if (!NCUserTools || typeof NCUserTools.restoreWorkspace !== "function") {
+  console.error("FAIL restoreWorkspace is not defined in js/user-tools.js");
+  failures++;
+} else {
+  // Test invalid backup string
+  try {
+    NCUserTools.restoreWorkspace("invalid json");
+    console.error("FAIL restoreWorkspace did not throw on invalid JSON");
+    failures++;
+  } catch (_) {}
+
+  // Test array top-level backup
+  try {
+    NCUserTools.restoreWorkspace("[1, 2, 3]");
+    console.error("FAIL restoreWorkspace did not throw on array JSON backup");
+    failures++;
+  } catch (_) {}
+
+  // Test malformed items sanitization
+  const malformedInput = JSON.stringify({
+    watchlist: ["RELIANCE.NS", "<script>alert(1)</script>", 123],
+    portfolio: [
+      { ticker: "TCS.NS", quantity: "10", averagePrice: "3000" },
+      { ticker: "INVALID!", quantity: -5, averagePrice: 100 },
+      "not-an-object"
+    ],
+    alerts: [
+      { ticker: "INFY.NS", type: "priceAbove", threshold: 1500 },
+      { ticker: "", type: "invalid", threshold: "abc" }
+    ]
+  });
+
+  NCUserTools.restoreWorkspace(malformedInput);
+  const state = NCUserTools.getState();
+  if (!state.watchlist.includes("RELIANCE.NS") || state.watchlist.some(t => t.includes("<script>"))) {
+    console.error("FAIL restoreWorkspace watchlist sanitization failed");
+    failures++;
+  }
+  if (state.portfolio.length !== 1 || state.portfolio[0].ticker !== "TCS.NS" || state.portfolio[0].quantity !== 10) {
+    console.error("FAIL restoreWorkspace portfolio sanitization failed");
+    failures++;
+  }
+  if (state.alerts.length !== 1 || state.alerts[0].ticker !== "INFY.NS" || state.alerts[0].threshold !== 1500) {
+    console.error("FAIL restoreWorkspace alerts sanitization failed");
+    failures++;
+  }
+}
+
 if(failures)process.exit(1);
 console.log("PASS security architecture checks");
