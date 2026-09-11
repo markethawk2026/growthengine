@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-19 - Accessible Search Combobox Keyboard Navigation
+**Learning:** Autocomplete dropdowns for search inputs are unusable for keyboard-only and screen reader users without proper ARIA combobox attributes (`role="combobox"`, `aria-expanded`, `aria-activedescendant`, `role="listbox"`, `role="option"`) and keyboard event handling (ArrowUp/Down, Enter, Escape).
+**Action:** Equip search input suggestions with combobox ARIA roles, maintain `aria-expanded` and `aria-activedescendant` state dynamically, and handle arrow keys for item highlighting, Enter for selection, and Escape for dismissal.
