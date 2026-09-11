@@ -293,8 +293,11 @@ body.light .ncuw-table th {
 .ddr:last-child {
   border-bottom: none;
 }
-.ddr:hover {
+.ddr:hover, .ddr.active {
   background: #111d30;
+}
+body.light .ddr:hover, body.light .ddr.active {
+  background: #e0f2fe;
 }
 .ddr-t {
   font-size: 12px;

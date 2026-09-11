@@ -29,8 +29,8 @@
 
   <div class="sw" style="margin-left:10px">
     <span class="si">🔍</span>
-    <input id="si" type="text" placeholder="Search any NSE stock by ticker or company name…"/>
-    <div class="dd" id="dd"></div>
+    <input id="si" type="text" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="dd" aria-label="Search NSE stock by ticker or company name" placeholder="Search any NSE stock by ticker or company name…"/>
+    <div class="dd" id="dd" role="listbox" aria-label="Stock search results"></div>
   </div>
   <div class="bar-r">
     <div class="ldot"></div><span class="ltxt" id="liveIndicator">LIVE</span>

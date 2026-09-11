@@ -58,18 +58,70 @@ function switchTab(name){
 document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
 
 var siEl = document.getElementById("si"), ddEl = document.getElementById("dd");
-var ddTmr = null;
+var ddTmr = null, activeDdrIndex = -1;
+
+function updateDdrHighlight(items) {
+  items.forEach((item, idx) => {
+    var isActive = idx === activeDdrIndex;
+    item.classList.toggle("active", isActive);
+    item.setAttribute("aria-selected", isActive ? "true" : "false");
+    if (isActive) {
+      item.scrollIntoView({ block: "nearest" });
+      siEl.setAttribute("aria-activedescendant", item.id || "");
+    }
+  });
+  if (activeDdrIndex < 0) {
+    siEl.removeAttribute("aria-activedescendant");
+  }
+}
+
+function setDdOpen(isOpen) {
+  if (!ddEl) return;
+  ddEl.classList.toggle("open", isOpen);
+  if (siEl) siEl.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  if (!isOpen) {
+    activeDdrIndex = -1;
+    if (siEl) siEl.removeAttribute("aria-activedescendant");
+  }
+}
+
 if (siEl) {
   siEl.addEventListener("input", function(){
-    clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ ddEl.classList.remove("open"); return; }
+    clearTimeout(ddTmr); var q = siEl.value.trim(); if(q.length < 1){ setDdOpen(false); return; }
     // Render instant local/saved suggestions immediately on keypress
     renderInstantSuggestions(q);
     ddTmr = setTimeout(function(){ doSearch(q); }, 80);
+  });
+
+  siEl.addEventListener("keydown", function(e) {
+    if (!ddEl || !ddEl.classList.contains("open")) return;
+    var items = ddEl.querySelectorAll(".ddr");
+    if (!items.length) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeDdrIndex = (activeDdrIndex + 1) % items.length;
+      updateDdrHighlight(items);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeDdrIndex = (activeDdrIndex - 1 + items.length) % items.length;
+      updateDdrHighlight(items);
+    } else if (e.key === "Enter" && activeDdrIndex >= 0 && items[activeDdrIndex]) {
+      e.preventDefault();
+      var selected = items[activeDdrIndex];
+      var ticker = selected.getAttribute("data-t");
+      setDdOpen(false);
+      siEl.value = ticker;
+      runAnalysis(ticker);
+    } else if (e.key === "Escape") {
+      setDdOpen(false);
+    }
   });
 }
 
 function renderInstantSuggestions(q) {
   if (!ddEl) return;
+  activeDdrIndex = -1;
   var queryClean = String(q || "").trim().toUpperCase();
   var userState = window.NCUserTools ? window.NCUserTools.getState() : null;
   var workspaceItems = userState ? [].concat(userState.recent || [], userState.watchlist || []) : [];
@@ -78,20 +130,20 @@ function renderInstantSuggestions(q) {
   }).slice(0, 4);
 
   if (matched.length > 0) {
-    ddEl.innerHTML = matched.map(function(sym) {
-      return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(sym) + ' (Saved)</span></div>';
+    ddEl.innerHTML = matched.map(function(sym, idx) {
+      return '<div class="ddr" id="ddr-opt-' + idx + '" role="option" aria-selected="false" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(sym) + ' (Saved)</span></div>';
     }).join("") + '<div style="padding:6px 14px;font-size:11px;color:#64748b;border-top:1px solid rgba(255,255,255,0.06)">Searching exchange...</div>';
-    ddEl.classList.add("open");
+    setDdOpen(true);
   } else {
     ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#475569">🔍 Searching live exchange...</div>';
-    ddEl.classList.add("open");
+    setDdOpen(true);
   }
 }
 
 async function doSearch(q) {
   if (!ddEl) return;
   var queryClean = String(q || "").trim();
-  if (!queryClean) { ddEl.classList.remove("open"); return; }
+  if (!queryClean) { setDdOpen(false); return; }
 
   var res = await yfSearch(queryClean);
 
@@ -111,21 +163,22 @@ async function doSearch(q) {
 
   if (!res || !res.length) {
     ddEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#64748b">No matching exchange stocks found for "' + escapeHTML(queryClean) + '"</div>';
-    ddEl.classList.add("open");
+    setDdOpen(true);
     return;
   }
 
-  ddEl.innerHTML = res.map(function(r){
+  activeDdrIndex = -1;
+  ddEl.innerHTML = res.map(function(r, idx){
     var sym = r.symbol.replace(".NS", "").replace(".BO", "").toUpperCase();
     var displayName = r.longname || r.shortname || r.dispName || sym;
-    return '<div class="ddr" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(displayName) + '</span></div>';
+    return '<div class="ddr" id="ddr-opt-' + idx + '" role="option" aria-selected="false" data-t="' + escapeHTML(sym) + '"><span class="ddr-t">' + escapeHTML(sym) + '</span><span class="ddr-n">' + escapeHTML(displayName) + '</span></div>';
   }).join("");
-  ddEl.classList.add("open");
+  setDdOpen(true);
 }
 if (ddEl) {
-  ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
+  ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ setDdOpen(false); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
 }
-document.addEventListener("click", function(e){ if(ddEl && !e.target.closest(".sw")) ddEl.classList.remove("open"); });
+document.addEventListener("click", function(e){ if(ddEl && !e.target.closest(".sw")) setDdOpen(false); });
 
 window.ACTIVE_NEWS_POOL = [];
 
