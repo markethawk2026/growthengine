@@ -32,8 +32,14 @@ async function breadth(symbols){
   var unchanged=rows.length-advances-declines;
   return {universe:universe,rows:rows,advances:advances,declines:declines,unchanged:unchanged,ratio:declines?Number((advances/declines).toFixed(2)):null};
 }
-async function leaders(symbols){
-  var b=await breadth(symbols), valid=b.rows.filter(function(r){return r.changePct!==null;});
+// Pre-compiled sentiment regexes to avoid re-instantiation per article
+var POSITIVE_SENTIMENT_REGEX = /\b(gain|gains|rise|rises|surge|growth|beat|beats|profit|strong|record|upgrade|bullish)\b/gi;
+var NEGATIVE_SENTIMENT_REGEX = /\b(fall|falls|drop|drops|loss|weak|miss|misses|downgrade|bearish|risk|slump|decline)\b/gi;
+
+async function leaders(symbolsOrBreadth){
+  // Optimization: Reuse pre-computed breadth object if passed, avoiding duplicate quoteRows fetching
+  var b=(symbolsOrBreadth && Array.isArray(symbolsOrBreadth.rows)) ? symbolsOrBreadth : await breadth(symbolsOrBreadth);
+  var valid=b.rows.filter(function(r){return r.changePct!==null;});
   return {
     universe:b.universe,
     gainers:valid.slice().sort(function(a,b){return b.changePct-a.changePct;}).slice(0,5),
@@ -52,8 +58,10 @@ async function sectorPerformance(){
 }
 function estimateSentiment(article){
   var text=((article&&article.headline)||"")+" "+((article&&article.summary)||"");
-  var positive=(text.match(/\b(gain|gains|rise|rises|surge|growth|beat|beats|profit|strong|record|upgrade|bullish)\b/gi)||[]).length;
-  var negative=(text.match(/\b(fall|falls|drop|drops|loss|weak|miss|misses|downgrade|bearish|risk|slump|decline)\b/gi)||[]).length;
+  var posMatches=text.match(POSITIVE_SENTIMENT_REGEX);
+  var negMatches=text.match(NEGATIVE_SENTIMENT_REGEX);
+  var positive=posMatches?posMatches.length:0;
+  var negative=negMatches?negMatches.length:0;
   return positive>negative?"Positive":negative>positive?"Negative":"Neutral";
 }
 async function enhancedNews(query){
@@ -64,5 +72,5 @@ async function enhancedNews(query){
     if(!key||seen.has(key))return false; seen.add(key); return true;
   }).map(function(a){return Object.assign({},a,{estimatedSentiment:estimateSentiment(a)});});
 }
-window.NCMarketIntelligence={getUniverse:dynamicUniverse,getUniverse:dynamicUniverse,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
+window.NCMarketIntelligence={getUniverse:dynamicUniverse,breadth:breadth,leaders:leaders,sectorPerformance:sectorPerformance,enhancedNews:enhancedNews,estimateSentiment:estimateSentiment};
 })();
