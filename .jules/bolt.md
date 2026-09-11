@@ -1,0 +1,3 @@
+## 2026-09-11 - Deduplicate Composite API Operations in Market Intelligence Engine
+**Learning:** `NCMarketIntelligence.leaders()` called `breadth()` internally to compute Market Movers, but `render()` in `market-intelligence-ui.js` invoked `breadth()` and `leaders()` simultaneously in `Promise.all()`. This duplicated `quoteRows` fetching over the workspace universe (up to 50 symbols). Allowing composite operations to accept pre-computed domain objects directly avoids redundant quote resolution calls across concurrent UI render flows.
+**Action:** Always check if dependent calculations or UI widgets can accept pre-computed parent payloads before spawning parallel tasks that duplicate underlying fetch operations.

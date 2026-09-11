@@ -5,6 +5,8 @@ const assert=require("assert");
 
 const apiPath=path.join(__dirname,"..","js","api.js");
 const source=fs.readFileSync(apiPath,"utf8");
+const miPath=path.join(__dirname,"..","js","market-intelligence.js");
+const miSource=fs.readFileSync(miPath,"utf8");
 const sandbox={
   window:{TTL:{s:1000,m:60000}},
   console:console,
@@ -16,6 +18,7 @@ const sandbox={
 sandbox.window.window=sandbox.window;
 vm.createContext(sandbox);
 vm.runInContext(source,sandbox);
+vm.runInContext(miSource,sandbox);
 
 const tests=[];
 function test(name,fn){tests.push({name,fn});}
@@ -58,6 +61,28 @@ test("Technical score stays within 0..100",()=>{
     ema200:sandbox.calcEMA(s,200)
   }).score;
   assert.ok(score>=0&&score<=100);
+});
+
+test("NCMarketIntelligence.leaders reuses pre-computed breadth object without re-fetching",async()=>{
+  const fakeBreadth = {
+    universe: ["RELIANCE", "TCS"],
+    rows: [
+      { ticker: "RELIANCE", name: "Reliance", price: 2500, changePct: 2.5, volume: 10000 },
+      { ticker: "TCS", name: "TCS", price: 3500, changePct: -1.2, volume: 5000 }
+    ]
+  };
+  const result = await sandbox.window.NCMarketIntelligence.leaders(fakeBreadth);
+  assert.strictEqual(result.gainers.length, 2);
+  assert.strictEqual(result.gainers[0].ticker, "RELIANCE");
+  assert.strictEqual(result.losers.length, 2);
+  assert.strictEqual(result.losers[0].ticker, "TCS");
+});
+
+test("estimateSentiment evaluates positive and negative headlines correctly",()=>{
+  const est = sandbox.window.NCMarketIntelligence.estimateSentiment;
+  assert.strictEqual(est({ headline: "Quarterly profit surge and record gains" }), "Positive");
+  assert.strictEqual(est({ headline: "Stock drops on weak growth and risk of loss" }), "Negative");
+  assert.strictEqual(est({ headline: "Company announces annual meeting" }), "Neutral");
 });
 
 let passed=0;
