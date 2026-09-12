@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Tab-Specific Form Submissions & ARIA Pressed Filter Chips
+**Learning:** Secondary tab search/prediction inputs can easily become non-interactive if button click and Enter keydown listeners are omitted. Filter chips (such as region selection buttons) require dynamic `aria-pressed` state attributes so screen reader users understand which filter is active.
+**Action:** Always bind both button click and input Enter keydown handlers on search/prediction forms, and ensure tab/chip filter toggles set `aria-pressed="true|false"` when toggling active visual classes.

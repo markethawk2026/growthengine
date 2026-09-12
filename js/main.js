@@ -326,11 +326,45 @@ function initMarketChips() {
     if (!chip) return;
     var region = chip.getAttribute("data-region");
     if (!region) return;
-    chipContainer.querySelectorAll(".mchip").forEach(c => c.classList.remove("active"));
+    chipContainer.querySelectorAll(".mchip").forEach(c => {
+      c.classList.remove("active");
+      c.setAttribute("aria-pressed", "false");
+    });
     chip.classList.add("active");
+    chip.setAttribute("aria-pressed", "true");
     window.activeMarketRegion = region;
     forceRenderIndexUI();
   });
+}
+
+function initPredictionInputs() {
+  var ndBtn = document.getElementById("ndBtn");
+  var ndIn = document.getElementById("ndIn");
+  var tmBtn = document.getElementById("tmBtn");
+  var tmIn = document.getElementById("tmIn");
+
+  function triggerNextDay() {
+    if (!ndIn) return;
+    var sym = ndIn.value.trim();
+    if (sym) {
+      window.activeTickerNode = sym.toUpperCase();
+      runNextDay(sym);
+    }
+  }
+
+  function triggerOutlook() {
+    if (!tmIn) return;
+    var sym = tmIn.value.trim();
+    if (sym) {
+      window.activeTickerNode = sym.toUpperCase();
+      runOutlook(sym);
+    }
+  }
+
+  if (ndBtn) ndBtn.addEventListener("click", triggerNextDay);
+  if (ndIn) ndIn.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerNextDay(); });
+  if (tmBtn) tmBtn.addEventListener("click", triggerOutlook);
+  if (tmIn) tmIn.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerOutlook(); });
 }
 
 async function loadSectorIndices() {
@@ -668,6 +702,7 @@ async function sendChat(){
 
 async function bootDashboard() {
   initMarketChips();
+  initPredictionInputs();
   forceRenderIndexUI();
   Promise.allSettled([loadIdx(), loadSectorIndices(), loadNews()]);
 }
