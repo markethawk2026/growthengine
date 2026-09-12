@@ -43,5 +43,18 @@ if (typeof sandbox.sanitizeURL !== "function") {
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
 }
 
+// Verify validateTickerSymbol behavior
+if (typeof sandbox.validateTickerSymbol !== "function") {
+  console.error("FAIL validateTickerSymbol is not defined in js/security.js");
+  failures++;
+} else {
+  const validateTickerSymbol = sandbox.validateTickerSymbol;
+  if (validateTickerSymbol("RELIANCE") !== "RELIANCE") { console.error("FAIL valid ticker rejected"); failures++; }
+  if (validateTickerSymbol("  tcs.ns  ") !== "TCS.NS") { console.error("FAIL valid ticker with space/lowercase not sanitized properly"); failures++; }
+  if (validateTickerSymbol("<script>alert(1)</script>") !== null) { console.error("FAIL script tag allowed as ticker symbol"); failures++; }
+  if (validateTickerSymbol("INVALID_TOO_LONG_SYMBOL_NAME") !== null) { console.error("FAIL overly long symbol allowed"); failures++; }
+  if (validateTickerSymbol(null) !== null) { console.error("FAIL null ticker allowed"); failures++; }
+}
+
 if(failures)process.exit(1);
 console.log("PASS security architecture checks");

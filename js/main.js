@@ -383,7 +383,14 @@ async function loadSectorIndices() {
 }
 
 async function runAnalysis(ticker){
-  ticker = ticker.toUpperCase().trim();
+  var body = document.getElementById("aBody");
+  var validTicker = (typeof validateTickerSymbol === "function") ? validateTickerSymbol(ticker) : (ticker && String(ticker).trim().toUpperCase());
+  if (!validTicker) {
+    switchTab("analysis");
+    if (body) body.innerHTML = '<div class="errbox">⚠️ Invalid ticker symbol</div>';
+    return;
+  }
+  ticker = validTicker;
   try {
     if (window.NCUserTools && typeof window.NCUserTools.addRecent === "function") {
       window.NCUserTools.addRecent(ticker);
@@ -394,7 +401,6 @@ async function runAnalysis(ticker){
   if(siEl) siEl.value = ticker;
   window.activeTickerNode = ticker;
   switchTab("analysis");
-  var body = document.getElementById("aBody");
   if(window.CACHE.analysis[ticker] && fresh(window.CACHE.analysis[ticker].ts, window.TTL.m)) { renderAnalysis(window.CACHE.analysis[ticker].d); return; }
   if (body) body.innerHTML = ldng("Analyzing " + ticker + "...");
   var pData = await yfQuote(ticker);
@@ -537,8 +543,13 @@ function renderAnalysis(d){
 }
 
 async function runNextDay(ticker){
-  ticker = ticker.toUpperCase().trim();
   var body = document.getElementById("ndBody");
+  var validTicker = (typeof validateTickerSymbol === "function") ? validateTickerSymbol(ticker) : (ticker && String(ticker).trim().toUpperCase());
+  if (!validTicker) {
+    if (body) body.innerHTML = '<div class="errbox">⚠️ Invalid ticker symbol</div>';
+    return;
+  }
+  ticker = validTicker;
   if (body) body.innerHTML = ldng("Calculating next-session technical outlook...");
   var p = await yfQuote(ticker);
   if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
@@ -573,8 +584,13 @@ function renderND(d) {
 }
 
 async function runOutlook(ticker){
-  ticker = ticker.toUpperCase().trim();
   var body = document.getElementById("tmBody");
+  var validTicker = (typeof validateTickerSymbol === "function") ? validateTickerSymbol(ticker) : (ticker && String(ticker).trim().toUpperCase());
+  if (!validTicker) {
+    if (body) body.innerHTML = '<div class="errbox">⚠️ Invalid ticker symbol</div>';
+    return;
+  }
+  ticker = validTicker;
   if (body) body.innerHTML = ldng("Building scenario-based outlook...");
   var p = await yfQuote(ticker);
   if(!p) { if(body) body.innerHTML = '<div class="errbox">⚠️ Market data unavailable for this ticker.</div>'; return; }
