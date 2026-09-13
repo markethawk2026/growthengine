@@ -280,23 +280,32 @@ function calcRSI(closes, p) {
   return Number((100 - (100 / (1 + avgGain / avgLoss))).toFixed(1));
 }
 
+// ⚡ Optimized: Replaced Array.prototype.slice().reduce() with single direct loop
+// to prevent transient array allocation and function invocation overhead in indicators.
 function calcEMA(closes, p) {
   if (!Array.isArray(closes) || closes.length < p) return null;
+  var sum = 0;
+  for (var i = 0; i < p; i++) sum += closes[i];
+  var ema = sum / p;
   var k = 2 / (p + 1);
-  var ema = closes.slice(0, p).reduce(function(a, b){ return a + b; }, 0) / p;
   for (var i = p; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
   return Number(ema.toFixed(2));
 }
 
+// ⚡ Optimized: Pre-allocating result array of known size and replacing slice/reduce with direct loops.
 function calcEMASeries(values, p) {
   if (!Array.isArray(values) || values.length < p) return [];
-  var result = new Array(p - 1).fill(null);
-  var ema = values.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
-  result.push(ema);
+  var len = values.length;
+  var result = new Array(len);
+  for (var i = 0; i < p - 1; i++) result[i] = null;
+  var sum = 0;
+  for (var i = 0; i < p; i++) sum += values[i];
+  var ema = sum / p;
+  result[p - 1] = ema;
   var k = 2 / (p + 1);
-  for (var i = p; i < values.length; i++) {
+  for (var i = p; i < len; i++) {
     ema = values[i] * k + ema * (1 - k);
-    result.push(ema);
+    result[i] = ema;
   }
   return result;
 }
@@ -336,19 +345,23 @@ function calcVWAP(closes, volumes) {
   return totalVolume > 0 ? Number((pv / totalVolume).toFixed(2)) : null;
 }
 
+// ⚡ Optimized: Pre-allocating trueRanges array and summing first p items via direct loop instead of slice/reduce.
 function calcATR(highs, lows, closes, p) {
   p = p || 14;
   if (!Array.isArray(highs) || !Array.isArray(lows) || !Array.isArray(closes) || closes.length < p + 1) return null;
-  var trueRanges = [];
+  var len = closes.length - 1;
+  var trueRanges = new Array(len);
   for (var i = 1; i < closes.length; i++) {
-    trueRanges.push(Math.max(
+    trueRanges[i - 1] = Math.max(
       highs[i] - lows[i],
       Math.abs(highs[i] - closes[i - 1]),
       Math.abs(lows[i] - closes[i - 1])
-    ));
+    );
   }
   if (trueRanges.length < p) return null;
-  var atr = trueRanges.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
+  var sum = 0;
+  for (var k = 0; k < p; k++) sum += trueRanges[k];
+  var atr = sum / p;
   for (var j = p; j < trueRanges.length; j++) atr = ((atr * (p - 1)) + trueRanges[j]) / p;
   return Number(atr.toFixed(2));
 }
