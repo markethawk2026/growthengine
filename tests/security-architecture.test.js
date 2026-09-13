@@ -6,6 +6,10 @@ let failures=0;
 for(const f of files){
   const text=fs.readFileSync(path.join(jsdir,f),"utf8");
   if(f!=="request-manager.js" && /\bfetch\s*\(/.test(text)){console.error("FAIL direct fetch outside request-manager:",f);failures++;}
+  if(/onclick=["'].*?\+.*?["']/.test(text) || /onclick=["'].*?\$\{.*?\}["']/.test(text)){
+    console.error("FAIL unsafe inline onclick string interpolation in file:", f);
+    failures++;
+  }
 }
 const appFiles=[];
 function walk(d){for(const f of fs.readdirSync(d)){const p=path.join(d,f),s=fs.statSync(p);if(s.isDirectory()&&!p.includes("tests"))walk(p);else if(/\.(js|html|css)$/.test(f))appFiles.push(p);}}
