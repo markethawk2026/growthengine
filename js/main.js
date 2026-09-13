@@ -703,5 +703,30 @@ function initThemeSwitcher() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", initThemeSwitcher);
+function initPredictionAndOutlookHandlers() {
+  var ndBtn = document.getElementById("ndBtn"), ndIn = document.getElementById("ndIn");
+  if (ndBtn && ndIn) {
+    var triggerND = function() {
+      var val = ndIn.value.trim() || window.activeTickerNode;
+      if (val) runNextDay(val);
+    };
+    ndBtn.addEventListener("click", triggerND);
+    ndIn.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerND(); });
+  }
+
+  var tmBtn = document.getElementById("tmBtn"), tmIn = document.getElementById("tmIn");
+  if (tmBtn && tmIn) {
+    var triggerTM = function() {
+      var val = tmIn.value.trim() || window.activeTickerNode;
+      if (val) runOutlook(val);
+    };
+    tmBtn.addEventListener("click", triggerTM);
+    tmIn.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerTM(); });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  initThemeSwitcher();
+  initPredictionAndOutlookHandlers();
+});
 bootDashboard();
