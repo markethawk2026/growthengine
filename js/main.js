@@ -326,10 +326,18 @@ function initMarketChips() {
     if (!chip) return;
     var region = chip.getAttribute("data-region");
     if (!region) return;
-    chipContainer.querySelectorAll(".mchip").forEach(c => c.classList.remove("active"));
+    chipContainer.querySelectorAll(".mchip").forEach(function(c) {
+      c.classList.remove("active");
+      c.setAttribute("aria-selected", "false");
+    });
     chip.classList.add("active");
+    chip.setAttribute("aria-selected", "true");
     window.activeMarketRegion = region;
     forceRenderIndexUI();
+    if (window.NCProductPolish && typeof window.NCProductPolish.announce === "function") {
+      var label = chip.textContent.trim();
+      window.NCProductPolish.announce("Showing " + label + " market summary");
+    }
   });
 }
 

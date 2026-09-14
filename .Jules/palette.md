@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Accessible Region Filter Tablists
+**Learning:** Filter chip groups (e.g. Market Summary region chips) that toggle content views act as tablists, but without `role="tablist"`, `role="tab"`, and dynamic `aria-selected` attributes, screen readers cannot announce selected filter states or convey tab semantics.
+**Action:** Always assign `role="tablist"` and descriptive `aria-label` on filter chip containers, set `role="tab"` and dynamic `aria-selected` on chip buttons, and emit live region announcements when selections change.
