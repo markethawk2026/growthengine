@@ -23,6 +23,10 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   console.error("FAIL unescaped news article insertion in main.js");
   failures++;
 }
+if (!mainText.includes("escapeHTML(txt || \"No response.\")")) {
+  console.error("FAIL unescaped AI response formatting in main.js");
+  failures++;
+}
 
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");
