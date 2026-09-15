@@ -13,7 +13,19 @@ function ensure(){
   // Prefer mounting inside the Home page so Market Intelligence appears only on Home; fall back to main/body
   var target=document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
   if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(sec,anchor.nextSibling); else target.appendChild(sec);
-  document.getElementById("ncMiRefresh").onclick=render; render();
+  document.getElementById("ncMiRefresh").onclick=render;
+
+  // Security: Use event delegation for ticker cards and tabs to prevent DOM XSS via inline onclick string interpolation
+  sec.addEventListener("click", function(e) {
+    var tab = e.target.closest("[data-mover]");
+    if (tab) { window.switchMoverTab(tab.getAttribute("data-mover")); return; }
+    var card = e.target.closest("[data-ticker]");
+    if (card && typeof window.runAnalysis === "function") {
+      window.runAnalysis(card.getAttribute("data-ticker"));
+    }
+  });
+
+  render();
 }
 async function render(){
   var body=document.getElementById("ncMiBody"); if(!body)return;
@@ -29,14 +41,15 @@ async function render(){
     body.innerHTML=
       '<div class="nc-mi-note">Tracked user universe: '+b.universe.map(esc).join(", ")+'</div>'+
       '<div class="nc-mi-summary"><div><span>Advances</span><strong>'+b.advances+'</strong></div><div><span>Declines</span><strong>'+b.declines+'</strong></div><div><span>Unchanged</span><strong>'+b.unchanged+'</strong></div><div><span>A/D ratio</span><strong>'+(b.ratio===null?"—":b.ratio)+'</strong></div></div>'+
-      '<div class="mover-tabs-wrapper" style="display:flex; gap:8px; margin: 12px 0;"><button class="mover-tab active" data-mover="gainers" onclick="window.switchMoverTab(\'gainers\')">📈 Daily Gainers</button><button class="mover-tab" data-mover="losers" onclick="window.switchMoverTab(\'losers\')">📉 Daily Losers</button><button class="mover-tab" data-mover="active" onclick="window.switchMoverTab(\'active\')">🔥 Most Active</button></div>'+
+      '<div class="mover-tabs-wrapper" style="display:flex; gap:8px; margin: 12px 0;"><button class="mover-tab active" data-mover="gainers">📈 Daily Gainers</button><button class="mover-tab" data-mover="losers">📉 Daily Losers</button><button class="mover-tab" data-mover="active">🔥 Most Active</button></div>'+
       '<div id="moverTabContent">'+cards(l.gainers)+'</div>'+
       '<section class="nc-mi-block" style="margin-top:20px;"><h3>Equity Sectors</h3><div class="nc-mi-sector">'+s.map(function(x){return '<div class="sector-card-gf"><strong>'+esc(x.sector)+'</strong><span class="'+(x.changePct>=0?"up":"down")+'">'+pct(x.changePct)+'</span><small>'+x.members+' available constituent(s)</small></div>';}).join("")+'</div><div class="nc-mi-note">Sector performance derived dynamically from constituents in user workspace.</div></section>';
 
     window.MOVER_DATA_CACHE = l;
   }catch(e){body.innerHTML='<div class="errbox">⚠️ Market intelligence unavailable: '+esc(e.message||"Unknown error")+'</div>';} 
 }
-function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div onclick="runAnalysis(\''+esc(r.ticker)+'\')" style="cursor:pointer"><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">No rows available.</div>')+'</div>';}
+// Security: Render data-ticker attribute for event delegation instead of inline onclick attribute string concatenation
+function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div data-ticker="'+esc(r.ticker)+'" style="cursor:pointer"><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">No rows available.</div>')+'</div>';}
 
 window.switchMoverTab = function(type) {
   var tabs = document.querySelectorAll(".mover-tab");

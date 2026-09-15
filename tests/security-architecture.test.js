@@ -24,6 +24,13 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   failures++;
 }
 
+// Verify market-intelligence-ui.js uses data attributes instead of inline onclick string interpolation
+const miText = fs.readFileSync(path.join(jsdir, "market-intelligence-ui.js"), "utf8");
+if (miText.includes('onclick="runAnalysis') || miText.includes("onclick='runAnalysis")) {
+  console.error("FAIL inline onclick string interpolation found in market-intelligence-ui.js");
+  failures++;
+}
+
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");
 const secCode = fs.readFileSync(path.join(jsdir, "security.js"), "utf8");
