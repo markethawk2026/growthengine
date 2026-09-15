@@ -648,6 +648,22 @@ if (chatSendEl) chatSendEl.addEventListener("click", sendChat);
 var chatInEl = document.getElementById("chatIn");
 if (chatInEl) { chatInEl.addEventListener("keydown", function(e){ if(e.key === "Enter") sendChat(); }); }
 
+var ndBtnEl = document.getElementById("ndBtn");
+var ndInEl = document.getElementById("ndIn");
+if (ndBtnEl && ndInEl) {
+  var triggerND = function() { var v = ndInEl.value.trim(); if (v) runNextDay(v); };
+  ndBtnEl.addEventListener("click", triggerND);
+  ndInEl.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerND(); });
+}
+
+var tmBtnEl = document.getElementById("tmBtn");
+var tmInEl = document.getElementById("tmIn");
+if (tmBtnEl && tmInEl) {
+  var triggerTM = function() { var v = tmInEl.value.trim(); if (v) runOutlook(v); };
+  tmBtnEl.addEventListener("click", triggerTM);
+  tmInEl.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerTM(); });
+}
+
 async function sendChat(){
   var inp = document.getElementById("chatIn");
   var q = inp.value.trim();

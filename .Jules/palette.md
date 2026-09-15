@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Explicit ARIA Labels and Keyboard Submit Handlers on Text Inputs
+**Learning:** Relying on late-executing JavaScript to dynamically attach `aria-label` attributes to text inputs leaves screen reader users with unannounced fields during initial page parse. Additionally, text inputs without explicit `Enter` keypress handlers frustrate users who expect standard form submission behavior.
+**Action:** Always declare explicit `aria-label` attributes directly in HTML input markup and ensure text inputs are wired up with `Enter` keydown listeners alongside click handlers for corresponding submit buttons.
