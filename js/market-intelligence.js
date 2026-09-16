@@ -32,8 +32,8 @@ async function breadth(symbols){
   var unchanged=rows.length-advances-declines;
   return {universe:universe,rows:rows,advances:advances,declines:declines,unchanged:unchanged,ratio:declines?Number((advances/declines).toFixed(2)):null};
 }
-async function leaders(symbols){
-  var b=await breadth(symbols), valid=b.rows.filter(function(r){return r.changePct!==null;});
+async function leaders(symbols, cachedBreadth){
+  var b=cachedBreadth||(await breadth(symbols)), valid=b.rows.filter(function(r){return r.changePct!==null;});
   return {
     universe:b.universe,
     gainers:valid.slice().sort(function(a,b){return b.changePct-a.changePct;}).slice(0,5),

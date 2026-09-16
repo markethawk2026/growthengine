@@ -289,14 +289,19 @@ function calcEMA(closes, p) {
 }
 
 function calcEMASeries(values, p) {
-  if (!Array.isArray(values) || values.length < p) return [];
-  var result = new Array(p - 1).fill(null);
-  var ema = values.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
-  result.push(ema);
+  var len = Array.isArray(values) ? values.length : 0;
+  if (len < p) return [];
+  var result = new Array(len);
+  for (var i = 0; i < p - 1; i++) result[i] = null;
+  var sum = 0;
+  for (var i = 0; i < p; i++) sum += values[i];
+  var ema = sum / p;
+  result[p - 1] = ema;
   var k = 2 / (p + 1);
-  for (var i = p; i < values.length; i++) {
-    ema = values[i] * k + ema * (1 - k);
-    result.push(ema);
+  var k1 = 1 - k;
+  for (var i = p; i < len; i++) {
+    ema = values[i] * k + ema * k1;
+    result[i] = ema;
   }
   return result;
 }
