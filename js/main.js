@@ -602,6 +602,8 @@ async function runOutlook(ticker){
 async function loadGlobal(force){
   if(!force && window.CACHE.global && fresh(window.CACHE.gTs, window.TTL.s)) { renderGlobal(window.CACHE.global); return; }
   var gBodyEl = document.getElementById("gBody");
+  var btnGlobalEl = document.getElementById("btnGlobal");
+  if (btnGlobalEl) { btnGlobalEl.disabled = true; btnGlobalEl.textContent = "↻ Refreshing..."; }
   if (gBodyEl) gBodyEl.innerHTML = skels(80, 2);
   try {
     var symbols = ["^NSEI", "^BSESN", "^GSPC"];
@@ -610,6 +612,7 @@ async function loadGlobal(force){
     window.CACHE.gTs = Date.now();
     renderGlobal(results);
   } catch(e) { if (gBodyEl) gBodyEl.innerHTML = '<div class="errbox">⚠️ Global data unavailable</div>'; }
+  finally { if (btnGlobalEl) { btnGlobalEl.disabled = false; btnGlobalEl.textContent = "↻ Refresh"; } }
 }
 
 function renderGlobal(arr){
@@ -624,6 +627,8 @@ if (btnGlobalEl) { btnGlobalEl.addEventListener("click", function(){ loadGlobal(
 async function loadCal(force){
   if(!force && window.CACHE.cal && fresh(window.CACHE.cTs, window.TTL.l)) { renderCal(window.CACHE.cal); return; }
   var calBodyEl = document.getElementById("calBody");
+  var btnCalEl = document.getElementById("btnCal");
+  if (btnCalEl) { btnCalEl.disabled = true; btnCalEl.textContent = "↻ Refreshing..."; }
   if (calBodyEl) calBodyEl.innerHTML = skels(56, 3);
   try {
     var aiTxt = await freeAI("List 3 Indian corporate events. JSON: [{\"date\":\"DD MMM\",\"company\":\"Name\"}]");
@@ -632,6 +637,7 @@ async function loadCal(force){
     window.CACHE.cTs = Date.now();
     renderCal(arr);
   } catch(e) { if (calBodyEl) calBodyEl.innerHTML = '<div class="errbox">⚠️ Calendar unavailable</div>'; }
+  finally { if (btnCalEl) { btnCalEl.disabled = false; btnCalEl.textContent = "↻ Refresh"; } }
 }
 
 function renderCal(arr){
