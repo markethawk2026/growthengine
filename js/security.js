@@ -102,8 +102,8 @@ function safeJSONParse(jsonString, fallback = null) {
   if (!jsonString || typeof jsonString !== 'string') return fallback;
   try {
     const parsed = JSON.parse(jsonString);
-    // Ensure it's an object or array
-    if (typeof parsed === 'object') return parsed;
+    // Ensure it's a non-null object or array
+    if (parsed !== null && typeof parsed === 'object') return parsed;
   } catch (e) {
     console.warn('Invalid JSON:', e.message);
   }

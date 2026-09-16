@@ -43,5 +43,17 @@ if (typeof sandbox.sanitizeURL !== "function") {
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
 }
 
+// Verify safeJSONParse behavior in js/security.js
+if (typeof sandbox.safeJSONParse !== "function") {
+  console.error("FAIL safeJSONParse is not defined in js/security.js");
+  failures++;
+} else {
+  const safeJSONParse = sandbox.safeJSONParse;
+  const fallback = { default: true };
+  if (safeJSONParse("null", fallback) !== fallback) { console.error("FAIL safeJSONParse null payload did not return fallback"); failures++; }
+  if (safeJSONParse('{"a":1}', fallback).a !== 1) { console.error("FAIL safeJSONParse object parsing failed"); failures++; }
+  if (!Array.isArray(safeJSONParse('[1,2]', fallback))) { console.error("FAIL safeJSONParse array parsing failed"); failures++; }
+}
+
 if(failures)process.exit(1);
 console.log("PASS security architecture checks");
