@@ -13,7 +13,17 @@ function ensure(){
   // Prefer mounting inside the Home page so Market Intelligence appears only on Home; fall back to main/body
   var target=document.getElementById("pg-home") || document.querySelector("main") || document.querySelector(".main") || document.body;
   if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(sec,anchor.nextSibling); else target.appendChild(sec);
-  document.getElementById("ncMiRefresh").onclick=render; render();
+  document.getElementById("ncMiRefresh").onclick=render;
+  var miBody=sec.querySelector("#ncMiBody");
+  if(miBody){
+    miBody.addEventListener("click",function(e){
+      var card=e.target.closest("[data-analyze]");
+      if(card&&card.dataset.analyze&&typeof window.runAnalysis==="function"){
+        window.runAnalysis(card.dataset.analyze);
+      }
+    });
+  }
+  render();
 }
 async function render(){
   var body=document.getElementById("ncMiBody"); if(!body)return;
@@ -36,7 +46,7 @@ async function render(){
     window.MOVER_DATA_CACHE = l;
   }catch(e){body.innerHTML='<div class="errbox">⚠️ Market intelligence unavailable: '+esc(e.message||"Unknown error")+'</div>';} 
 }
-function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div onclick="runAnalysis(\''+esc(r.ticker)+'\')" style="cursor:pointer"><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">No rows available.</div>')+'</div>';}
+function cards(rows){return '<div class="nc-mi-list">'+(rows.length?rows.map(function(r){return '<div data-analyze="'+esc(r.ticker)+'" style="cursor:pointer"><strong>'+esc(r.ticker)+'</strong><span>'+esc(r.name||"")+'</span><b class="'+(r.changePct>=0?"up":"down")+'">'+pct(r.changePct)+'</b></div>';}).join(""):'<div class="nc-mi-empty">No rows available.</div>')+'</div>';}
 
 window.switchMoverTab = function(type) {
   var tabs = document.querySelectorAll(".mover-tab");

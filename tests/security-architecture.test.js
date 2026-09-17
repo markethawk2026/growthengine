@@ -24,6 +24,17 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   failures++;
 }
 
+// Verify market intelligence UI uses data-analyze instead of inline onclick string interpolation
+const miUiText = fs.readFileSync(path.join(jsdir, "market-intelligence-ui.js"), "utf8");
+if (miUiText.includes("onclick=\"runAnalysis")) {
+  console.error("FAIL inline onclick string interpolation in market-intelligence-ui.js");
+  failures++;
+}
+if (!miUiText.includes("data-analyze")) {
+  console.error("FAIL missing data-analyze attribute in market-intelligence-ui.js");
+  failures++;
+}
+
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");
 const secCode = fs.readFileSync(path.join(jsdir, "security.js"), "utf8");
