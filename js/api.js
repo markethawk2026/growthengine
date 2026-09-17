@@ -288,25 +288,32 @@ function calcEMA(closes, p) {
   return Number(ema.toFixed(2));
 }
 
+// Fast EMA series calculation: pre-allocates result array and avoids slice/reduce/push allocations.
 function calcEMASeries(values, p) {
-  if (!Array.isArray(values) || values.length < p) return [];
-  var result = new Array(p - 1).fill(null);
-  var ema = values.slice(0, p).reduce(function(a,b){ return a+b; }, 0) / p;
-  result.push(ema);
-  var k = 2 / (p + 1);
-  for (var i = p; i < values.length; i++) {
-    ema = values[i] * k + ema * (1 - k);
-    result.push(ema);
+  var len = values ? values.length : 0;
+  if (!Array.isArray(values) || len < p) return [];
+  var result = new Array(len);
+  for (var j = 0; j < p - 1; j++) result[j] = null;
+  var sum = 0;
+  for (var j = 0; j < p; j++) sum += values[j];
+  var ema = sum / p;
+  result[p - 1] = ema;
+  var k = 2 / (p + 1), kInv = 1 - k;
+  for (var i = p; i < len; i++) {
+    ema = values[i] * k + ema * kInv;
+    result[i] = ema;
   }
   return result;
 }
 
+// Fast MACD details calculation using fixed array allocations to reduce garbage collection overhead.
 function calcMACDDetails(closes) {
   if (!Array.isArray(closes) || closes.length < 35) return null;
   var e12 = calcEMASeries(closes, 12);
   var e26 = calcEMASeries(closes, 26);
-  var macdSeries = [];
-  for (var i = 25; i < closes.length; i++) macdSeries.push(e12[i] - e26[i]);
+  var len = closes.length;
+  var macdSeries = new Array(len - 25);
+  for (var i = 25; i < len; i++) macdSeries[i - 25] = e12[i] - e26[i];
   if (macdSeries.length < 9) return null;
   var signalSeries = calcEMASeries(macdSeries, 9);
   var macd = macdSeries[macdSeries.length - 1];
