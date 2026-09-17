@@ -72,11 +72,11 @@
     <div class="shr" style="margin-bottom: 12px;">
       <span class="stitle">📈 Market Summary <span class="badge b-free">Live</span></span>
     </div>
-    <div class="market-chips-wrapper" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-bottom: 14px; padding-bottom: 4px;" id="marketChips">
-      <button class="mchip active" data-region="india">🇮🇳 India</button>
-      <button class="mchip" data-region="us">🇺🇸 US</button>
-      <button class="mchip" data-region="global">🌐 Global</button>
-      <button class="mchip" data-region="crypto">₿ Crypto</button>
+    <div class="market-chips-wrapper" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-bottom: 14px; padding-bottom: 4px;" id="marketChips" role="group" aria-label="Market region filter">
+      <button type="button" class="mchip active" data-region="india" aria-pressed="true">🇮🇳 India</button>
+      <button type="button" class="mchip" data-region="us" aria-pressed="false">🇺🇸 US</button>
+      <button type="button" class="mchip" data-region="global" aria-pressed="false">🌐 Global</button>
+      <button type="button" class="mchip" data-region="crypto" aria-pressed="false">₿ Crypto</button>
     </div>
     <div class="g2" id="idxCards">
       <div class="skel" style="height:76px"></div><div class="skel" style="height:76px"></div>

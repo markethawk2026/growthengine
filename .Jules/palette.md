@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2025-05-18 - Keyboard Accessibility & ARIA State for Dynamic Card Selection
+**Learning:** Interactive list items generated dynamically (such as news feeds) often lack keyboard focus indicators (`tabindex="0"`) and proper listbox/option ARIA roles, rendering them completely inaccessible to keyboard and screen reader users.
+**Action:** Always assign `role="listbox"` / `role="option"`, `tabindex="0"`, `aria-selected`, and delegated `keydown` listeners (`Enter` / `Space`) on dynamically generated selectable cards, while updating `aria-pressed` / `aria-selected` in JS click/key handlers.

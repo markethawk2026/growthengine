@@ -136,10 +136,10 @@ window.viewArticleDetail = function(id) {
   if (!target || !detailPane) return;
   window.ACTIVE_NEWS_POOL.forEach(function(art) {
     var el = document.getElementById("card_" + art.id);
-    if (el) { el.classList.remove("news-card-active"); }
+    if (el) { el.classList.remove("news-card-active"); el.setAttribute("aria-selected", "false"); }
   });
   var activeCard = document.getElementById("card_" + id);
-  if (activeCard) { activeCard.classList.add("news-card-active"); }
+  if (activeCard) { activeCard.classList.add("news-card-active"); activeCard.setAttribute("aria-selected", "true"); }
   detailPane.innerHTML = `<div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left;"><div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; width: 100%;"><span style="background: rgba(56,189,248,0.12); color: #0284c7; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.25); text-transform: uppercase;">${escapeHTML(target.source || "FEED")}</span><span style="color: #64748b; font-size: 11px; font-weight: 500;">${escapeHTML(target.time || "Just now")}</span></div><h4 style="font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">${escapeHTML(target.headline)}</h4><div class="gc" style="padding: 12px; margin-top: 4px;"><span class="gcl" style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Summary</span><p style="font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">${escapeHTML(target.summary)}</p></div></div>`;
 };
 
@@ -154,12 +154,25 @@ async function loadNews(targetTicker) {
     var articles = [];
     if (typeof yfNews === "function") { try { articles = await yfNews(queryTag); } catch(apiErr) { console.warn("News API error", apiErr); } }
     window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
-    var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
+    var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" role="listbox" aria-label="Market news list" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
-      layoutHtml += `<div id="card_${article.id}" class="gc news-card" onclick="window.viewArticleDetail('${article.id}')" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
+      layoutHtml += `<div id="card_${article.id}" class="gc news-card" role="option" tabindex="0" aria-selected="false" aria-label="Read news: ${escapeHTML(article.headline)}" data-news-id="${article.id}" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
     });
     layoutHtml += `</div><div id="newsDetailPanel" class="gc" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center;"></div></div>`;
     container.innerHTML = layoutHtml;
+    var sidebar = document.getElementById("newsSidebar");
+    if (sidebar) {
+      sidebar.addEventListener("click", function(e) {
+        var card = e.target.closest("[data-news-id]");
+        if (card) window.viewArticleDetail(card.getAttribute("data-news-id"));
+      });
+      sidebar.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " ") {
+          var card = e.target.closest("[data-news-id]");
+          if (card) { e.preventDefault(); window.viewArticleDetail(card.getAttribute("data-news-id")); }
+        }
+      });
+    }
     if (window.ACTIVE_NEWS_POOL.length > 0) window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
   } catch (Error) {
     container.innerHTML = `<div style="color:#94a3b8; padding:24px; text-align:center;">News unavailable.</div>`;
@@ -326,8 +339,12 @@ function initMarketChips() {
     if (!chip) return;
     var region = chip.getAttribute("data-region");
     if (!region) return;
-    chipContainer.querySelectorAll(".mchip").forEach(c => c.classList.remove("active"));
+    chipContainer.querySelectorAll(".mchip").forEach(function(c) {
+      c.classList.remove("active");
+      c.setAttribute("aria-pressed", "false");
+    });
     chip.classList.add("active");
+    chip.setAttribute("aria-pressed", "true");
     window.activeMarketRegion = region;
     forceRenderIndexUI();
   });
