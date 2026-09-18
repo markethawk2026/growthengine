@@ -156,10 +156,20 @@ async function loadNews(targetTicker) {
     window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
     var layoutHtml = `<div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; border-radius: 12px; padding: 2px;"><div id="newsSidebar" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 8px;">`;
     window.ACTIVE_NEWS_POOL.forEach(function(article) {
-      layoutHtml += `<div id="card_${article.id}" class="gc news-card" onclick="window.viewArticleDetail('${article.id}')" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
+      // Escape article.id and use data-article-id attribute delegation to avoid DOM XSS in inline onclick
+      layoutHtml += `<div id="card_${escapeHTML(article.id)}" class="gc news-card" data-article-id="${escapeHTML(article.id)}" style="padding: 12px; cursor: pointer; transition: all 0.2s;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;"><span style="color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(article.source)}</span><span style="color: #64748b; font-size: 10px; font-weight: 500;">${escapeHTML(article.time)}</span></div><p style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHTML(article.headline)}</p></div>`;
     });
     layoutHtml += `</div><div id="newsDetailPanel" class="gc" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center;"></div></div>`;
     container.innerHTML = layoutHtml;
+    var newsSidebar = document.getElementById("newsSidebar");
+    if (newsSidebar) {
+      newsSidebar.addEventListener("click", function(e) {
+        var card = e.target.closest(".news-card");
+        if (card && card.dataset.articleId) {
+          window.viewArticleDetail(card.dataset.articleId);
+        }
+      });
+    }
     if (window.ACTIVE_NEWS_POOL.length > 0) window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
   } catch (Error) {
     container.innerHTML = `<div style="color:#94a3b8; padding:24px; text-align:center;">News unavailable.</div>`;

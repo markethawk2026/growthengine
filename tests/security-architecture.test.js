@@ -23,6 +23,14 @@ if (!mainText.includes("escapeHTML(article.headline)")) {
   console.error("FAIL unescaped news article insertion in main.js");
   failures++;
 }
+if (!mainText.includes("escapeHTML(article.id)")) {
+  console.error("FAIL unescaped news article id insertion in main.js");
+  failures++;
+}
+if (mainText.includes("onclick=\"window.viewArticleDetail")) {
+  console.error("FAIL inline onclick handler found for viewArticleDetail in main.js");
+  failures++;
+}
 
 // Verify sanitizeURL behavior in js/security.js
 const vm = require("vm");
