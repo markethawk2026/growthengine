@@ -4,7 +4,9 @@ const path=require("path");
 const assert=require("assert");
 
 const apiPath=path.join(__dirname,"..","js","api.js");
+const miPath=path.join(__dirname,"..","js","market-intelligence.js");
 const source=fs.readFileSync(apiPath,"utf8");
+const miSource=fs.readFileSync(miPath,"utf8");
 const sandbox={
   window:{TTL:{s:1000,m:60000}},
   console:console,
@@ -16,6 +18,7 @@ const sandbox={
 sandbox.window.window=sandbox.window;
 vm.createContext(sandbox);
 vm.runInContext(source,sandbox);
+vm.runInContext(miSource,sandbox);
 
 const tests=[];
 function test(name,fn){tests.push({name,fn});}
@@ -59,10 +62,27 @@ test("Technical score stays within 0..100",()=>{
   }).score;
   assert.ok(score>=0&&score<=100);
 });
+test("Market intelligence leaders reuses breadth result without network fetch",async ()=>{
+  const fakeBreadth={
+    universe:["RELIANCE","TCS","INFY"],
+    rows:[
+      {ticker:"RELIANCE",name:"Reliance",price:2500,changePct:2.5,volume:10000},
+      {ticker:"TCS",name:"TCS",price:3500,changePct:-1.2,volume:20000},
+      {ticker:"INFY",name:"Infosys",price:1500,changePct:0.5,volume:15000}
+    ],
+    advances:2,declines:1,unchanged:0,ratio:2
+  };
+  const leaders=await sandbox.window.NCMarketIntelligence.leaders(fakeBreadth);
+  assert.strictEqual(leaders.gainers[0].ticker,"RELIANCE");
+  assert.strictEqual(leaders.losers[0].ticker,"TCS");
+  assert.strictEqual(leaders.volumeLeaders[0].ticker,"TCS");
+});
 
-let passed=0;
-for(const t of tests){
-  try{t.fn();console.log("PASS",t.name);passed++;}
-  catch(e){console.error("FAIL",t.name,"\n ",e.message);process.exitCode=1;}
-}
-console.log(`\n${passed}/${tests.length} tests passed`);
+(async()=>{
+  let passed=0;
+  for(const t of tests){
+    try{await t.fn();console.log("PASS",t.name);passed++;}
+    catch(e){console.error("FAIL",t.name,"\n ",e.message);process.exitCode=1;}
+  }
+  console.log(`\n${passed}/${tests.length} tests passed`);
+})();

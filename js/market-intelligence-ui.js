@@ -24,8 +24,13 @@ async function render(){
     return;
   }
   try{
-    var results=await Promise.all([NCMarketIntelligence.breadth(),NCMarketIntelligence.leaders(),NCMarketIntelligence.sectorPerformance()]);
-    var b=results[0], l=results[1], s=results[2];
+    // Bolt Optimization: Run breadth and sectorPerformance in parallel, then pass pre-fetched
+    // breadth data 'b' into leaders(b) to avoid duplicate quote fetching for dynamic universe.
+    var bPromise=NCMarketIntelligence.breadth();
+    var sPromise=NCMarketIntelligence.sectorPerformance();
+    var b=await bPromise;
+    var l=await NCMarketIntelligence.leaders(b);
+    var s=await sPromise;
     body.innerHTML=
       '<div class="nc-mi-note">Tracked user universe: '+b.universe.map(esc).join(", ")+'</div>'+
       '<div class="nc-mi-summary"><div><span>Advances</span><strong>'+b.advances+'</strong></div><div><span>Declines</span><strong>'+b.declines+'</strong></div><div><span>Unchanged</span><strong>'+b.unchanged+'</strong></div><div><span>A/D ratio</span><strong>'+(b.ratio===null?"—":b.ratio)+'</strong></div></div>'+

@@ -1,0 +1,3 @@
+## 2025-05-18 - Avoid Duplicate Concurrent Pipeline Calls in Market Engine
+**Learning:** When higher-level UI orchestration (`Promise.all([breadth(), leaders(), sectorPerformance()])`) executes sub-services that internally call each other (`leaders()` calling `breadth()`), uncached API fetches execute twice in parallel for the exact same symbol universe.
+**Action:** Design sub-functions like `leaders(symbols)` to accept optional pre-computed dataset objects (e.g. `symbols.rows`), and pass already resolved results from previous promises in UI render routines to prevent duplicate network requests and redundant computation.
