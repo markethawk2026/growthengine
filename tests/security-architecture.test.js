@@ -31,6 +31,57 @@ const sandbox = { document: { createElement: () => ({}) } };
 vm.createContext(sandbox);
 vm.runInContext(secCode, sandbox);
 
+// Verify restoreWorkspace security and sanitization in js/user-tools.js
+const userToolsCode = fs.readFileSync(path.join(jsdir, "user-tools.js"), "utf8");
+const userToolsSandbox = {
+  window: { dispatchEvent: () => {} },
+  localStorage: { getItem: () => null, setItem: () => {} },
+  CustomEvent: function CustomEvent() {}
+};
+vm.createContext(userToolsSandbox);
+vm.runInContext(userToolsCode, userToolsSandbox);
+
+const NCUserTools = userToolsSandbox.window.NCUserTools;
+if (!NCUserTools || typeof NCUserTools.restoreWorkspace !== "function") {
+  console.error("FAIL NCUserTools.restoreWorkspace is not defined in js/user-tools.js");
+  failures++;
+} else {
+  // Test 1: Prototype pollution resistance
+  const protoPayload = '{"watchlist": ["RELIANCE"], "__proto__": {"polluted": true}, "preferences": {"__proto__": {"polluted": true}}}';
+  try {
+    NCUserTools.restoreWorkspace(protoPayload);
+    if (Object.prototype.polluted || ({}).polluted) {
+      console.error("FAIL restoreWorkspace allowed Prototype Pollution");
+      failures++;
+    }
+  } catch (e) {
+    console.error("FAIL restoreWorkspace threw on valid JSON payload:", e.message);
+    failures++;
+  }
+
+  // Test 2: Sanitization of tickers & malformed data
+  const maliciousPayload = JSON.stringify({
+    watchlist: ['<script>alert(1)</script>', 'TATA<img src=x onerror=alert(1)>STEEL', 12345],
+    portfolio: [{ ticker: 'INVALID<TAG>', quantity: -10, averagePrice: 'abc' }, { ticker: 'INFY', quantity: 10, averagePrice: 1500 }],
+    alerts: [{ ticker: 'TCS', type: 'invalidType', threshold: 'notanumber' }],
+    preferences: { chartTimeframe: '<script>', chartType: 'line' }
+  });
+  NCUserTools.restoreWorkspace(maliciousPayload);
+  const newState = NCUserTools.getState();
+  if (newState.watchlist.some(t => t.includes('<') || t.includes('>'))) {
+    console.error("FAIL restoreWorkspace did not sanitize watchlist tickers");
+    failures++;
+  }
+  if (newState.portfolio.length !== 1 || newState.portfolio[0].ticker !== 'INFY') {
+    console.error("FAIL restoreWorkspace did not filter out invalid portfolio entries");
+    failures++;
+  }
+  if (newState.alerts.length !== 0) {
+    console.error("FAIL restoreWorkspace did not filter out invalid alert thresholds");
+    failures++;
+  }
+}
+
 if (typeof sandbox.sanitizeURL !== "function") {
   console.error("FAIL sanitizeURL is not defined in js/security.js");
   failures++;

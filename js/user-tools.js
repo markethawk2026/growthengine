@@ -108,8 +108,34 @@ function backupWorkspace() {
 function restoreWorkspace(jsonString) {
   try {
     var parsed = JSON.parse(jsonString);
-    if (!parsed || typeof parsed !== "object") throw new Error("Invalid workspace JSON backup.");
-    state = Object.assign({}, defaults, parsed, { preferences: Object.assign({}, defaults.preferences, parsed.preferences || {}) });
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid workspace JSON backup.");
+
+    var sanitizedWatchlist = Array.isArray(parsed.watchlist) ? parsed.watchlist.map(cleanTicker).filter(Boolean) : defaults.watchlist;
+    var sanitizedRecent = Array.isArray(parsed.recent) ? parsed.recent.map(cleanTicker).filter(Boolean).slice(0, 12) : defaults.recent;
+    var sanitizedPortfolio = Array.isArray(parsed.portfolio) ? parsed.portfolio.map(function(h) {
+      if (!h || typeof h !== "object") return null;
+      var t = cleanTicker(h.ticker), q = Number(h.quantity), p = Number(h.averagePrice);
+      if (!t || !Number.isFinite(q) || q <= 0 || !Number.isFinite(p) || p < 0) return null;
+      return { id: String(h.id || (Date.now().toString(36) + "_" + t)), ticker: t, quantity: q, averagePrice: p, purchaseDate: h.purchaseDate ? String(h.purchaseDate) : null };
+    }).filter(Boolean) : defaults.portfolio;
+    var sanitizedAlerts = Array.isArray(parsed.alerts) ? parsed.alerts.map(function(a) {
+      if (!a || typeof a !== "object") return null;
+      var t = cleanTicker(a.ticker), type = a.type === "priceBelow" ? "priceBelow" : "priceAbove", th = Number(a.threshold);
+      if (!t || !Number.isFinite(th)) return null;
+      return { id: String(a.id || (Date.now().toString(36) + "_" + t)), ticker: t, type: type, threshold: th, createdAt: Number(a.createdAt) || Date.now(), triggered: Boolean(a.triggered) };
+    }).filter(Boolean) : defaults.alerts;
+    var pref = (parsed.preferences && typeof parsed.preferences === "object" && !Array.isArray(parsed.preferences)) ? parsed.preferences : {};
+
+    state = {
+      watchlist: Array.from(new Set(sanitizedWatchlist)),
+      recent: Array.from(new Set(sanitizedRecent)),
+      portfolio: sanitizedPortfolio,
+      alerts: sanitizedAlerts,
+      preferences: {
+        chartTimeframe: typeof pref.chartTimeframe === "string" ? pref.chartTimeframe.slice(0, 10) : defaults.preferences.chartTimeframe,
+        chartType: typeof pref.chartType === "string" ? pref.chartType.slice(0, 10) : defaults.preferences.chartType
+      }
+    };
     save();
     return true;
   } catch (err) {
