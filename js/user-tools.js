@@ -108,8 +108,28 @@ function backupWorkspace() {
 function restoreWorkspace(jsonString) {
   try {
     var parsed = JSON.parse(jsonString);
-    if (!parsed || typeof parsed !== "object") throw new Error("Invalid workspace JSON backup.");
-    state = Object.assign({}, defaults, parsed, { preferences: Object.assign({}, defaults.preferences, parsed.preferences || {}) });
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid workspace JSON backup.");
+    // Sanitize and validate restored fields to prevent prototype pollution and malformed/malicious input
+    var wl = Array.isArray(parsed.watchlist) ? Array.from(new Set(parsed.watchlist.map(cleanTicker).filter(Boolean))) : defaults.watchlist;
+    var rc = Array.isArray(parsed.recent) ? Array.from(new Set(parsed.recent.map(cleanTicker).filter(Boolean))).slice(0, 12) : defaults.recent;
+    var pf = Array.isArray(parsed.portfolio) ? parsed.portfolio.map(function(h) {
+      if (!h || typeof h !== "object") return null;
+      var t = cleanTicker(h.ticker), q = Number(h.quantity), p = Number(h.averagePrice);
+      if (!t || !Number.isFinite(q) || q <= 0 || !Number.isFinite(p) || p < 0) return null;
+      return { id: String(h.id || (Date.now().toString(36) + "_" + t)), ticker: t, quantity: q, averagePrice: p, purchaseDate: h.purchaseDate ? String(h.purchaseDate) : null };
+    }).filter(Boolean) : defaults.portfolio;
+    var al = Array.isArray(parsed.alerts) ? parsed.alerts.map(function(a) {
+      if (!a || typeof a !== "object") return null;
+      var t = cleanTicker(a.ticker), type = a.type === "priceBelow" ? "priceBelow" : "priceAbove", tr = Number(a.threshold);
+      if (!t || !Number.isFinite(tr)) return null;
+      return { id: String(a.id || (Date.now().toString(36) + "_" + t)), ticker: t, type: type, threshold: tr, createdAt: Number(a.createdAt) || Date.now(), triggered: Boolean(a.triggered) };
+    }).filter(Boolean) : defaults.alerts;
+    var pPref = (parsed.preferences && typeof parsed.preferences === "object") ? parsed.preferences : {};
+    var pr = {
+      chartTimeframe: String(pPref.chartTimeframe || defaults.preferences.chartTimeframe),
+      chartType: String(pPref.chartType || defaults.preferences.chartType)
+    };
+    state = { watchlist: wl, recent: rc, portfolio: pf, alerts: al, preferences: pr };
     save();
     return true;
   } catch (err) {

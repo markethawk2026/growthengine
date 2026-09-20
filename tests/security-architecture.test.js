@@ -43,5 +43,57 @@ if (typeof sandbox.sanitizeURL !== "function") {
   if (sanitizeURL("//evil.com/xss") !== "") { console.error("FAIL protocol-relative URL allowed"); failures++; }
 }
 
+// Verify restoreWorkspace sanitization in js/user-tools.js
+const utCode = fs.readFileSync(path.join(jsdir, "user-tools.js"), "utf8");
+let store = {};
+const utSandbox = {
+  window: {
+    dispatchEvent: () => {}
+  },
+  CustomEvent: function() {},
+  localStorage: {
+    getItem: (k) => store[k] || null,
+    setItem: (k, v) => { store[k] = v; }
+  },
+  console: console
+};
+utSandbox.window.window = utSandbox.window;
+vm.createContext(utSandbox);
+vm.runInContext(utCode, utSandbox);
+
+const NCUserTools = utSandbox.window.NCUserTools;
+if (!NCUserTools || typeof NCUserTools.restoreWorkspace !== "function") {
+  console.error("FAIL restoreWorkspace is not defined in js/user-tools.js");
+  failures++;
+} else {
+  // Test 1: Sanitize malicious ticker input
+  NCUserTools.restoreWorkspace(JSON.stringify({ watchlist: ["<script>alert(1)</script>", "AAPL"] }));
+  const st1 = NCUserTools.getState();
+  if (st1.watchlist.includes("<script>alert(1)</script>") || !st1.watchlist.includes("SCRIPTALERT1SCRIPT")) {
+    console.error("FAIL restoreWorkspace did not sanitize malicious watchlist ticker");
+    failures++;
+  }
+
+  // Test 2: Reject array root JSON
+  let threwArray = false;
+  try {
+    NCUserTools.restoreWorkspace(JSON.stringify([1, 2, 3]));
+  } catch (e) {
+    threwArray = true;
+  }
+  if (!threwArray) {
+    console.error("FAIL restoreWorkspace accepted array JSON backup");
+    failures++;
+  }
+
+  // Test 3: Filter invalid holding values
+  NCUserTools.restoreWorkspace(JSON.stringify({ portfolio: [{ ticker: "TSLA", quantity: "invalid", averagePrice: 100 }] }));
+  const st3 = NCUserTools.getState();
+  if (st3.portfolio.length !== 0) {
+    console.error("FAIL restoreWorkspace allowed invalid portfolio holding quantity");
+    failures++;
+  }
+}
+
 if(failures)process.exit(1);
 console.log("PASS security architecture checks");
