@@ -11,3 +11,7 @@
 ## 2025-05-18 - Primary Action Button Hover Transitions
 **Learning:** Solid action buttons without hover color transitions feel unresponsive to mouse input.
 **Action:** Add subtle background color hover states (`#1d4ed8`) and explicit CSS `transition` rules on primary action buttons (`#ndBtn`, `#tmBtn`, `.csend`) to provide immediate visual feedback.
+
+## 2026-09-20 - Input Field Keyboard Triggers and ARIA Region Tab Accessibility
+**Learning:** Text inputs placed beside action buttons without form submission containers fail to trigger actions on `Enter` keydown. Furthermore, pill/chip tab controls for region filtering require explicit `role="tablist"`, `role="tab"`, and dynamically updated `aria-selected` attributes for screen readers to convey active region filters.
+**Action:** Always wire both button click and input `Enter` keydown events on search/ticker inputs, and dynamically update `aria-selected` on tab/chip selectors upon user interaction.

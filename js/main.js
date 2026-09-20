@@ -318,6 +318,36 @@ async function forceRenderIndexUI() {
   wrapper.innerHTML = generatedHTML;
 }
 
+function initFeatureInputs() {
+  var ndBtn = document.getElementById("ndBtn");
+  var ndIn = document.getElementById("ndIn");
+  if (ndBtn && ndIn) {
+    var triggerND = function() {
+      var val = ndIn.value.trim();
+      if (val) {
+        window.activeTickerNode = val.toUpperCase();
+        runNextDay(val);
+      }
+    };
+    ndBtn.addEventListener("click", triggerND);
+    ndIn.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerND(); });
+  }
+
+  var tmBtn = document.getElementById("tmBtn");
+  var tmIn = document.getElementById("tmIn");
+  if (tmBtn && tmIn) {
+    var triggerTM = function() {
+      var val = tmIn.value.trim();
+      if (val) {
+        window.activeTickerNode = val.toUpperCase();
+        runOutlook(val);
+      }
+    };
+    tmBtn.addEventListener("click", triggerTM);
+    tmIn.addEventListener("keydown", function(e) { if (e.key === "Enter") triggerTM(); });
+  }
+}
+
 function initMarketChips() {
   var chipContainer = document.getElementById("marketChips");
   if (!chipContainer) return;
@@ -326,8 +356,12 @@ function initMarketChips() {
     if (!chip) return;
     var region = chip.getAttribute("data-region");
     if (!region) return;
-    chipContainer.querySelectorAll(".mchip").forEach(c => c.classList.remove("active"));
+    chipContainer.querySelectorAll(".mchip").forEach(function(c) {
+      c.classList.remove("active");
+      c.setAttribute("aria-selected", "false");
+    });
     chip.classList.add("active");
+    chip.setAttribute("aria-selected", "true");
     window.activeMarketRegion = region;
     forceRenderIndexUI();
   });
@@ -668,6 +702,7 @@ async function sendChat(){
 
 async function bootDashboard() {
   initMarketChips();
+  initFeatureInputs();
   forceRenderIndexUI();
   Promise.allSettled([loadIdx(), loadSectorIndices(), loadNews()]);
 }
