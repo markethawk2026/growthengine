@@ -19,16 +19,11 @@ function escapeHTML(text) {
 }
 
 /**
- * Sanitize HTML by removing script tags and event handlers
- * Returns text content only, safe for display
+ * Sanitize HTML — escapes all tags except <br>, safe for innerHTML injection.
  */
 function sanitizeHTML(html) {
   if (!html || typeof html !== 'string') return '';
-  
-  // Create a temporary container
-  const temp = document.createElement('div');
-  temp.textContent = html; // Using textContent prevents HTML parsing
-  return temp.innerHTML;
+  return escapeHTML(html).replace(/&lt;br&gt;/g, '<br>');
 }
 
 /**
@@ -130,6 +125,54 @@ function sanitizeNumber(value) {
   if (value === null || value === undefined) return 0;
   const num = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
   return isNaN(num) ? 0 : num;
+}
+
+/**
+ * Sanitize a ticker symbol before injecting it into an AI prompt.
+ * Returns only the validated ticker string; rejects anything that
+ * could carry a prompt-injection payload.
+ */
+function sanitizeAIPrompt(ticker) {
+  const safe = validateTickerSymbol(ticker);
+  if (!safe) return 'UNKNOWN';
+  // Strip any remaining non-alphanumeric-or-dot characters just in case
+  return safe.replace(/[^A-Z0-9.\-^]/g, '');
+}
+
+/**
+ * Validate and sanitize AI response JSON.
+ * Returns null when the shape is unexpected so callers can show a fallback.
+ */
+function validateAIResponse(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const trend = String(obj.trend || '');
+  if (!['Bullish', 'Bearish', 'Neutral'].includes(trend)) return null;
+  const confidence = parseInt(obj.confidence, 10);
+  if (isNaN(confidence) || confidence < 0 || confidence > 100) return null;
+  const summary = typeof obj.summary === 'string' ? obj.summary.slice(0, 500) : '';
+  return { trend, confidence, summary };
+}
+
+/**
+ * Validate localStorage data structure on load.
+ * Drops individual keys that have wrong types; never crashes on corrupt data.
+ */
+function validateLocalStorageData(raw, defaults) {
+  if (!raw || typeof raw !== 'object') return Object.assign({}, defaults);
+  const out = Object.assign({}, defaults);
+  for (const key of Object.keys(defaults)) {
+    if (!(key in raw)) continue;
+    // Arrays: keep only if array; filter string items to max 20 chars
+    if (Array.isArray(defaults[key])) {
+      if (!Array.isArray(raw[key])) continue;
+      out[key] = raw[key].filter(v => typeof v === 'string' && v.length <= 20);
+    } else if (typeof defaults[key] === 'object' && defaults[key] !== null) {
+      out[key] = (typeof raw[key] === 'object' && raw[key] !== null) ? raw[key] : defaults[key];
+    } else {
+      out[key] = raw[key];
+    }
+  }
+  return out;
 }
 
 /**

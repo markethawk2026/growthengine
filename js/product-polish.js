@@ -39,7 +39,6 @@ function actions(){
     {label:"Open watchlist",run:function(){var e=document.getElementById("ncUserWorkspace");if(e){e.scrollIntoView({behavior:"smooth"});var b=e.querySelector('[data-tab="watchlist"]');if(b)b.click();}}},
     {label:"Open portfolio",run:function(){var e=document.getElementById("ncUserWorkspace");if(e){e.scrollIntoView({behavior:"smooth"});var b=e.querySelector('[data-tab="portfolio"]');if(b)b.click();}}},
     {label:"Open screener",run:function(){var e=document.getElementById("ncUserWorkspace");if(e){e.scrollIntoView({behavior:"smooth"});var b=e.querySelector('[data-tab="screener"]');if(b)b.click();}}},
-    {label:"Open market intelligence",run:function(){var e=document.getElementById("ncMarketIntel");if(e)e.scrollIntoView({behavior:"smooth"});}},
     {label:"Print / save current page as PDF",run:function(){window.print();}},
     {label:"Share current page",run:sharePage},
     {label:"Refresh current page",run:function(){location.reload();}}

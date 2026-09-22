@@ -10,6 +10,9 @@ var defaults={watchlist:[],recent:[],portfolio:[],alerts:[],preferences:{chartTi
 function load(){
   try{
     var parsed=JSON.parse(localStorage.getItem(KEY)||"null");
+    if (typeof validateLocalStorageData === 'function') {
+      return validateLocalStorageData(parsed, defaults);
+    }
     return Object.assign({},defaults,parsed||{}, {preferences:Object.assign({},defaults.preferences,(parsed&&parsed.preferences)||{})});
   }catch(_){return JSON.parse(JSON.stringify(defaults));}
 }

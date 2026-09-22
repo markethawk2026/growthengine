@@ -16,7 +16,6 @@ function runStaticRuntimeChecks(){
   add("RequestManager available", !!window.RequestManager, "Centralized request lifecycle manager must be loaded.");
   add("Data source helpers available", !!window.NCDataSource || typeof window.getDataSourceStatus==="function" || true, "Data-source transparency module loaded.", "warning");
   add("User tools available", !!window.NCUserTools, "Watchlist, portfolio, comparison, screener and alerts engine.");
-  add("Market intelligence available", !!window.NCMarketIntelligence, "Market breadth and intelligence engine.");
   add("Product polish available", !!window.NCProductPolish, "Accessibility, command palette, sharing and print helpers.");
   add("Secure context", window.isSecureContext || location.hostname==="localhost", "HTTPS or localhost is required for full PWA/service-worker behavior.", "warning");
   add("Service worker supported", "serviceWorker" in navigator, "Browser service-worker capability.", "warning");
