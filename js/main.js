@@ -1536,39 +1536,42 @@ async function loadTopMovers() {
     container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">🔒 Live data blocked by network</div>';
     return;
   }
-  var symbols = [];
+  // ONE call: screener returns 15 stocks WITH full price data (was 16 calls)
+  window._tickerNameCache = window._tickerNameCache || {};
+  var valid = [];
   try {
-    var trendUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN?count=20&lang=en-US";
-    var tj = await proxyFetch(trendUrl, 6000);
-    var trendQuotes = tj && tj.finance && tj.finance.result && tj.finance.result[0] && tj.finance.result[0].quotes;
-    if (Array.isArray(trendQuotes) && trendQuotes.length) {
-      symbols = trendQuotes.slice(0, 15)
-        .map(function(q) { return String(q.symbol || '').replace(/\.(NS|BO)$/, ''); })
-        .filter(Boolean);
+    var scrUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?count=50&scrIds=most_actives_IN";
+    var sj = await proxyFetch(scrUrl, 8000);
+    var sQuotes = sj && sj.finance && sj.finance.result && sj.finance.result[0] && sj.finance.result[0].quotes;
+    if (Array.isArray(sQuotes) && sQuotes.length) {
+      valid = sQuotes.slice(0, 15).map(function(q) {
+        var sym = String(q.symbol || '').replace(/\.(NS|BO)$/, '');
+        var price = q.regularMarketPrice, chgPct = q.regularMarketChangePercent;
+        if (!sym || price == null || chgPct == null) return null;
+        var name = q.longName || q.shortName || null;
+        if (name) window._tickerNameCache[sym] = name;
+        return {
+          sym: sym,
+          q: {
+            price: "₹" + Number(price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            raw: price,
+            changePct: (chgPct >= 0 ? "+" : "") + Number(chgPct).toFixed(2) + "%",
+            up: chgPct >= 0,
+            name: name || sym
+          }
+        };
+      }).filter(Boolean);
       if (!NSE_TICKERS.length) {
-        NSE_TICKERS = trendQuotes
+        NSE_TICKERS = sQuotes
           .map(function(q) { return String(q.symbol || '').replace(/\.(NS|BO)$/, ''); })
           .filter(function(s) { return /^[A-Z0-9.\-^&]{1,20}$/.test(s); });
       }
     }
   } catch(e) {}
-  if (!symbols.length) {
-    container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">Market data unavailable</div>';
-    return;
-  }
-  var results = await Promise.allSettled(symbols.map(function(sym) {
-    return yfQuote(sym).then(function(q) { return q ? { sym: sym, q: q } : null; });
-  }));
-  var valid = results.filter(function(r) { return r.status === "fulfilled" && r.value; }).map(function(r) { return r.value; });
   if (!valid.length) {
     container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">Market data unavailable</div>';
     return;
   }
-
-  // Seed name cache from live quote data — yfQuote returns the real company name
-  window._tickerNameCache = window._tickerNameCache || {};
-  valid.forEach(function(i) { if (i.q.name && i.q.name !== i.sym) window._tickerNameCache[i.sym] = i.q.name; });
-
   // Cache for ticker strip — refresh strip after stocks are loaded
   window.TICKER_STOCK_CACHE = valid.map(function(i) {
     return { name: i.sym, price: i.q.price, changePct: i.q.changePct, up: i.q.up, sym: i.sym };
@@ -1665,11 +1668,15 @@ if (window.RefreshScheduler) {
     forceRenderIndexUI();
 
     var tasks = [];
-    if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 15000) {
+    if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 30000) {
       window.LAST_IDX_REFRESH_TS = Date.now();
       tasks.push(loadIdx());
     }
-    if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 240000) {
+    if (!window.LAST_MOVERS_REFRESH_TS || Date.now() - window.LAST_MOVERS_REFRESH_TS > 60000) {
+      window.LAST_MOVERS_REFRESH_TS = Date.now();
+      tasks.push(loadTopMovers());
+    }
+    if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 300000) {
       window.LAST_NEWS_REFRESH_TS = Date.now();
       tasks.push(loadNews());
     }
