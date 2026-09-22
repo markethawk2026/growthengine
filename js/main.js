@@ -694,8 +694,7 @@ async function runAnalysis(ticker){
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
   var t = tSty(d.trend);
-  var poolCloses = window.LIVE_CHART_POOL.closes.length ? window.LIVE_CHART_POOL.closes : d.closes;
-  var chartHTML = drawCandlestickChart(d.opens, d.highs, d.lows, poolCloses, d.volumes, d.up);
+  var chartHTML = drawCandlestickChart(d.opens, d.highs, d.lows, d.closes, d.volumes, d.up);
   var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${escapeHTML(n.headline)}</div><div class="nc-meta"><span>${escapeHTML(n.source)}</span>·<span>${n.time}</span></div></div>`).join("");
   var aBodyEl = document.getElementById("aBody");
   if (!aBodyEl) return;
@@ -1536,44 +1535,50 @@ async function loadTopMovers() {
     container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">🔒 Live data blocked by network</div>';
     return;
   }
-  // ONE call: screener returns 15 stocks WITH full price data (was 16 calls)
+  // Real movers: dedicated gainers + losers screeners (2 calls)
   window._tickerNameCache = window._tickerNameCache || {};
-  var valid = [];
+  function mapQ(quotes) {
+    return (quotes || []).map(function(q) {
+      var sym = String(q.symbol || '').replace(/\.(NS|BO)$/, '');
+      var price = q.regularMarketPrice, chgPct = q.regularMarketChangePercent;
+      if (!sym || price == null || chgPct == null) return null;
+      var name = q.longName || q.shortName || null;
+      if (name) window._tickerNameCache[sym] = name;
+      return {
+        sym: sym,
+        q: {
+          price: "₹" + Number(price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          raw: price,
+          changePct: (chgPct >= 0 ? "+" : "") + Number(chgPct).toFixed(2) + "%",
+          up: chgPct >= 0,
+          name: name || sym
+        }
+      };
+    }).filter(Boolean);
+  }
+  function quotesOf(r) {
+    return (r.status === "fulfilled" && r.value && r.value.finance && r.value.finance.result && r.value.finance.result[0] && r.value.finance.result[0].quotes) || [];
+  }
+
+  var gainers = [], losers = [];
   try {
-    var scrUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?count=50&scrIds=most_actives_IN";
-    var sj = await proxyFetch(scrUrl, 8000);
-    var sQuotes = sj && sj.finance && sj.finance.result && sj.finance.result[0] && sj.finance.result[0].quotes;
-    if (Array.isArray(sQuotes) && sQuotes.length) {
-      valid = sQuotes.slice(0, 15).map(function(q) {
-        var sym = String(q.symbol || '').replace(/\.(NS|BO)$/, '');
-        var price = q.regularMarketPrice, chgPct = q.regularMarketChangePercent;
-        if (!sym || price == null || chgPct == null) return null;
-        var name = q.longName || q.shortName || null;
-        if (name) window._tickerNameCache[sym] = name;
-        return {
-          sym: sym,
-          q: {
-            price: "₹" + Number(price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-            raw: price,
-            changePct: (chgPct >= 0 ? "+" : "") + Number(chgPct).toFixed(2) + "%",
-            up: chgPct >= 0,
-            name: name || sym
-          }
-        };
-      }).filter(Boolean);
-      if (!NSE_TICKERS.length) {
-        NSE_TICKERS = sQuotes
-          .map(function(q) { return String(q.symbol || '').replace(/\.(NS|BO)$/, ''); })
-          .filter(function(s) { return /^[A-Z0-9.\-^&]{1,20}$/.test(s); });
-      }
-    }
+    var base = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?count=10&scrIds=";
+    var res = await Promise.allSettled([
+      proxyFetch(base + "day_gainers_IN", 8000),
+      proxyFetch(base + "day_losers_IN", 8000)
+    ]);
+    gainers = mapQ(quotesOf(res[0])).filter(function(i){ return i.q.up; }).slice(0, 5);
+    losers  = mapQ(quotesOf(res[1])).filter(function(i){ return !i.q.up; }).slice(0, 5);
   } catch(e) {}
-  if (!valid.length) {
+
+  if (!gainers.length && !losers.length) {
     container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">Market data unavailable</div>';
     return;
   }
-  // Cache for ticker strip — refresh strip after stocks are loaded
-  window.TICKER_STOCK_CACHE = valid.map(function(i) {
+
+  // Ticker strip cache from movers
+  var moverPool = gainers.concat(losers);
+  window.TICKER_STOCK_CACHE = moverPool.map(function(i) {
     return { name: i.sym, price: i.q.price, changePct: i.q.changePct, up: i.q.up, sym: i.sym };
   });
   if (typeof renderTickerStrip === "function") {
@@ -1587,14 +1592,8 @@ async function loadTopMovers() {
     renderTickerStrip(merged);
   }
 
-  function pctNum(s) { return parseFloat(String(s || "0").replace(/[+%]/g, "")) || 0; }
-  valid.sort(function(a, b) { return pctNum(b.q.changePct) - pctNum(a.q.changePct); });
-  var gainers = valid.filter(function(i) { return i.q.up; }).slice(0, 5);
-  var losers = valid.filter(function(i) { return !i.q.up; }).slice(-5).reverse();
-  var advCount = valid.filter(function(i){ return i.q.up; }).length;
-  var decCount = valid.filter(function(i){ return !i.q.up; }).length;
   var adEl = document.getElementById("advDecCount");
-  if (adEl) adEl.innerHTML = '<span style="color:#22c55e;font-weight:700;">▲ ' + advCount + ' Advancing</span><span style="color:#475569;margin:0 6px;">|</span><span style="color:#ef4444;font-weight:700;">▼ ' + decCount + ' Declining</span>';
+  if (adEl) adEl.innerHTML = '<span style="color:#22c55e;font-weight:700;">▲ ' + gainers.length + ' Gainers</span><span style="color:#475569;margin:0 6px;">|</span><span style="color:#ef4444;font-weight:700;">▼ ' + losers.length + ' Losers</span>';
 
   function moverRow(item, up) {
     var color = up ? "#22c55e" : "#ef4444";
@@ -1681,7 +1680,7 @@ if (window.RefreshScheduler) {
       tasks.push(loadNews());
     }
     if (tasks.length) await Promise.allSettled(tasks);
-  }, 2000, { pauseWhenHidden: true });
+  }, 5000, { pauseWhenHidden: true });
 }
 
 function initThemeSwitcher() {
