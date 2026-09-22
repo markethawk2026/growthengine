@@ -1175,7 +1175,6 @@ body {
   border: 1px solid #334155; background: var(--border-2); color: var(--text); border-radius: 9px; padding: 8px 14px;
   cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; transition: all 0.15s;
 }
-.ncuw-tabs {
 .ncuw-tabs::-webkit-scrollbar { display: none; }
 .ncuw-tabs button, .ncuw-refresh, .ncuw-actions button, .ncuw-card button, .ncuw-form button, .ncuw-btn {
   border: 1px solid #334155;
