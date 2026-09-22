@@ -7,163 +7,274 @@
 <meta name="theme-color" content="#07090f"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<!-- Security headers via meta -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; connect-src https: wss:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; form-action 'self';">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
 <title>NC Markets</title>
-<link rel="stylesheet" href="css/style.css">
-    <link rel="manifest" href="manifest.webmanifest">
-    <meta name="theme-color" content="#0b0f19">
-  <link rel="icon" href="assets/branding/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=6.7">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/branding/favicon-32.png">
 </head>
 <body>
 
-<div class="bar">
-  <div style="display:flex;align-items:center;gap:0;flex-shrink:0;cursor:pointer" role="button" aria-label="NC Markets Home" tabindex="0" onclick="switchTab('home')" onkeydown="if(event.key==='Enter')switchTab('home')">
-    <div style="position:relative;width:38px;height:38px;flex-shrink:0">
-      <div style="position:absolute;inset:0;border-radius:12px;background:conic-gradient(from 0deg,#3b82f6,#06b6d4,#3b82f6);animation:logoSpin 4s linear infinite;opacity:.9"></div>
-      <div style="position:absolute;inset:2px;border-radius:10px;background:#07090f;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#3b82f6;letter-spacing:-1px">NC</div>
+<!-- ═══ TOP NAV ═══ -->
+<header class="bar">
+  <div class="brand" role="button" aria-label="NC Markets Home" tabindex="0"
+       onclick="switchTab('home')" onkeydown="if(event.key==='Enter')switchTab('home')">
+    <div class="brand-logo" role="img" aria-label="NC Markets logo">
+      <div class="bl-ring"></div>
+      <div class="bl-face">
+        <svg class="bl-icon" viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="1" y="19" font-size="14" font-weight="900" font-family="'Segoe UI',Arial,sans-serif" letter-spacing="-0.5" fill="#f59e0b">NC</text>
+          <rect class="bl-b1" x="20" y="14" width="3.5" height="8" rx="1"/>
+          <rect class="bl-b2" x="25" y="8" width="3.5" height="14" rx="1"/>
+          <rect class="bl-b3" x="30" y="2" width="3.5" height="20" rx="1"/>
+          <polyline class="bl-trend" points="21.5,12 26.5,6 31.5,0.5" stroke-width="1.4"/>
+          <circle class="bl-dot" cx="31.5" cy="0.5" r="1.5"/>
+        </svg>
+      </div>
     </div>
-    <div style="margin-left:9px;line-height:1.1">
-      <div style="font-size:13px;font-weight:900;letter-spacing:.5px;color:#3b82f6">NC Markets</div>
-      <div style="font-size:8px;color:#475569;letter-spacing:1.2px;text-transform:uppercase;">⚡ Intelligence Terminal</div>
+    <div class="brand-text">
+      <div class="brand-name">NC Markets</div>
+      <div class="brand-sub">Intelligence Terminal</div>
     </div>
   </div>
 
-  <div class="sw" style="margin-left:10px">
-    <span class="si">🔍</span>
-    <input id="si" type="text" placeholder="Search any NSE stock by ticker or company name…"/>
-    <div class="dd" id="dd"></div>
+  <div class="sw" aria-label="Stock search">
+    <span class="si" aria-hidden="true">⌕</span>
+    <input id="si" type="text" autocomplete="off" placeholder="Search any NSE stock — ticker or name…" aria-label="Search stocks"/>
+    <div class="dd" id="dd" role="listbox" aria-label="Search results"></div>
   </div>
+
   <div class="bar-r">
-    <div class="ldot"></div><span class="ltxt" id="liveIndicator">LIVE</span>
-    <button class="themeToggle" id="themeBtn" aria-label="Switch to light mode" title="Switch to light mode">🌙</button>
+    <div class="live-badge">
+      <div class="ldot" aria-hidden="true"></div>
+      <span class="ltxt" id="liveIndicator">LIVE</span>
+    </div>
+    <button class="theme-btn" id="themeBtn" aria-label="Switch to light mode" title="Switch to light mode">🌙</button>
   </div>
-</div>
+</header>
 
-<div class="tabs" role="tablist" aria-label="Main Navigation">
-  <button type="button" class="tab active" role="tab" aria-selected="true" data-tab="home"><span style="margin-right:4px;">⚡</span>Home</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="analysis"><span style="margin-right:4px;">📊</span>Analysis</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="nextday"><span style="margin-right:4px;">🎯</span>Next Day</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="term"><span style="margin-right:4px;">📈</span>Outlook</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="global"><span style="margin-right:4px;">🌐</span>Global</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="calendar"><span style="margin-right:4px;">📅</span>Calendar</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="chat"><span style="margin-right:4px;">🤖</span>NC AI</button>
-</div>
+<!-- ═══ TAB NAV ═══ -->
+<nav class="tabs" role="tablist" aria-label="Main Navigation">
+  <button type="button" class="tab active" role="tab" aria-selected="true" data-tab="home">Home</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="analysis">Analysis</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="nextday">Next Day</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="term">Outlook</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="global">Global</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="calendar">Calendar</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="chat">NC AI</button>
+</nav>
 
+<!-- ═══════════════════════════════════════
+     HOME
+════════════════════════════════════════ -->
 <div class="page show" id="pg-home">
-  <div style="margin-bottom: 14px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 4px;" id="quickViewStrip">
-    <span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View: Syncing live sectors...</span>
+
+  <!-- Live Ticker Strip -->
+  <div class="ticker-strip-wrap">
+    <div class="ticker-strip" id="quickViewStrip">
+      <span class="ticker-placeholder">Syncing live markets…</span>
+    </div>
   </div>
 
-  <div class="sec">
+  <!-- Market Summary — Full Width -->
+  <div class="sec mkt-summary-sec">
     <div class="shr">
-      <span class="stitle">📰 Market News <span class="badge b-free">Yahoo Finance · Free</span></span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="stitle">Market Summary</span>
+        <div id="mktStatus" class="mkt-status-pill"></div>
+      </div>
     </div>
-    <div id="newsBody"><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px"></div></div>
+    <div class="mchip-row" id="marketChips">
+      <button class="mchip active" data-region="india">India</button>
+      <button class="mchip" data-region="us">US</button>
+      <button class="mchip" data-region="global">Global</button>
+      <button class="mchip" data-region="crypto">Crypto</button>
+    </div>
+    <div class="idx-cards-grid" id="idxCards">
+      <div class="skel" style="height:96px"></div>
+      <div class="skel" style="height:96px"></div>
+      <div class="skel" style="height:96px"></div>
+      <div class="skel" style="height:96px"></div>
+    </div>
   </div>
-  <div class="sec">
-    <div class="shr">
-      <span class="stitle">📊 Key Sector Indices <span class="badge b-free">Live</span></span>
-    </div>
-    <div class="tgrid" id="trendBody">
-      <div class="skel" style="height:58px"></div><div class="skel" style="height:58px"></div>
-      <div class="skel" style="height:58px"></div><div class="skel" style="height:58px"></div>
-    </div>
-  </div>
-  <div class="sec" style="margin-bottom: 20px;">
-    <div class="shr" style="margin-bottom: 12px;">
-      <span class="stitle">📈 Market Summary <span class="badge b-free">Live</span></span>
-    </div>
-    <div class="market-chips-wrapper" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-bottom: 14px; padding-bottom: 4px;" id="marketChips">
-      <button class="mchip active" data-region="india">🇮🇳 India</button>
-      <button class="mchip" data-region="us">🇺🇸 US</button>
-      <button class="mchip" data-region="global">🌐 Global</button>
-      <button class="mchip" data-region="crypto">₿ Crypto</button>
-    </div>
-    <div class="g2" id="idxCards">
-      <div class="skel" style="height:76px"></div><div class="skel" style="height:76px"></div>
-    </div>
+
+  <!-- Home grid: main (wide) + sidebar -->
+  <div class="home-grid">
+
+    <!-- LEFT: Movers + News -->
+    <section class="home-col-main">
+
+      <!-- Top Movers -->
+      <div class="sec">
+        <div class="shr">
+          <span class="stitle">Top Movers</span>
+          <span id="advDecCount" style="font-size:10px;color:#475569;"></span>
+        </div>
+        <div id="topMovers">
+          <div class="skel" style="height:44px;margin-bottom:6px"></div>
+          <div class="skel" style="height:44px;margin-bottom:6px"></div>
+          <div class="skel" style="height:44px"></div>
+        </div>
+      </div>
+
+      <!-- Market News — 2-col card grid -->
+      <div class="sec">
+        <div class="shr">
+          <span class="stitle">Market News</span>
+        </div>
+        <div id="newsBody">
+          <div class="news-grid-skel">
+            <div class="skel" style="height:90px"></div>
+            <div class="skel" style="height:90px"></div>
+            <div class="skel" style="height:90px"></div>
+            <div class="skel" style="height:90px"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Sectors + Recently Viewed -->
+    <aside class="home-col-side">
+
+      <div class="sec">
+        <div class="shr">
+          <span class="stitle">Key Sectors</span>
+        </div>
+        <div id="trendBody">
+          <div class="skel" style="height:48px;margin-bottom:6px"></div>
+          <div class="skel" style="height:48px;margin-bottom:6px"></div>
+          <div class="skel" style="height:48px;margin-bottom:6px"></div>
+          <div class="skel" style="height:48px"></div>
+        </div>
+      </div>
+
+      <div class="sec" id="recentSec">
+        <div class="shr">
+          <span class="stitle">Recently Viewed</span>
+        </div>
+        <div id="recentBody"></div>
+      </div>
+
+    </aside>
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════
+     ANALYSIS
+════════════════════════════════════════ -->
 <div class="page" id="pg-analysis">
   <div id="aBody">
-    <div style="text-align:center;padding:60px 20px">
-      <div style="font-size:40px;margin-bottom:12px">🔍</div>
-      <div style="font-size:14px;font-weight:600;margin-bottom:6px;color:#94a3b8">Search any NSE / BSE stock above</div>
-      <div style="font-size:12px;color:#475569">Free frontend demo · Data availability and freshness depend on provider status</div>
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <div class="empty-title">Search any NSE / BSE stock above</div>
+      <div class="empty-sub">Data powered by Yahoo Finance</div>
     </div>
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════
+     NEXT DAY
+════════════════════════════════════════ -->
 <div class="page" id="pg-nextday">
   <div class="sec">
-    <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
-    <div style="display:flex;gap:8px">
-      <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
-      <button id="ndBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Predict</button>
+    <div class="stitle" style="margin-bottom:12px">Next Day Prediction</div>
+    <div class="input-row">
+      <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" class="ticker-input"/>
+      <button id="ndBtn" class="action-btn">Predict</button>
     </div>
   </div>
   <div id="ndBody"></div>
 </div>
 
+<!-- ═══════════════════════════════════════
+     OUTLOOK
+════════════════════════════════════════ -->
 <div class="page" id="pg-term">
   <div class="sec">
-    <div class="stitle" style="margin-bottom:12px">📈 Short &amp; Long Term Outlook</div>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="tmIn" type="text" placeholder="NSE ticker…" style="flex:1;background:#0f1525;border:1px solid #1c2a45;border-radius:10px;padding:9px 13px;color:#eef2ff;font-size:13px;outline:none"/>
-      <button id="tmBtn" style="background:#2563eb;border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Go</button>
+    <div class="stitle" style="margin-bottom:12px">Short &amp; Long Term Outlook</div>
+    <div class="input-row" style="margin-bottom:10px">
+      <input id="tmIn" type="text" placeholder="NSE ticker…" class="ticker-input"/>
+      <button id="tmBtn" class="action-btn">Go</button>
     </div>
     <div class="tfbtns">
-      <button class="tfb active" data-tf="both">📋 Both</button>
-      <button class="tfb" data-tf="short">⚡ Short (1–2 Wks)</button>
-      <button class="tfb" data-tf="long">🏔 Long (3–12 Mo)</button>
+      <button class="tfb active" data-tf="both">Both</button>
+      <button class="tfb" data-tf="short">Short (1–2 Wks)</button>
+      <button class="tfb" data-tf="long">Long (3–12 Mo)</button>
     </div>
   </div>
   <div id="tmBody"></div>
 </div>
 
+<!-- ═══════════════════════════════════════
+     GLOBAL
+════════════════════════════════════════ -->
 <div class="page" id="pg-global">
   <div class="sec">
     <div class="shr">
-      <span class="stitle">🌍 Global Markets <span class="badge b-free">Yahoo Finance · Free</span></span>
+      <span class="stitle">Global Markets</span>
       <button class="sbtn" id="btnGlobal">↻ Refresh</button>
     </div>
-    <div id="gBody"><div class="skel" style="height:80px;margin-bottom:8px"></div><div class="skel" style="height:80px;margin-bottom:8px"></div><div class="skel" style="height:80px"></div></div>
+    <div id="gBody">
+      <div class="skel" style="height:80px;margin-bottom:8px"></div>
+      <div class="skel" style="height:80px;margin-bottom:8px"></div>
+      <div class="skel" style="height:80px"></div>
+    </div>
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════
+     CALENDAR
+════════════════════════════════════════ -->
 <div class="page" id="pg-calendar">
   <div class="sec">
     <div class="shr">
-      <span class="stitle">📆 Events Calendar <span class="badge b-free">NSE · Free</span></span>
+      <span class="stitle">Events Calendar</span>
       <button class="sbtn" id="btnCal">↻ Refresh</button>
     </div>
-    <div id="calBody"><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px;margin-bottom:8px"></div><div class="skel" style="height:56px"></div></div>
+    <div id="calBody">
+      <div class="skel" style="height:56px;margin-bottom:8px"></div>
+      <div class="skel" style="height:56px;margin-bottom:8px"></div>
+      <div class="skel" style="height:56px"></div>
+    </div>
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════
+     AI CHAT
+════════════════════════════════════════ -->
 <div class="page" id="pg-chat">
-  <div class="sec">
-    <div class="stitle" style="margin-bottom:10px">🤖 NC AI Assistant <span class="badge b-free">100% Free</span></div>
-    <div style="margin-bottom:10px" id="chatSuggestions"></div>
-    <div class="cmsgs" id="chatMsgs" style="max-height: 400px; overflow-y: auto;">
-      <div class="cm cmai">👋 Hi! I'm NC AI, your financial market co-pilot. Ask me any question about technical setups, market trends, or investment strategies!</div>
+  <div class="sec chat-sec">
+    <div class="chat-header">
+      <div>
+        <div class="stitle">NC AI Assistant</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Ask about any stock, sector, or market strategy</div>
+      </div>
+    </div>
+    <div id="chatSuggestions" style="margin-bottom:10px"></div>
+    <div class="cmsgs" id="chatMsgs">
+      <div class="cm cmai">Hi! I'm NC AI, your market co-pilot. Ask about any stock, technical setup, or strategy!</div>
     </div>
     <div class="crow">
-      <input id="chatIn" type="text" placeholder="Ask about any stock, sector or market trend…"/>
-      <button class="csend" id="chatSend" aria-label="Send message" title="Send message">↑</button>
+      <input id="chatIn" type="text" placeholder="Ask about any stock, sector or strategy…" aria-label="Chat message"/>
+      <button class="csend" id="chatSend" aria-label="Send message" title="Send">↑</button>
     </div>
   </div>
 </div>
 
-<script src="js/security.js?v=4.0"></script>
+<script src="js/security.js?v=4.1"></script>
 <script src="js/data-source.js?v=4.0"></script>
 <script src="js/request-manager.js?v=5.0"></script>
-    <script src="js/api.js?v=5.0"></script>
-<script src="js/user-tools.js?v=6.0"></script>
-    <script src="js/user-tools-ui.js?v=6.1"></script>
-    <script src="js/product-polish.js?v=8.0"></script>
-    <script src="js/quality-assurance.js?v=9.0"></script>
-    <script src="js/main.js?v=4.0"></script>
-    <script src="js/regression-repair.js?v=12.0"></script>
+<script src="js/api.js?v=6.1"></script>
+<script src="js/user-tools.js?v=6.1"></script>
+<script src="js/user-tools-ui.js?v=6.5"></script>
+<script src="js/product-polish.js?v=8.0"></script>
+<script src="js/quality-assurance.js?v=9.0"></script>
+<script src="js/main.js?v=7.0"></script>
 </body>
 </html>
