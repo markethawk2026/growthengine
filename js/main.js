@@ -15,92 +15,153 @@ function rls(arr){ if(!Array.isArray(arr)) return ""; return arr.map(function(r)
 function skels(h, n){ return Array(n).fill('<div class="skel" style="height:' + h + 'px;margin-bottom:8px"></div>').join(""); }
 function ldng(msg){ return '<div style="text-align:center;padding:40px 20px"><div class="spnr"></div><div style="font-size:13px;color:#64748b">' + escapeHTML(msg) + '</div></div>'; }
 
-function drawCandlestickChart(opens, highs, lows, closes, volumes, up) {
+// Candlestick pattern detection → Buy / Sell / Hold signal
+function detectCandlePattern(opens, highs, lows, closes) {
+  var n = closes.length;
+  if (n < 3 || !opens || opens.length !== n) return { signal: "HOLD", pattern: "Insufficient data", color: "#f59e0b" };
+  var o = opens[n-1], h = highs[n-1], l = lows[n-1], c = closes[n-1];
+  var po = opens[n-2], pc = closes[n-2];
+  var body = Math.abs(c - o), range = (h - l) || 1;
+  var upperWick = h - Math.max(o, c), lowerWick = Math.min(o, c) - l;
+  var patterns = [], bull = 0, bear = 0;
+
+  if (pc < po && c > o && c >= po && o <= pc) { patterns.push("Bullish Engulfing"); bull += 2; }
+  if (pc > po && c < o && o >= pc && c <= po) { patterns.push("Bearish Engulfing"); bear += 2; }
+  if (lowerWick > body * 2 && upperWick < body && body > 0) { patterns.push("Hammer"); bull += 1.5; }
+  if (upperWick > body * 2 && lowerWick < body && body > 0) { patterns.push("Shooting Star"); bear += 1.5; }
+  if (body < range * 0.1) { patterns.push("Doji"); }
+  if (closes[n-1] > closes[n-2] && closes[n-2] > closes[n-3]) bull += 1;
+  if (closes[n-1] < closes[n-2] && closes[n-2] < closes[n-3]) bear += 1;
+
+  var signal, color;
+  if (bull - bear >= 1.5) { signal = "BUY"; color = "#22c55e"; }
+  else if (bear - bull >= 1.5) { signal = "SELL"; color = "#ef4444"; }
+  else { signal = "HOLD"; color = "#f59e0b"; }
+  return { signal: signal, pattern: patterns.length ? patterns.join(" · ") : "No clear pattern", color: color };
+}
+
+window.ncChartHover = function(e) {
+  var d = window._ncChartData; if (!d) return;
+  var svg = document.getElementById('ncChartSvg'); if (!svg) return;
+  var rect = svg.getBoundingClientRect();
+  var xv = (e.clientX - rect.left) / rect.width * d.W;
+  var plotX = xv - d.ML;
+  if (plotX < 0 || plotX > d.plotW) { window.ncChartLeave(); return; }
+  var idx = Math.floor(plotX / d.plotW * d.n);
+  if (idx < 0) idx = 0; if (idx >= d.n) idx = d.n - 1;
+  var cx = d.ML + (idx + 0.5) / d.n * d.plotW;
+  var cross = document.getElementById('ncCrossV');
+  if (cross) { cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.style.display = 'block'; }
+  var tip = document.getElementById('ncChartTip'); if (!tip) return;
+  var dt = d.times && d.times[idx] ? new Date(d.times[idx]*1000).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : ('#' + (idx+1));
+  var up = d.closes[idx] >= d.opens[idx];
+  tip.innerHTML = '<div style="font-weight:700;color:#cbd5e1;margin-bottom:2px;">' + dt + '</div>'
+    + '<div style="color:#94a3b8;">O <b style="color:#e2e8f4">' + d.opens[idx].toFixed(2) + '</b>&nbsp; H <b style="color:#22c55e">' + d.highs[idx].toFixed(2) + '</b></div>'
+    + '<div style="color:#94a3b8;">L <b style="color:#ef4444">' + d.lows[idx].toFixed(2) + '</b>&nbsp; C <b style="color:' + (up?'#22c55e':'#ef4444') + '">' + d.closes[idx].toFixed(2) + '</b></div>';
+  tip.style.display = 'block';
+  var contRect = svg.parentElement.getBoundingClientRect();
+  var px = e.clientX - contRect.left;
+  tip.style.left = Math.min(Math.max(px + 12, 4), contRect.width - 130) + 'px';
+};
+window.ncChartLeave = function() {
+  var c = document.getElementById('ncCrossV'); if (c) c.style.display = 'none';
+  var t = document.getElementById('ncChartTip'); if (t) t.style.display = 'none';
+};
+
+function drawCandlestickChart(opens, highs, lows, closes, volumes, up, times) {
   if (!closes || closes.length < 2) return '';
   var n = closes.length;
   var hasOHLC = opens && opens.length === n && highs && highs.length === n && lows && lows.length === n;
 
-  var W = 600, priceH = 160, volH = 36, totalH = priceH + volH + 8;
-  var pad = { l: 4, r: 4, t: 8, b: 4 };
-  var chartW = W - pad.l - pad.r;
+  var W = 640, ML = 46, MR = 12, MT = 10;
+  var priceH = 168, volGap = 8, volH = 32, xAxisH = 20;
+  var totalH = MT + priceH + volGap + volH + xAxisH;
+  var plotW = W - ML - MR;
 
   var minP = Math.min.apply(null, lows && lows.length ? lows : closes);
   var maxP = Math.max.apply(null, highs && highs.length ? highs : closes);
   var rng = maxP - minP || 1;
-  minP -= rng * 0.06; maxP += rng * 0.06; rng = maxP - minP;
+  minP -= rng * 0.05; maxP += rng * 0.05; rng = maxP - minP;
 
   var maxVol = volumes && volumes.length ? Math.max.apply(null, volumes.map(function(v){ return v || 0; })) : 1;
   if (maxVol <= 0) maxVol = 1;
 
-  function py(price) { return pad.t + priceH - ((price - minP) / rng) * priceH; }
-  function vy(vol) { return priceH + 8 + volH - ((vol || 0) / maxVol) * volH; }
+  var volTop = MT + priceH + volGap;
+  function py(price) { return MT + priceH - ((price - minP) / rng) * priceH; }
+  function vy(vol) { return volTop + volH - ((vol || 0) / maxVol) * volH; }
   function vh(vol) { return ((vol || 0) / maxVol) * volH; }
 
-  var gradId = "cg_" + Math.random().toString(36).substr(2, 5);
   var color = up ? "#22c55e" : "#ef4444";
+  var candleW = Math.max(2, Math.min(10, Math.floor(plotW / n) - 1));
+  var step = plotW / n;
+  var svg = [];
 
-  var candleW = Math.max(2, Math.floor(chartW / n) - 1);
-  if (candleW > 12) candleW = 12;
-  var step = chartW / n;
+  // Y-axis gridlines + price labels
+  var GL = 4;
+  for (var g = 0; g <= GL; g++) {
+    var gp = minP + (rng * g / GL);
+    var gy = py(gp);
+    svg.push('<line x1="' + ML + '" y1="' + gy.toFixed(1) + '" x2="' + (W - MR) + '" y2="' + gy.toFixed(1) + '" stroke="#1e293b" stroke-width="0.5" stroke-dasharray="2 3"/>');
+    svg.push('<text x="' + (ML - 4) + '" y="' + (gy + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#64748b" font-family="monospace">' + gp.toFixed(0) + '</text>');
+  }
 
-  var svgParts = [];
+  // X-axis date labels
+  var XL = Math.min(6, n);
+  for (var xl = 0; xl < XL; xl++) {
+    var di = Math.round((n - 1) * xl / (XL - 1 || 1));
+    var xx = ML + (di + 0.5) * step;
+    var lbl = (times && times[di]) ? new Date(times[di]*1000).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : ('#' + (di+1));
+    var anchor = xl === 0 ? 'start' : (xl === XL-1 ? 'end' : 'middle');
+    svg.push('<text x="' + xx.toFixed(1) + '" y="' + (totalH - 6) + '" text-anchor="' + anchor + '" font-size="8.5" fill="#64748b">' + lbl + '</text>');
+  }
 
   // Volume bars
   for (var i = 0; i < n; i++) {
-    var cx = pad.l + (i + 0.5) * step;
-    var isUp = hasOHLC ? (closes[i] >= opens[i]) : (i === 0 ? true : closes[i] >= closes[i-1]);
-    var vColor = isUp ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)";
-    var vH = vh(volumes ? volumes[i] : 0);
-    var vY = vy(volumes ? volumes[i] : 0);
-    svgParts.push('<rect x="' + (cx - candleW/2).toFixed(1) + '" y="' + vY.toFixed(1) + '" width="' + candleW + '" height="' + vH.toFixed(1) + '" fill="' + vColor + '" rx="1"/>');
+    var cxv = ML + (i + 0.5) * step;
+    var vUp = hasOHLC ? (closes[i] >= opens[i]) : (i === 0 ? true : closes[i] >= closes[i-1]);
+    svg.push('<rect x="' + (cxv - candleW/2).toFixed(1) + '" y="' + vy(volumes ? volumes[i] : 0).toFixed(1) + '" width="' + candleW + '" height="' + vh(volumes ? volumes[i] : 0).toFixed(1) + '" fill="' + (vUp ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)") + '" rx="1"/>');
   }
 
   if (hasOHLC) {
-    // Candlestick bodies + wicks
     for (var i = 0; i < n; i++) {
-      var cx = pad.l + (i + 0.5) * step;
+      var cx = ML + (i + 0.5) * step;
       var o = opens[i], h2 = highs[i], l2 = lows[i], c = closes[i];
-      var isUp = c >= o;
-      var cColor = isUp ? "#22c55e" : "#ef4444";
-      var bodyTop = py(Math.max(o, c));
-      var bodyBot = py(Math.min(o, c));
-      var bodyH = Math.max(1, bodyBot - bodyTop);
-      // Wick
-      svgParts.push('<line x1="' + cx.toFixed(1) + '" y1="' + py(h2).toFixed(1) + '" x2="' + cx.toFixed(1) + '" y2="' + py(l2).toFixed(1) + '" stroke="' + cColor + '" stroke-width="1" opacity="0.7"/>');
-      // Body
-      svgParts.push('<rect x="' + (cx - candleW/2).toFixed(1) + '" y="' + bodyTop.toFixed(1) + '" width="' + candleW + '" height="' + bodyH.toFixed(1) + '" fill="' + (isUp ? "rgba(34,197,94,0.85)" : "rgba(239,68,68,0.85)") + '" stroke="' + cColor + '" stroke-width="0.5" rx="1"/>');
+      var cUp = c >= o, cColor = cUp ? "#22c55e" : "#ef4444";
+      var bodyTop = py(Math.max(o, c)), bodyH = Math.max(1, py(Math.min(o, c)) - bodyTop);
+      svg.push('<line x1="' + cx.toFixed(1) + '" y1="' + py(h2).toFixed(1) + '" x2="' + cx.toFixed(1) + '" y2="' + py(l2).toFixed(1) + '" stroke="' + cColor + '" stroke-width="1" opacity="0.8"/>');
+      svg.push('<rect x="' + (cx - candleW/2).toFixed(1) + '" y="' + bodyTop.toFixed(1) + '" width="' + candleW + '" height="' + bodyH.toFixed(1) + '" fill="' + (cUp ? "rgba(34,197,94,0.9)" : "rgba(239,68,68,0.9)") + '" stroke="' + cColor + '" stroke-width="0.5" rx="0.5"/>');
     }
   } else {
-    // Line chart fallback
-    var pts = closes.map(function(p, i){ return (pad.l + (i+0.5)*step).toFixed(1) + ',' + py(p).toFixed(1); }).join(' ');
-    var lastX = (pad.l + (n-0.5)*step).toFixed(1), lastY = py(closes[n-1]).toFixed(1);
-    svgParts.push('<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.15"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>');
-    svgParts.push('<path d="M ' + pad.l + ',' + (priceH+pad.t) + ' L ' + pts.replace(/,/g, ' ') + ' L ' + (pad.l+chartW) + ','+(priceH+pad.t)+' Z" fill="url(#'+gradId+')" />');
-    svgParts.push('<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>');
-    svgParts.push('<circle cx="' + lastX + '" cy="' + lastY + '" r="3.5" fill="' + color + '" stroke="#0b0f19" stroke-width="1.5"/>');
+    var pts = closes.map(function(p, i){ return (ML + (i+0.5)*step).toFixed(1) + ',' + py(p).toFixed(1); }).join(' ');
+    svg.push('<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/>');
   }
 
-  var latestClose = closes[n-1];
-  var priceLbl = latestClose.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  var chartType = hasOHLC ? "Candlestick Chart" : "Price Chart";
+  // Crosshair (hidden until hover)
+  svg.push('<line id="ncCrossV" x1="0" y1="' + MT + '" x2="0" y2="' + (volTop + volH) + '" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3 3" style="display:none;"/>');
 
-  return '<div id="chart-card-wrapper" style="margin:14px 0;background:#0b0f19;border:1px solid #1e293b;border-radius:12px;padding:14px 16px;width:100%">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+  // Pattern signal
+  var pat = detectCandlePattern(opens, highs, lows, closes);
+  var priceLbl = closes[n-1].toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  window._ncChartData = { opens: opens, highs: highs, lows: lows, closes: closes, times: times, n: n, ML: ML, plotW: plotW, W: W };
+
+  return '<div style="margin:14px 0;background:#0b0f19;border:1px solid #1e293b;border-radius:12px;padding:14px 16px;width:100%">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">'
     + '<div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">'
-    + '<span style="width:6px;height:6px;background:' + color + ';border-radius:50%;display:inline-block;"></span>' + chartType
+    + '<span style="width:6px;height:6px;background:' + color + ';border-radius:50%;display:inline-block;"></span>' + (hasOHLC ? "Candlestick Chart" : "Price Chart")
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:6px;">'
+    + '<span style="font-size:10px;font-weight:800;color:' + pat.color + ';background:' + pat.color + '1a;border:1px solid ' + pat.color + '55;padding:2px 9px;border-radius:5px;">' + pat.signal + '</span>'
     + '<span style="font-size:9.5px;font-weight:800;font-family:monospace;color:' + color + ';background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.12);padding:2px 8px;border-radius:4px;">₹' + priceLbl + '</span>'
-    + (hasOHLC ? '<span style="font-size:9px;color:#22c55e;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);padding:2px 6px;border-radius:4px;">OHLC</span>' : '')
     + '</div></div>'
-    + '<div style="position:relative;">'
-    + '<svg viewBox="0 0 ' + W + ' ' + totalH + '" preserveAspectRatio="none" style="width:100%;height:' + (totalH * 0.85) + 'px;display:block;">'
-    + svgParts.join('')
+    + '<div style="position:relative;" onmousemove="ncChartHover(event)" onmouseleave="ncChartLeave()">'
+    + '<svg id="ncChartSvg" viewBox="0 0 ' + W + ' ' + totalH + '" style="width:100%;height:auto;display:block;">'
+    + svg.join('')
     + '</svg>'
-    + '<div style="position:absolute;left:2px;top:4px;font-size:8.5px;color:#475569;font-weight:700;">₹' + maxP.toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>'
-    + '<div style="position:absolute;left:2px;bottom:' + (volH+10) + 'px;font-size:8.5px;color:#475569;font-weight:700;">₹' + minP.toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>'
-    + '<div style="position:absolute;right:2px;bottom:0;font-size:8px;color:#334155;">Vol</div>'
-    + '</div></div>';
+    + '<div id="ncChartTip" style="position:absolute;top:6px;display:none;background:rgba(11,15,25,0.95);border:1px solid #334155;border-radius:6px;padding:6px 9px;font-size:10px;font-family:monospace;pointer-events:none;z-index:5;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.5);"></div>'
+    + '</div>'
+    + '<div style="font-size:9.5px;color:#64748b;margin-top:6px;text-align:center;">Pattern: <span style="color:#94a3b8;font-weight:600;">' + pat.pattern + '</span> · hover chart for OHLC</div>'
+    + '</div>';
 }
 
 function switchTab(name){
@@ -526,6 +587,7 @@ async function loadSectorIndices() {
       return yfQuote(s.sym).then(function(q) {
         if (q) {
           q.customName = s.name;
+          q.customSym = s.sym;
           return q;
         }
         return null;
@@ -550,7 +612,7 @@ async function loadSectorIndices() {
       var arrow = q.up ? "▲" : "▼";
       var bg = q.up ? "rgba(34,197,94,0.04)" : "rgba(239,68,68,0.04)";
       var bdr = q.up ? "rgba(34,197,94,0.16)" : "rgba(239,68,68,0.16)";
-      return '<div onclick="runAnalysis(\'' + escapeHTML(q.ticker || dispName) + '\')" class="mover-row" style="background:' + bg + ';border-color:' + bdr + ';">'
+      return '<div onclick="runAnalysis(\'' + escapeHTML(q.customSym || q.ticker || dispName) + '\')" class="mover-row" style="background:' + bg + ';border-color:' + bdr + ';">'
         + '<div><div style="font-size:12px;font-weight:700;color:#e2e8f4;">' + escapeHTML(dispName) + '</div><div style="font-size:10px;color:#64748b;margin-top:1px;">' + escapeHTML(q.price) + '</div></div>'
         + '<div style="text-align:right;"><div style="font-size:13px;font-weight:800;color:' + cColor + ';">' + arrow + ' ' + escapeHTML(q.changePct) + '</div></div>'
         + '</div>';
@@ -612,7 +674,11 @@ async function runAnalysis(ticker){
   var healthColor = calculatedHealth === null ? "#64748b" : calculatedHealth > 75 ? "#22c55e" : calculatedHealth > 50 ? "#00b06a" : calculatedHealth > 35 ? "#f59e0b" : "#ef4444";
   var safeTicker = (typeof sanitizeAIPrompt === 'function') ? sanitizeAIPrompt(ticker) : ticker.replace(/[^A-Z0-9.\-^]/g, '');
   var prompt = "Evaluate " + safeTicker + " NSE stock. Return JSON: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"summary\":\"brief analysis\"}";
-  var aiTxt = await freeAI(prompt);
+  // Cap the AI wait at 6s so the analysis renders fast even if the AI service is slow
+  var aiTxt = await Promise.race([
+    freeAI(prompt),
+    new Promise(function(res){ setTimeout(function(){ res(""); }, 6000); })
+  ]);
   var aiRaw = pj(aiTxt);
   var ai = (typeof validateAIResponse === 'function' && aiRaw) ? (validateAIResponse(aiRaw) || {}) : (aiRaw || {});
 
@@ -628,7 +694,7 @@ async function runAnalysis(ticker){
     change: pData.change,
     changePct: pData.changePct,
     up: pData.up,
-    mktCap: pData.mktCap,
+    mktCap: fundamentals.marketCap || pData.mktCap,
     volume: pData.volume,
     rawVolume: pData.rawVolume,
     high: pData.high,
@@ -647,6 +713,7 @@ async function runAnalysis(ticker){
     highs: pData.highs,
     lows: pData.lows,
     opens: pData.opens,
+    times: pData.times,
     rsi: rsi,
     macd: macd,
     macdDetails: macdDetails,
@@ -694,7 +761,7 @@ async function runAnalysis(ticker){
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
   var t = tSty(d.trend);
-  var chartHTML = drawCandlestickChart(d.opens, d.highs, d.lows, d.closes, d.volumes, d.up);
+  var chartHTML = drawCandlestickChart(d.opens, d.highs, d.lows, d.closes, d.volumes, d.up, d.times);
   var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${escapeHTML(n.headline)}</div><div class="nc-meta"><span>${escapeHTML(n.source)}</span>·<span>${n.time}</span></div></div>`).join("");
   var aBodyEl = document.getElementById("aBody");
   if (!aBodyEl) return;

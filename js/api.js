@@ -11,10 +11,15 @@ var YF_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
 var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
-var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/?url="
+// ┌─────────────────────────────────────────────────────────────────┐
+// │  PASTE YOUR CLOUDFLARE WORKER URL BELOW (keep the ?url= at end)   │
+// │  Example: "https://nc-markets.yourname.workers.dev/?url="         │
+// │  Leave as "" to use only the public proxies.                     │
+// └─────────────────────────────────────────────────────────────────┘
+var WORKER_URL = "";
 
-// Order matters: allorigins/codetabs accept Origin:null (work from file://).
-// corsproxy.io/.org reject null origin, so they go last (only useful when hosted).
+// Public fallback proxies. allorigins/codetabs accept Origin:null (work from
+// file://); corsproxy.io/.org reject null origin, so they go last.
 var PUBLIC_PROXIES = [
   "https://api.allorigins.win/raw?url=",
   "https://api.codetabs.com/v1/proxy?quest=",
@@ -24,7 +29,9 @@ var PUBLIC_PROXIES = [
   "https://corsproxy.org/?url="
 ];
 
+// Worker first (reliable), public proxies as fallback.
 var PROXIES = WORKER_URL ? [WORKER_URL].concat(PUBLIC_PROXIES) : PUBLIC_PROXIES;
+
 // Per-proxy health tracking — prefer proxies that worked recently
 var _proxyHealth = PROXIES.map(function() { return { fails: 0, successes: 0, lastFail: 0, lastOk: 0 }; });
 
@@ -283,30 +290,23 @@ async function yfFundamentals(ticker) {
   try {
     var sym = ticker.includes('.') ? ticker : ticker + '.NS';
     var url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + encodeURIComponent(sym) +
-      '&fields=trailingPE,priceToBook,trailingEps,dividendYield,averageDailyVolume3Month,forwardPE,marketCap,beta';
-
-    // Try direct fetch first — v7/quote sometimes allows CORS
-    var j = null;
-    try {
-      var direct = await Promise.race([
-        fetch(url).then(function(r) { return r.ok ? r.json() : null; }),
-        new Promise(function(_, rej) { setTimeout(rej, 3000); })
-      ]);
-      if (direct && direct.quoteResponse) j = direct;
-    } catch(e) {}
-
-    if (!j) j = await proxyFetch(url, 6000);
+      '&fields=trailingPE,priceToBook,epsTrailingTwelveMonths,dividendYield,averageDailyVolume3Month,forwardPE,marketCap,beta';
+    // v7/quote needs crumb auth (handled by the Worker) — no direct fetch, it always CORS-fails
+    var j = await proxyFetch(url, 8000);
     var r = j && j.quoteResponse && j.quoteResponse.result && j.quoteResponse.result[0];
     if (!r) return {};
+    var eps = r.epsTrailingTwelveMonths;
     return {
       pe:        r.trailingPE   ? r.trailingPE.toFixed(1)   : null,
       forwardPE: r.forwardPE    ? r.forwardPE.toFixed(1)    : null,
       pb:        r.priceToBook  ? r.priceToBook.toFixed(2)  : null,
-      eps:       r.trailingEps  ? "₹" + r.trailingEps.toFixed(2) : null,
-      rawEps:    (r.trailingEps && Number.isFinite(r.trailingEps)) ? r.trailingEps : null,
-      divYield:  r.dividendYield ? (r.dividendYield * 100).toFixed(2) + "%" : null,
+      eps:       (eps != null && Number.isFinite(eps)) ? "₹" + eps.toFixed(2) : null,
+      rawEps:    (eps != null && Number.isFinite(eps)) ? eps : null,
+      // Yahoo returns dividendYield already as a percentage (0.49 = 0.49%)
+      divYield:  (r.dividendYield != null && r.dividendYield > 0) ? r.dividendYield.toFixed(2) + "%" : null,
       avgVol3M:  r.averageDailyVolume3Month ? (typeof fmtVol === "function" ? fmtVol(r.averageDailyVolume3Month) : r.averageDailyVolume3Month) : null,
-      beta:      r.beta ? r.beta.toFixed(2) : null
+      beta:      r.beta ? r.beta.toFixed(2) : null,
+      marketCap: r.marketCap ? (typeof fmtCap === "function" ? fmtCap(r.marketCap) : String(r.marketCap)) : null
     };
   } catch(e) { return {}; }
 }
@@ -385,12 +385,14 @@ async function yfNews(q) {
               ? item.description.replace(/<[^>]*>/g, '').trim() 
               : "";
 
+            var link = (item.link && typeof sanitizeURL === "function") ? sanitizeURL(item.link) : (item.link || "");
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
               headline: title,
               source: source.name.toUpperCase(),
               time: new Date().toLocaleTimeString(),
-              summary: summaryClean
+              summary: summaryClean,
+              link: link
             });
           }
         });
