@@ -11,9 +11,11 @@ var YF_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
 var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
+var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/"
+
 // Order matters: allorigins/codetabs accept Origin:null (work from file://).
 // corsproxy.io/.org reject null origin, so they go last (only useful when hosted).
-var PROXIES = [
+var PUBLIC_PROXIES = [
   "https://api.allorigins.win/raw?url=",
   "https://api.codetabs.com/v1/proxy?quest=",
   "https://api.allorigins.win/get?url=",   // same service, JSON-wrapped response
@@ -22,6 +24,7 @@ var PROXIES = [
   "https://corsproxy.org/?url="
 ];
 
+var PROXIES = WORKER_URL ? [WORKER_URL].concat(PUBLIC_PROXIES) : PUBLIC_PROXIES;
 // Per-proxy health tracking — prefer proxies that worked recently
 var _proxyHealth = PROXIES.map(function() { return { fails: 0, successes: 0, lastFail: 0, lastOk: 0 }; });
 
