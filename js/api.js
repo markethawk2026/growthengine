@@ -11,7 +11,7 @@ var YF_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
 var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
-var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/"
+var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/?url="
 
 // Order matters: allorigins/codetabs accept Origin:null (work from file://).
 // corsproxy.io/.org reject null origin, so they go last (only useful when hosted).
