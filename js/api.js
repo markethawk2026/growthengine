@@ -16,7 +16,7 @@ var POLL_AI   = "https://text.pollinations.ai/";
 // │  Example: "https://nc-markets.yourname.workers.dev/?url="         │
 // │  Leave as "" to use only the public proxies.                     │
 // └─────────────────────────────────────────────────────────────────┘
-var WORKER_URL = "";
+var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/?url=";
 
 // Public fallback proxies. allorigins/codetabs accept Origin:null (work from
 // file://); corsproxy.io/.org reject null origin, so they go last.
