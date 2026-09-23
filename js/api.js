@@ -16,7 +16,7 @@ var POLL_AI   = "https://text.pollinations.ai/";
 // │  Example: "https://nc-markets.yourname.workers.dev/?url="         │
 // │  Leave as "" to use only the public proxies.                     │
 // └─────────────────────────────────────────────────────────────────┘
-var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/?url=";
+var WORKER_URL = "";
 
 // Public fallback proxies. allorigins/codetabs accept Origin:null (work from
 // file://); corsproxy.io/.org reject null origin, so they go last.
@@ -242,6 +242,34 @@ async function yfQuote(ticker) {
     return null; 
   }
 }
+
+// Batched quote using Yahoo's OFFICIAL change values (regularMarketChange/Percent).
+// Indices report an inconsistent chartPreviousClose, so this is the correct source.
+// Returns { SYMBOL: {price, change, changePct, up, name, high, low, prevClose, open} }
+async function yfQuoteBatch(symbols) {
+  var out = {};
+  if (!symbols || !symbols.length) return out;
+  try {
+    var url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + encodeURIComponent(symbols.join(",")) + "&_=" + Date.now();
+    var j = await proxyFetch(url, 8000);
+    var results = j && j.quoteResponse && j.quoteResponse.result;
+    if (Array.isArray(results)) {
+      results.forEach(function(q) {
+        if (!q || q.symbol == null || q.regularMarketPrice == null) return;
+        var chg = q.regularMarketChange != null ? q.regularMarketChange : 0;
+        var chgPct = q.regularMarketChangePercent != null ? q.regularMarketChangePercent : 0;
+        out[q.symbol] = {
+          price: q.regularMarketPrice, change: chg, changePct: chgPct, up: chg >= 0,
+          name: q.longName || q.shortName || q.symbol,
+          high: q.regularMarketDayHigh, low: q.regularMarketDayLow,
+          prevClose: q.regularMarketPreviousClose, open: q.regularMarketOpen
+        };
+      });
+    }
+  } catch (e) {}
+  return out;
+}
+window.yfQuoteBatch = yfQuoteBatch;
 
 // Chart OHLC for an arbitrary range/interval (for the timeframe toggle)
 async function yfChartData(ticker, range, interval) {

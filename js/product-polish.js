@@ -63,7 +63,7 @@ async function sharePage(){
 }
 function createPalette(){
   palette=document.createElement("div");palette.id="ncCommandPalette";palette.className="nc-cmd-overlay";palette.hidden=true;
-  palette.innerHTML='<div class="nc-cmd" role="dialog" aria-modal="true" aria-labelledby="ncCmdTitle"><div class="nc-cmd-head"><strong id="ncCmdTitle">Command palette</strong><kbd>Esc</kbd></div><input type="search" aria-label="Search commands" placeholder="Search commands…"><div class="nc-cmd-list"></div></div>';
+  palette.innerHTML='<div class="nc-cmd" role="dialog" aria-modal="true" aria-labelledby="ncCmdTitle"><div class="nc-cmd-head"><strong id="ncCmdTitle">NC Menu</strong><kbd>Esc</kbd></div><input type="search" aria-label="Search commands" placeholder="Search commands…"><div class="nc-cmd-list"></div></div>';
   document.body.appendChild(palette);
   palette.querySelector("input").addEventListener("input",function(e){renderActions(e.target.value);});
   palette.addEventListener("click",function(e){if(e.target===palette)closePalette();});
@@ -75,7 +75,7 @@ function installPolish(){
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palette.hidden?openPalette():closePalette();}
     if(e.key==="Escape"&&palette&&!palette.hidden)closePalette();
   });
-  var fab=document.createElement("button");fab.className="nc-cmd-fab";fab.type="button";fab.setAttribute("aria-label","Open command palette");fab.textContent="⌘K";fab.onclick=openPalette;document.body.appendChild(fab);
+  var fab=document.createElement("button");fab.className="nc-cmd-fab";fab.type="button";fab.setAttribute("aria-label","Open NC menu");fab.setAttribute("title","NC menu — print, share, export (Ctrl/⌘ K)");fab.textContent="NC";fab.onclick=openPalette;document.body.appendChild(fab);
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(function(e){console.warn("Service worker registration failed:",e);});
   document.addEventListener("visibilitychange",function(){document.documentElement.setAttribute("data-page-visible",document.hidden?"false":"true");});
 }

@@ -487,29 +487,21 @@ window.MARKET_SUMMARY_CACHE = {};
 
 async function fetchRegionData(region) {
   var symbols = window.MARKET_REGION_SYMBOLS[region] || window.MARKET_REGION_SYMBOLS.india;
-  var quotes = await Promise.all(symbols.map(async function(item) {
-    try {
-      var q = await yfQuote(item.sym);
-      if (q && q.raw) {
-        return {
-          ticker: item.ticker,
-          sym: item.sym,
-          price: q.raw,
-          change: q.change,
-          changePct: q.changePct,
-          high: q.high,
-          low: q.low,
-          up: q.up
-        };
-      }
-    } catch (_) {}
-    return null;
-  }));
-
-  var valid = quotes.filter(Boolean);
-  if (valid.length > 0) {
-    window.MARKET_SUMMARY_CACHE[region] = valid;
-  }
+  // Official change values (correct for indices), one batched call
+  var batch = (typeof yfQuoteBatch === "function") ? await yfQuoteBatch(symbols.map(function(s){ return s.sym; })) : {};
+  var valid = symbols.map(function(item) {
+    var q = batch[item.sym];
+    if (!q || q.price == null) return null;
+    return {
+      ticker: item.ticker, sym: item.sym, price: q.price,
+      change: (q.change >= 0 ? "+" : "") + q.change.toFixed(2),
+      changePct: (q.changePct >= 0 ? "+" : "") + q.changePct.toFixed(2) + "%",
+      high: "₹" + (q.high != null ? q.high : q.price).toFixed(2),
+      low: "₹" + (q.low != null ? q.low : q.price).toFixed(2),
+      up: q.change >= 0
+    };
+  }).filter(Boolean);
+  if (valid.length > 0) window.MARKET_SUMMARY_CACHE[region] = valid;
 }
 
 // Live refresh: fetches the active region's indices with cache-busting URLs
@@ -517,28 +509,20 @@ async function fetchRegionData(region) {
 async function refreshMarketSummary() {
   var region = window.activeMarketRegion || "india";
   var symbols = window.MARKET_REGION_SYMBOLS[region] || window.MARKET_REGION_SYMBOLS.india;
-  var ts = Date.now();
-  var results = await Promise.all(symbols.map(async function(item) {
-    var url = "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(item.sym) + "?interval=1d&range=1d&_=" + ts;
-    try {
-      var json = await proxyFetch(url, 4000);
-      var meta = json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta;
-      if (!meta || meta.regularMarketPrice == null) return null;
-      var price = parseFloat(meta.regularMarketPrice);
-      var prevClose = parseFloat(meta.chartPreviousClose != null ? meta.chartPreviousClose : (meta.previousClose != null ? meta.previousClose : price));
-      var chg = price - prevClose;
-      var chgPct = prevClose ? (chg / prevClose) * 100 : 0;
-      return {
-        ticker: item.ticker, sym: item.sym, price: price,
-        change: (chg >= 0 ? "+" : "") + chg.toFixed(2),
-        changePct: (chgPct >= 0 ? "+" : "") + chgPct.toFixed(2) + "%",
-        high: "₹" + (meta.regularMarketDayHigh != null ? meta.regularMarketDayHigh : price).toFixed(2),
-        low: "₹" + (meta.regularMarketDayLow != null ? meta.regularMarketDayLow : price).toFixed(2),
-        up: chg >= 0
-      };
-    } catch (e) { return null; }
-  }));
-  var valid = results.filter(Boolean);
+  // One batched call using Yahoo's OFFICIAL change values (correct for indices)
+  var batch = (typeof yfQuoteBatch === "function") ? await yfQuoteBatch(symbols.map(function(s){ return s.sym; })) : {};
+  var valid = symbols.map(function(item) {
+    var q = batch[item.sym];
+    if (!q || q.price == null) return null;
+    return {
+      ticker: item.ticker, sym: item.sym, price: q.price,
+      change: (q.change >= 0 ? "+" : "") + q.change.toFixed(2),
+      changePct: (q.changePct >= 0 ? "+" : "") + q.changePct.toFixed(2) + "%",
+      high: "₹" + (q.high != null ? q.high : q.price).toFixed(2),
+      low: "₹" + (q.low != null ? q.low : q.price).toFixed(2),
+      up: q.change >= 0
+    };
+  }).filter(Boolean);
   if (valid.length) window.MARKET_SUMMARY_CACHE[region] = valid;
   forceRenderIndexUI();
 }
@@ -643,18 +627,17 @@ async function loadSectorIndices() {
   ];
 
   try {
-    var quotes = await Promise.all(sectorSymbols.map(function(s) {
-      return yfQuote(s.sym).then(function(q) {
-        if (q) {
-          q.customName = s.name;
-          q.customSym = s.sym;
-          return q;
-        }
-        return null;
-      });
-    }));
-
-    var valid = quotes.filter(function(q) { return q !== null && q.raw > 0; });
+    // Batched official change values (correct for indices)
+    var batch = (typeof yfQuoteBatch === "function") ? await yfQuoteBatch(sectorSymbols.map(function(s){ return s.sym; })) : {};
+    var valid = sectorSymbols.map(function(s) {
+      var b = batch[s.sym];
+      if (!b || b.price == null) return null;
+      return {
+        customName: s.name, customSym: s.sym, up: b.change >= 0,
+        price: "₹" + b.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        changePct: (b.changePct >= 0 ? "+" : "") + b.changePct.toFixed(2) + "%"
+      };
+    }).filter(Boolean);
 
     if (!valid.length) {
       container.innerHTML = sectorSymbols.map(function(s) {
@@ -714,6 +697,19 @@ async function runAnalysis(ticker){
       + '</div>';
     return;
   }
+  // Indices report change inconsistently from the chart — override with Yahoo's official value
+  var isIndexTicker = ticker.indexOf("^") === 0 || /^NIFTY_/i.test(ticker);
+  if (isIndexTicker && typeof yfQuoteBatch === "function") {
+    try {
+      var ob = await yfQuoteBatch([ticker]);
+      var of = ob[ticker];
+      if (of && of.change != null) {
+        pData.change = (of.change >= 0 ? "+" : "") + of.change.toFixed(2);
+        pData.changePct = (of.changePct >= 0 ? "+" : "") + of.changePct.toFixed(2) + "%";
+        pData.up = of.change >= 0;
+      }
+    } catch (e) {}
+  }
   var closes = pData.closes;
   var volumes = pData.volumes;
   var [news, fundamentals, financials] = await Promise.all([yfNews(ticker), yfFundamentals(ticker), (typeof yfFinancials === "function" ? yfFinancials(ticker) : Promise.resolve(null))]);
@@ -748,7 +744,7 @@ async function runAnalysis(ticker){
 
   var d = {
     ticker: ticker,
-    isIndex: ticker.indexOf("^") === 0,
+    isIndex: isIndexTicker,
     company: escapeHTML(pData.name),
     price: pData.price,
     change: pData.change,
@@ -825,6 +821,19 @@ window.ncQuickWatch = function(ticker) {
   if (b) { b.innerHTML = "★ Added"; b.style.color = "#22c55e"; b.style.borderColor = "#166534"; b.style.background = "rgba(34,197,94,0.1)"; }
   if (typeof announce === "function") announce(ticker + " added to watchlist");
 };
+window.ncShareAnalysis = function(ticker, company) {
+  var d = window.CURRENT_ACTIVE_ANALYSIS_DATA;
+  var summary = (company || ticker) + " (" + ticker + ")";
+  if (d) summary += " — " + d.price + " " + d.changePct + ", Score " + (d.healthScore != null ? d.healthScore + "%" : "—") + ", " + d.trend;
+  summary += " · via NC Markets";
+  var url = location.href;
+  try {
+    if (navigator.share) { navigator.share({ title: (company || ticker) + " — NC Markets", text: summary, url: url }).catch(function(){}); }
+    else if (navigator.clipboard) { navigator.clipboard.writeText(summary + " " + url).then(function(){ if (typeof announce === "function") announce("Summary copied to clipboard"); }); }
+    else { alert(summary); }
+  } catch (e) { alert(summary); }
+};
+
 window.ncQuickAlert = function(ticker, price) {
   if (!window.NCUserTools) return;
   var input = prompt("Notify me when " + ticker + " crosses this price (₹):", price ? Number(price).toFixed(2) : "");
@@ -858,6 +867,8 @@ function renderAnalysis(d){
             <span class="atg" style="color:${t.c};border-color:${t.b};background:${t.bg}">${d.trend}</span>
             <button id="qwBtn" onclick="ncQuickWatch('${d.ticker}')" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;border:1px solid #1e3358;background:rgba(59,130,246,0.08);color:#60a5fa;">★ Watchlist</button>
             <button onclick="ncQuickAlert('${d.ticker}', ${d.rawPrice})" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;border:1px solid #3a2d1a;background:rgba(245,158,11,0.08);color:#f59e0b;">🔔 Alert</button>
+            <button onclick="window.print()" title="Save / print this analysis as PDF" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;border:1px solid #24303f;background:rgba(255,255,255,0.03);color:#94a3b8;">📄 PDF</button>
+            <button onclick="ncShareAnalysis('${d.ticker}', '${escapeHTML(d.company)}')" title="Share this stock" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;border:1px solid #24303f;background:rgba(255,255,255,0.03);color:#94a3b8;">↗ Share</button>
           </div>
         </div>
         <div class="apr" style="margin-left:auto;text-align:right;">
@@ -1590,8 +1601,16 @@ window._ncVoiceOn = true;
 window.ncToggleVoice = function() {
   window._ncVoiceOn = !window._ncVoiceOn;
   var b = document.getElementById("voiceToggle");
-  if (b) b.innerHTML = window._ncVoiceOn ? "🔊 Voice: On" : "🔇 Voice: Off";
+  if (b) b.innerHTML = window._ncVoiceOn ? "🔊 On" : "🔇 Off";
   if (!window._ncVoiceOn && window.speechSynthesis) window.speechSynthesis.cancel();
+};
+
+window.ncToggleNaruto = function(force) {
+  var panel = document.getElementById("narutoPanel");
+  if (!panel) return;
+  var open = (typeof force === "boolean") ? force : (panel.style.display === "none" || !panel.style.display);
+  panel.style.display = open ? "flex" : "none";
+  if (open) { var inp = document.getElementById("chatIn"); if (inp) setTimeout(function(){ inp.focus(); }, 60); }
 };
 
 function ncSpeak(text) {
@@ -1856,20 +1875,13 @@ async function loadTopMovers() {
     container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">🔒 Live data blocked by network</div>';
     return;
   }
-  var ts = Date.now();
-  var results = await Promise.all(SECTOR_HEATMAP.map(async function(s) {
-    var url = "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(s.sym) + "?interval=1d&range=1d&_=" + ts;
-    try {
-      var json = await proxyFetch(url, 5000);
-      var meta = json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta;
-      if (!meta || meta.regularMarketPrice == null) return null;
-      var price = meta.regularMarketPrice;
-      var prev = meta.chartPreviousClose != null ? meta.chartPreviousClose : (meta.previousClose != null ? meta.previousClose : price);
-      var chgPct = prev ? ((price - prev) / prev) * 100 : 0;
-      return { sym: s.sym, name: s.name, price: price, chgPct: chgPct, up: chgPct >= 0 };
-    } catch (e) { return null; }
-  }));
-  var valid = results.filter(Boolean);
+  // One batched call with official change % (correct for indices)
+  var batch = (typeof yfQuoteBatch === "function") ? await yfQuoteBatch(SECTOR_HEATMAP.map(function(s){ return s.sym; })) : {};
+  var valid = SECTOR_HEATMAP.map(function(s) {
+    var q = batch[s.sym];
+    if (!q || q.price == null) return null;
+    return { sym: s.sym, name: s.name, price: q.price, chgPct: q.changePct, up: q.changePct >= 0 };
+  }).filter(Boolean);
   if (!valid.length) {
     container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">Sector data unavailable</div>';
     return;
