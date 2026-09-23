@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=6.8">
+<link rel="stylesheet" href="css/style.css?v=7.0">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/branding/favicon-32.png">
 </head>
@@ -78,7 +78,7 @@
   <!-- Live Ticker Strip -->
   <div class="ticker-strip-wrap">
     <div class="ticker-strip" id="quickViewStrip">
-      <span class="ticker-placeholder">Syncing live markets…</span>
+      <span class="ticker-placeholder">Loading market data…</span>
     </div>
   </div>
 
@@ -113,7 +113,7 @@
       <!-- Top Movers -->
       <div class="sec">
         <div class="shr">
-          <span class="stitle">Top Movers</span>
+          <span class="stitle">Sector Performance</span>
           <span id="advDecCount" style="font-size:10px;color:#475569;"></span>
         </div>
         <div id="topMovers">
@@ -173,7 +173,7 @@
     <div class="empty-state">
       <div class="empty-icon">📊</div>
       <div class="empty-title">Search any NSE / BSE stock above</div>
-      <div class="empty-sub">Data powered by Yahoo Finance</div>
+      <div class="empty-sub">Data: Yahoo Finance · 15-min delayed</div>
     </div>
   </div>
 </div>
@@ -183,7 +183,8 @@
 ════════════════════════════════════════ -->
 <div class="page" id="pg-nextday">
   <div class="sec">
-    <div class="stitle" style="margin-bottom:12px">Next Day Prediction</div>
+    <div class="stitle" style="margin-bottom:6px">Next Day Prediction</div>
+    <div style="font-size:11.5px;color:#64748b;line-height:1.55;margin-bottom:12px;">Projects tomorrow's likely session range and bias from today's close, <b style="color:#94a3b8;">ATR</b> (volatility), <b style="color:#94a3b8;">RSI</b>, <b style="color:#94a3b8;">MACD</b> and EMA trend. It's a probabilistic technical outlook — not a guaranteed forecast.</div>
     <div class="input-row">
       <input id="ndIn" type="text" placeholder="Enter NSE ticker symbol…" class="ticker-input"/>
       <button id="ndBtn" class="action-btn">Predict</button>
@@ -197,7 +198,8 @@
 ════════════════════════════════════════ -->
 <div class="page" id="pg-term">
   <div class="sec">
-    <div class="stitle" style="margin-bottom:12px">Short &amp; Long Term Outlook</div>
+    <div class="stitle" style="margin-bottom:6px">Short &amp; Long Term Outlook</div>
+    <div style="font-size:11.5px;color:#64748b;line-height:1.55;margin-bottom:12px;"><b style="color:#94a3b8;">Short (1–2 wks)</b> weighs RSI, MACD and near-term support/resistance around current price. <b style="color:#94a3b8;">Long (3–12 mo)</b> weighs the EMA-50/200 trend, 52-week range position and momentum. Each shows Bull / Base / Bear scenarios with reasoning.</div>
     <div class="input-row" style="margin-bottom:10px">
       <input id="tmIn" type="text" placeholder="NSE ticker…" class="ticker-input"/>
       <button id="tmBtn" class="action-btn">Go</button>
@@ -267,14 +269,14 @@
   </div>
 </div>
 
-<script src="js/security.js?v=4.1"></script>
+<script src="js/security.js?v=4.2"></script>
 <script src="js/data-source.js?v=4.0"></script>
 <script src="js/request-manager.js?v=5.0"></script>
-<script src="js/api.js?v=6.6"></script>
+<script src="js/api.js?v=6.7"></script>
 <script src="js/user-tools.js?v=6.2"></script>
-<script src="js/user-tools-ui.js?v=6.6"></script>
+<script src="js/user-tools-ui.js?v=6.7"></script>
 <script src="js/product-polish.js?v=8.0"></script>
 <script src="js/quality-assurance.js?v=9.0"></script>
-<script src="js/main.js?v=7.6"></script>
+<script src="js/main.js?v=7.8"></script>
 </body>
 </html>
