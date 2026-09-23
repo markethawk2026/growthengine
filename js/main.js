@@ -201,6 +201,9 @@ function switchTab(name){
   if(name === "calendar") loadCal();
   if(name === "nextday" && window.activeTickerNode) { var ndInput = document.getElementById("ndIn"); if(ndInput) { ndInput.value = window.activeTickerNode; runNextDay(window.activeTickerNode); } }
   if(name === "term" && window.activeTickerNode) { var tmInput = document.getElementById("tmIn"); if(tmInput) { tmInput.value = window.activeTickerNode; runOutlook(window.activeTickerNode); } }
+  // Hide the floating Naruto button when already on the Naruto tab
+  var fab = document.getElementById("narutoFab");
+  if (fab) fab.style.display = (name === "chat") ? "none" : "flex";
 }
 document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
 
@@ -850,7 +853,7 @@ function renderAnalysis(d){
       <div class="ahdr">
         <div>
           <div class="anm">${escapeHTML(d.company)}</div>
-          <div class="asb">${d.ticker} · India</div>
+          <div class="asb">${d.isIndex ? "Sector / Index · NSE" : escapeHTML(d.ticker) + " · India"}</div>
           <div class="atgs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span class="atg" style="color:${t.c};border-color:${t.b};background:${t.bg}">${d.trend}</span>
             <button id="qwBtn" onclick="ncQuickWatch('${d.ticker}')" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;border:1px solid #1e3358;background:rgba(59,130,246,0.08);color:#60a5fa;">★ Watchlist</button>
@@ -957,6 +960,7 @@ function renderAnalysis(d){
       </div>
     </div>` : ''}
     ${(function(){
+      if (d.isIndex) return ''; // sectors/indices: skip fundamentals-based Pros & Cons
       var pros = [], cons = [];
       var pe = d.pe ? parseFloat(d.pe) : null;
       var rawEps = d.eps ? parseFloat(String(d.eps).replace(/[₹,]/g,'')) : null;
@@ -1580,6 +1584,129 @@ if (chatSendEl) chatSendEl.addEventListener("click", sendChat);
 var chatInEl = document.getElementById("chatIn");
 if (chatInEl) { chatInEl.addEventListener("keydown", function(e){ if(e.key === "Enter") sendChat(); }); }
 
+/* ═══ Naruto Voice Assistant ═══ */
+window._ncVoiceOn = true;
+
+window.ncToggleVoice = function() {
+  window._ncVoiceOn = !window._ncVoiceOn;
+  var b = document.getElementById("voiceToggle");
+  if (b) b.innerHTML = window._ncVoiceOn ? "🔊 Voice: On" : "🔇 Voice: Off";
+  if (!window._ncVoiceOn && window.speechSynthesis) window.speechSynthesis.cancel();
+};
+
+function ncSpeak(text) {
+  if (!window._ncVoiceOn || !window.speechSynthesis || !text) return;
+  try {
+    window.speechSynthesis.cancel();
+    var plain = String(text).replace(/<[^>]+>/g, " ").replace(/[*#_`]/g, "").replace(/\s+/g, " ").trim().slice(0, 550);
+    var u = new SpeechSynthesisUtterance(plain);
+    u.rate = 1.03; u.pitch = 1.05; u.lang = "en-IN";
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+window.ncStartVoice = function() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var mic = document.getElementById("chatMic");
+  if (!SR) { alert("Voice input needs Chrome or Edge. You can still type to Naruto."); return; }
+  try {
+    var recog = new SR();
+    recog.lang = "en-IN"; recog.interimResults = false; recog.maxAlternatives = 1;
+    if (mic) { mic.style.background = "#3a1a1a"; mic.style.color = "#ef4444"; mic.textContent = "●"; }
+    recog.onresult = function(e) {
+      var text = e.results[0][0].transcript;
+      var inp = document.getElementById("chatIn");
+      if (inp) inp.value = text;
+      sendChat();
+    };
+    recog.onend = function() { if (mic) { mic.style.background = "#0f1525"; mic.style.color = "#f59e0b"; mic.textContent = "🎤"; } };
+    recog.onerror = recog.onend;
+    recog.start();
+  } catch (e) {}
+};
+
+function ncBotReply(text, speak) {
+  var msgs = document.getElementById("chatMsgs");
+  if (msgs) { msgs.innerHTML += '<div class="cm cmai">' + escapeHTML(text) + '</div>'; msgs.scrollTop = msgs.scrollHeight; }
+  if (speak) ncSpeak(text);
+}
+
+// Typewriter effect — reveals the answer gradually so Naruto feels like it's really typing
+function ncTypeWriter(el, html) {
+  if (!el) return;
+  var i = 0, cursor = '<span class="nc-cursor"></span>';
+  var msgs = document.getElementById("chatMsgs");
+  el.innerHTML = cursor;
+  function step() {
+    el.innerHTML = html.slice(0, i) + cursor;
+    var ch = html.charAt(i);
+    if (ch === '<') { var gt = html.indexOf('>', i); i = (gt === -1) ? html.length : gt + 1; }        // whole tag
+    else if (ch === '&') { var sc = html.indexOf(';', i); i = (sc === -1 || sc - i > 8) ? i + 1 : sc + 1; } // whole entity
+    else i += 1;
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    if (i < html.length) { setTimeout(step, ch === '.' || ch === '!' || ch === '?' ? 45 : 11); }
+    else { el.innerHTML = html; }
+  }
+  step();
+}
+
+// Resolve ANY company name/ticker to a symbol via live search (fully generic — no hardcoding).
+// Returns null when it clearly isn't a stock, so general questions fall through to the AI.
+async function ncResolveSymbol(nameOrTicker) {
+  var raw = String(nameOrTicker || "").trim();
+  if (!raw) return null;
+  try {
+    if (typeof yfSearch === "function") {
+      var res = await yfSearch(raw);
+      if (res && res.length) return res[0].symbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
+    }
+  } catch (e) {}
+  // No search hit — only accept it if it looks like a bare ticker (single token, no spaces)
+  if (/^[A-Za-z0-9.\-&^]{2,15}$/.test(raw) && !/\s/.test(raw)) return raw.toUpperCase();
+  return null;
+}
+
+// Parse a voice/text command; returns true if it was handled as an action
+async function ncHandleCommand(q) {
+  var lower = " " + q.toLowerCase().trim() + " ";
+  // ALERT: "set alert on <name> at 3200" / "notify me when <name> below 500"
+  var a = q.match(/(?:alert|notify|remind|tell me)\s+(?:me\s+)?(?:on\s+|for\s+|when\s+|about\s+)?(.+?)\s+(?:at|above|below|over|under|crosses?|reaches?|hits?)\s+₹?\s*(\d+(?:\.\d+)?)/i);
+  if (a) {
+    var sym = await ncResolveSymbol(a[1]);
+    var price = parseFloat(a[2]);
+    if (!sym) { ncBotReply("Which stock should I set the alert on? I couldn't catch the name.", true); return true; }
+    var type = /below|under/i.test(q) ? "priceBelow" : "priceAbove";
+    try {
+      NCUserTools.addAlert({ ticker: sym, type: type, threshold: price });
+      if (window.Notification && Notification.permission === "default") { try { Notification.requestPermission(); } catch (e) {} }
+      ncBotReply("Believe it! 🔔 Alert set — I'll ping you when " + sym + " goes " + (type === "priceBelow" ? "below" : "above") + " ₹" + price + ".", true);
+    } catch (e) { ncBotReply("Couldn't set that alert: " + e.message, true); }
+    return true;
+  }
+  // WATCHLIST: "add <name> to watchlist" / "watch <name>"
+  var w = q.match(/(?:add|watch|track|follow)\s+(.+?)\s+(?:to\s+)?(?:my\s+)?(?:watchlist|watch list|list)/i) || q.match(/^\s*watch\s+(.+?)\s*$/i);
+  if (w) {
+    var wsym = await ncResolveSymbol(w[1]);
+    if (wsym) { try { NCUserTools.addWatchlist(wsym); ncBotReply(wsym + " added to your watchlist ⭐ — I've got my eye on it.", true); } catch (e) {} }
+    else { ncBotReply("Which stock should I watch? I couldn't catch the name — try the ticker.", true); }
+    return true;
+  }
+  // ANALYZE: "analyze <name>" / "show me <name>" / "open <name>" / "chart of <name>"
+  var m = q.match(/(?:analy[sz]e|show me|show|open|pull up|chart of|price of)\s+(.+?)\s*$/i);
+  if (m) {
+    var raw = m[1].replace(/\b(stock|share|shares|price|chart|the)\b/gi, "").trim();
+    if (raw.length >= 2 && !/^(market|markets|nifty today|today)$/i.test(raw)) {
+      var asym = await ncResolveSymbol(raw);
+      if (asym) {
+        ncBotReply("On it! Pulling up " + asym + " 🍜", true);
+        runAnalysis(asym);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 async function sendChat(){
   var inp = document.getElementById("chatIn");
   var q = inp ? inp.value.trim() : "";
@@ -1587,8 +1714,13 @@ async function sendChat(){
   if(inp) inp.value = "";
   var msgs = document.getElementById("chatMsgs");
   if (msgs) msgs.innerHTML += '<div class="cm cmu">' + escapeHTML(q) + '</div>';
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+
+  // Action commands first (analyze / alert / watchlist) — resolves any company name generically
+  try { if (await ncHandleCommand(q)) return; } catch (e) {}
+
   var tid = "m" + Date.now();
-  if (msgs) msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Thinking...</div>';
+  if (msgs) msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Naruto is thinking...</div>';
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
   var activeTicker = window.activeTickerNode;
@@ -1599,23 +1731,27 @@ async function sendChat(){
     return "Price " + d.price + ", RSI " + (d.rsi || "—") + ", Score " + d.healthScore + "%, Trend " + d.trend + ".";
   })() + " " : "";
 
-  // Sanitize chat query: strip control chars, limit length
   var safeQ = String(q || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 300);
-  var prompt = "You are NC AI, a concise expert financial assistant for Indian stock markets (NSE/BSE). "
+  var prompt = "You are Naruto, an upbeat, expert financial analyst for Indian stock markets (NSE/BSE). "
     + tickerContext
-    + "Answer in 3–5 lines with specific insight. Avoid generic disclaimers. User asks: " + safeQ;
+    + "Give a clear, well-structured, genuinely helpful answer with specific, concrete insight — "
+    + "use short bullet points or numbered steps where useful, include relevant numbers/levels/examples, "
+    + "and end with a practical takeaway. Keep it professional and accurate; a touch of positive energy is fine but never at the cost of clarity. Aim for 5–10 sentences. Skip generic disclaimers. User asks: " + safeQ;
 
-  var txt = await freeAI(prompt);
-  var stylizedText = txt ? txt.replace(/\n/g, "<br>") : "Sorry, I could not get a response. Please try again.";
+  var txt = await freeAI(prompt, 60);
+  var stylizedText = txt ? txt.replace(/\n/g, "<br>") : "The markets are busy and so am I 🍜 — tap send again in a moment.";
   var targetMsgEl = document.getElementById(tid);
-  if (targetMsgEl) targetMsgEl.innerHTML = sanitizeHTML(stylizedText);
+  if (targetMsgEl) {
+    if (txt) { ncSpeak(txt); ncTypeWriter(targetMsgEl, sanitizeHTML(stylizedText)); }
+    else targetMsgEl.innerHTML = sanitizeHTML(stylizedText);
+  }
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 }
 
 function initChatSuggestions() {
   var container = document.getElementById("chatSuggestions");
   if (!container) return;
-  var suggestions = ["What is RSI?", "Explain MACD", "Best sectors now?", "What is SIP?", "Nifty 50 outlook?", "How to read a candlestick?"];
+  var suggestions = ["Best sectors now?", "Nifty 50 outlook?", "What is RSI?", "Explain MACD", "How do I set a price alert?", "What is SIP?"];
   container.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
     + suggestions.map(function(s) {
         return '<button onclick="document.getElementById(\'chatIn\').value=' + JSON.stringify(s) + '; sendChat();" '

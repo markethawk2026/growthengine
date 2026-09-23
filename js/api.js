@@ -16,7 +16,7 @@ var POLL_AI   = "https://text.pollinations.ai/";
 // │  Example: "https://nc-markets.yourname.workers.dev/?url="         │
 // │  Leave as "" to use only the public proxies.                     │
 // └─────────────────────────────────────────────────────────────────┘
-var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/?url=";
+var WORKER_URL = "";
 
 // Public fallback proxies. allorigins/codetabs accept Origin:null (work from
 // file://); corsproxy.io/.org reject null origin, so they go last.
@@ -614,23 +614,35 @@ function calculateTechnicalScore(closes, rsi, macd, ema20, ema50) {
   }).score;
 }
 
-async function freeAI(prompt) {
-  // Pollinations rate-limits rapid calls (returns empty) — retry up to 3x with backoff
-  var cleanUrl = POLL_AI + encodeURIComponent(prompt) + "?wrap=false";
-  for (var attempt = 0; attempt < 3; attempt++) {
+// Pollinations free tier = only 1 request per IP at a time (429 "Queue full").
+// Serialize every AI call through this chain so they never collide.
+var _aiChain = Promise.resolve();
+async function freeAI(prompt, minLen) {
+  var need = minLen || 15;
+  var task = _aiChain.then(function () { return _pollinate(prompt, need); },
+                           function () { return _pollinate(prompt, need); });
+  _aiChain = task.catch(function () {});
+  return task;
+}
+
+async function _pollinate(prompt, need) {
+  var models = ["openai", "mistral", "openai-large", ""]; // openai = fullest; others are fallbacks
+  var deadline = Date.now() + 24000;
+  var queueRetries = 0;
+  for (var i = 0; i < models.length && Date.now() < deadline; i++) {
+    var model = models[i];
+    var url = POLL_AI + encodeURIComponent(prompt) + "?wrap=false" + (model ? "&model=" + model : "");
     try {
-      var managed = await window.RequestManager.request(cleanUrl, {
-        timeout: 15000,
-        retries: 0,
-        ttl: 0,
-        responseType: "text",
-        cacheKey: "ai::" + attempt + "::" + cleanUrl,
-        allowStaleOnError: false
-      });
-      var txt = (managed && managed.data) ? String(managed.data).trim() : "";
-      if (txt.length > 5) return txt;
-    } catch(e) {}
-    if (attempt < 2) await new Promise(function(r){ setTimeout(r, 1200 * (attempt + 1)); });
+      var r = await fetch(url);
+      var txt = (await r.text()).trim();
+      // Queue full / rate limited — wait and retry the SAME model (that's the real fix)
+      if (r.status === 429 || /queue full|rate.?limit|too many requests/i.test(txt)) {
+        if (queueRetries < 3 && Date.now() < deadline - 4000) { queueRetries++; i--; await sleep(3000); continue; }
+      } else if (r.ok && txt.length >= need && txt.charAt(0) !== "{") {
+        return txt; // real answer (JSON `{...}` bodies are errors)
+      }
+    } catch (e) {}
+    await sleep(700 * (i + 1));
   }
   return "";
 }
