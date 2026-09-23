@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=7.1">
+<link rel="stylesheet" href="css/style.css?v=7.4">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/branding/favicon-32.png">
 </head>
@@ -68,7 +68,7 @@
   <button type="button" class="tab" role="tab" aria-selected="false" data-tab="term">Outlook</button>
   <button type="button" class="tab" role="tab" aria-selected="false" data-tab="global">Global</button>
   <button type="button" class="tab" role="tab" aria-selected="false" data-tab="calendar">Calendar</button>
-  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="chat">NC AI</button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-tab="chat">🍜 Naruto</button>
 </nav>
 
 <!-- ═══════════════════════════════════════
@@ -254,31 +254,37 @@
 ════════════════════════════════════════ -->
 <div class="page" id="pg-chat">
   <div class="sec chat-sec">
-    <div class="chat-header">
+    <div class="chat-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
       <div>
-        <div class="stitle">NC AI Assistant</div>
-        <div style="font-size:11px;color:#64748b;margin-top:4px;">Ask about any stock, sector, or market strategy</div>
+        <div class="stitle" style="display:flex;align-items:center;gap:6px;">🍜 Naruto <span style="font-size:10px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:2px 7px;border-radius:6px;">VOICE AI</span></div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Talk or type — analyze stocks, set alerts, ask anything</div>
       </div>
+      <button id="voiceToggle" onclick="ncToggleVoice()" title="Toggle voice replies" style="font-size:11px;font-weight:700;padding:5px 11px;border-radius:8px;cursor:pointer;border:1px solid #1e2d46;background:rgba(255,255,255,0.03);color:#94a3b8;white-space:nowrap;">🔊 Voice: On</button>
     </div>
     <div id="chatSuggestions" style="margin-bottom:10px"></div>
     <div class="cmsgs" id="chatMsgs">
-      <div class="cm cmai">Hi! I'm NC AI, your market co-pilot. Ask about any stock, technical setup, or strategy!</div>
+      <div class="cm cmai">Dattebayo! I'm <b>Naruto</b>, your market ninja. Talk to me or type — try <i>"analyze &lt;any stock&gt;"</i>, <i>"set alert on &lt;stock&gt; at &lt;price&gt;"</i>, <i>"add &lt;stock&gt; to watchlist"</i>, or ask me anything about the markets!</div>
     </div>
     <div class="crow">
-      <input id="chatIn" type="text" placeholder="Ask about any stock, sector or strategy…" aria-label="Chat message"/>
+      <button class="cmic" id="chatMic" onclick="ncStartVoice()" aria-label="Speak" title="Tap to speak" style="background:#0f1525;border:1px solid #1c2a45;color:#f59e0b;border-radius:10px;width:42px;min-width:42px;cursor:pointer;font-size:16px;">🎤</button>
+      <input id="chatIn" type="text" placeholder="Talk or type — e.g. 'analyze a stock' or 'set an alert'…" aria-label="Chat message"/>
       <button class="csend" id="chatSend" aria-label="Send message" title="Send">↑</button>
     </div>
   </div>
 </div>
 
+<!-- Floating Naruto assistant — reachable from every tab -->
+<button id="narutoFab" onclick="switchTab('chat')" title="Ask Naruto — your voice market assistant" aria-label="Open Naruto assistant"
+  style="position:fixed;bottom:22px;right:22px;z-index:900;width:56px;height:56px;border-radius:50%;border:2px solid #f59e0b;background:linear-gradient(135deg,#211803,#0b0d0a);color:#f59e0b;font-size:25px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🍜</button>
+
 <script src="js/security.js?v=4.2"></script>
 <script src="js/data-source.js?v=4.0"></script>
 <script src="js/request-manager.js?v=5.0"></script>
-<script src="js/api.js?v=6.8"></script>
+<script src="js/api.js?v=6.9"></script>
 <script src="js/user-tools.js?v=6.2"></script>
 <script src="js/user-tools-ui.js?v=7.0"></script>
 <script src="js/product-polish.js?v=8.0"></script>
 <script src="js/quality-assurance.js?v=9.0"></script>
-<script src="js/main.js?v=8.1"></script>
+<script src="js/main.js?v=8.6"></script>
 </body>
 </html>
