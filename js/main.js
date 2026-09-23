@@ -815,6 +815,27 @@ async function runAnalysis(ticker){
   renderAnalysis(d);
 }
 
+window.ncQuickWatch = function(ticker) {
+  if (!window.NCUserTools) return;
+  NCUserTools.addWatchlist(ticker);
+  var b = document.getElementById("qwBtn");
+  if (b) { b.innerHTML = "★ Added"; b.style.color = "#22c55e"; b.style.borderColor = "#166534"; b.style.background = "rgba(34,197,94,0.1)"; }
+  if (typeof announce === "function") announce(ticker + " added to watchlist");
+};
+window.ncQuickAlert = function(ticker, price) {
+  if (!window.NCUserTools) return;
+  var input = prompt("Notify me when " + ticker + " crosses this price (₹):", price ? Number(price).toFixed(2) : "");
+  if (input == null) return;
+  var threshold = parseFloat(input);
+  if (!isFinite(threshold) || threshold <= 0) { alert("Please enter a valid price."); return; }
+  var type = (price && threshold < price) ? "priceBelow" : "priceAbove";
+  try {
+    NCUserTools.addAlert({ ticker: ticker, type: type, threshold: threshold });
+    if (window.Notification && Notification.permission === "default") { try { Notification.requestPermission(); } catch (e) {} }
+    if (typeof announce === "function") announce("Alert set: " + ticker + " " + (type === "priceBelow" ? "below" : "above") + " ₹" + threshold);
+  } catch (e) { alert(e.message); }
+};
+
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
   var t = tSty(d.trend);
@@ -830,7 +851,11 @@ function renderAnalysis(d){
         <div>
           <div class="anm">${escapeHTML(d.company)}</div>
           <div class="asb">${d.ticker} · India</div>
-          <div class="atgs"><span class="atg" style="color:${t.c};border-color:${t.b};background:${t.bg}">${d.trend}</span></div>
+          <div class="atgs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span class="atg" style="color:${t.c};border-color:${t.b};background:${t.bg}">${d.trend}</span>
+            <button id="qwBtn" onclick="ncQuickWatch('${d.ticker}')" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;border:1px solid #1e3358;background:rgba(59,130,246,0.08);color:#60a5fa;">★ Watchlist</button>
+            <button onclick="ncQuickAlert('${d.ticker}', ${d.rawPrice})" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;border:1px solid #3a2d1a;background:rgba(245,158,11,0.08);color:#f59e0b;">🔔 Alert</button>
+          </div>
         </div>
         <div class="apr" style="margin-left:auto;text-align:right;">
           <div class="bprc" style="color:${pc}">${d.price}</div>
@@ -1272,6 +1297,16 @@ function renderND(d) {
   var body = document.getElementById("ndBody");
   if (!body) return;
 
+  // "Why?" — plain-language drivers behind the direction
+  var supporting = (d.signals || []).filter(function(s){ return s.score >= 0.6; });
+  var opposing = (d.signals || []).filter(function(s){ return s.score <= 0.4; });
+  var whyHtml = '<div style="background:#0f1525;border:1px solid #1c2a45;border-radius:8px;padding:12px 14px;margin-bottom:14px;">'
+    + '<div style="font-size:11px;font-weight:800;color:' + accentColor + ';margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Why ' + escapeHTML(d.trend) + '? — what pushes it up / down</div>'
+    + supporting.map(function(s){ return '<div style="font-size:11.5px;color:#cbd5e1;margin-bottom:4px;"><span style="color:#22c55e;font-weight:800;">↑</span> ' + escapeHTML(s.explanation) + '</div>'; }).join("")
+    + opposing.map(function(s){ return '<div style="font-size:11.5px;color:#cbd5e1;margin-bottom:4px;"><span style="color:#ef4444;font-weight:800;">↓</span> ' + escapeHTML(s.explanation) + '</div>'; }).join("")
+    + ((!supporting.length && !opposing.length) ? '<div style="font-size:11.5px;color:#94a3b8;">Signals are balanced — no single dominant driver, so the bias is neutral.</div>' : '')
+    + '</div>';
+
   var rangeHtml = "";
   if (d.atr && d.rawPrice) {
     var upper = (d.rawPrice + d.atr).toFixed(2);
@@ -1301,6 +1336,7 @@ function renderND(d) {
     + '<div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:5px;"><span style="font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Technical Score</span><span style="font-weight:800;color:#f1f5f9;">' + (d.technicalScore !== null ? d.technicalScore + "/100" : "—") + '</span></div>'
     + '<div style="height:6px;background:#1c2a45;border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + (d.technicalScore !== null ? d.technicalScore : 0) + '%;background:' + accentColor + ';border-radius:3px;transition:width 0.6s;"></div></div>'
     + '</div>'
+    + whyHtml
     + rangeHtml
     + '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">Signal Breakdown</div>'
     + (d.signals || []).map(function(s){
@@ -1671,7 +1707,10 @@ var SECTOR_HEATMAP = [
   { sym: "^CNXFMCG", name: "FMCG" }, { sym: "^CNXMETAL", name: "Metal" },
   { sym: "^CNXENERGY", name: "Energy" }, { sym: "^CNXFIN", name: "Financials" },
   { sym: "^CNXREALTY", name: "Realty" }, { sym: "^CNXPSUBANK", name: "PSU Bank" },
-  { sym: "^CNXMEDIA", name: "Media" }, { sym: "^CNXINFRA", name: "Infra" }
+  { sym: "^CNXMEDIA", name: "Media" }, { sym: "^CNXINFRA", name: "Infra" },
+  { sym: "NIFTY_IND_DEFENCE.NS", name: "Defence" }, { sym: "^CNXPSE", name: "PSE" },
+  { sym: "^CNXSERVICE", name: "Services" }, { sym: "^CNXCMDT", name: "Commodities" },
+  { sym: "^CNXMNC", name: "MNC" }
 ];
 
 async function loadTopMovers() {
@@ -1752,13 +1791,77 @@ function loadRecentStocks() {
     + '</div>';
 }
 
+async function loadVisitorCount() {
+  try {
+    // Increment once per browser (unique visitors); just read on repeat visits
+    var counted = localStorage.getItem("nc_visit_counted");
+    var base = "https://abacus.jasoncameron.dev/" + (counted ? "get" : "hit") + "/markethawk2026-nc/visits";
+    var r = await fetch(base);
+    var j = await r.json();
+    if (!counted) { try { localStorage.setItem("nc_visit_counted", "1"); } catch (e) {} }
+    var el = document.getElementById("visitBadge");
+    if (el && j && typeof j.value === "number") {
+      el.innerHTML = '<span aria-hidden="true">👁</span> ' + j.value.toLocaleString("en-IN") + ' visitors';
+      el.style.display = "inline-flex";
+    }
+  } catch (e) {}
+}
+
+async function loadVIX() {
+  try {
+    var url = "https://query1.finance.yahoo.com/v8/finance/chart/^INDIAVIX?interval=1d&range=5d&_=" + Date.now();
+    var j = await proxyFetch(url, 5000);
+    var m = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+    if (!m || m.regularMarketPrice == null) return;
+    var vix = m.regularMarketPrice, prev = m.chartPreviousClose || vix, chg = vix - prev;
+    var label, color;
+    if (vix < 13) { label = "Calm"; color = "#22c55e"; }
+    else if (vix < 18) { label = "Steady"; color = "#84cc16"; }
+    else if (vix < 25) { label = "Cautious"; color = "#f59e0b"; }
+    else { label = "Fearful"; color = "#ef4444"; }
+    var el = document.getElementById("vixBadge");
+    if (el) {
+      el.innerHTML = 'India VIX <b style="color:' + color + '">' + vix.toFixed(2) + '</b> · <span style="color:' + color + '">' + label + '</span> <span style="color:' + (chg >= 0 ? "#ef4444" : "#22c55e") + ';font-size:10px;">' + (chg >= 0 ? "▲" : "▼") + Math.abs(chg).toFixed(2) + '</span>';
+      el.style.background = color + "14";
+      el.style.border = "1px solid " + color + "40";
+      el.style.color = "#94a3b8";
+      el.style.display = "block";
+    }
+  } catch (e) {}
+}
+
+async function checkPriceAlerts() {
+  if (!window.NCUserTools || typeof NCUserTools.checkAlerts !== "function") return;
+  var st = NCUserTools.getState();
+  if (!st.alerts || !st.alerts.some(function(a) { return !a.triggered; })) return;
+  try {
+    var fired = await NCUserTools.checkAlerts();
+    fired.forEach(function(a) {
+      var dir = a.type === "priceBelow" ? "fell below" : "rose above";
+      var px = a.triggeredPrice != null ? a.triggeredPrice.toFixed(2) : "?";
+      var msg = a.ticker + " " + dir + " ₹" + a.threshold + " — now ₹" + px;
+      if (window.Notification && Notification.permission === "granted") {
+        try { new Notification("🔔 NC Markets Alert", { body: msg }); } catch (e) {}
+      }
+      if (typeof announce === "function") announce(msg);
+    });
+  } catch (e) {}
+}
+
 async function bootDashboard() {
   initMarketChips();
   renderMarketStatus();
   setInterval(renderMarketStatus, 1000);
   loadRecentStocks();
   initChatSuggestions();
+  loadVisitorCount(); // async, non-blocking
+  loadVIX();          // async, non-blocking
   _loadNSETickers(); // async, non-blocking
+  // Ask for notification permission if the user has price alerts set
+  if (window.Notification && Notification.permission === "default" && window.NCUserTools) {
+    var alertState = NCUserTools.getState();
+    if (alertState.alerts && alertState.alerts.length) { try { Notification.requestPermission(); } catch (e) {} }
+  }
   // Show skeletons immediately, then fetch all data in parallel
   forceRenderIndexUI();
   Promise.allSettled([
@@ -1790,6 +1893,14 @@ if (window.RefreshScheduler) {
     if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 300000) {
       window.LAST_NEWS_REFRESH_TS = Date.now();
       tasks.push(loadNews());
+    }
+    if (!window.LAST_VIX_REFRESH_TS || Date.now() - window.LAST_VIX_REFRESH_TS > 60000) {
+      window.LAST_VIX_REFRESH_TS = Date.now();
+      tasks.push(loadVIX());
+    }
+    if (!window.LAST_ALERT_CHECK_TS || Date.now() - window.LAST_ALERT_CHECK_TS > 60000) {
+      window.LAST_ALERT_CHECK_TS = Date.now();
+      tasks.push(checkPriceAlerts());
     }
     if (tasks.length) await Promise.allSettled(tasks);
   }, 5000, { pauseWhenHidden: true });

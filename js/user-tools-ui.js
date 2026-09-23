@@ -243,6 +243,12 @@ function renderCompare(panel){
     var html = '<div class="tk-compare-wrap"><table class="tk-table tk-compare-table"><thead><tr><th>Metric</th>'
       + rows.map(function(r){ return '<th style="color:#60a5fa;">' + esc(r.ticker) + (r.error?' <span style="color:#ef4444;font-size:9px;">ERR</span>':'') + '</th>'; }).join("")
       + '</tr></thead><tbody>'
+      + '<tr><td style="color:#94a3b8;font-weight:600;">Signal</td>'
+      + rows.map(function(r){
+          var cnd = (typeof techCondition === "function") ? techCondition(r) : { label: "—", color: "#64748b" };
+          return '<td><span style="font-size:10px;font-weight:800;color:' + cnd.color + ';background:' + cnd.color + '1a;border:1px solid ' + cnd.color + '55;padding:2px 7px;border-radius:5px;white-space:nowrap;">' + cnd.label + '</span></td>';
+        }).join("")
+      + '</tr>'
       + fields.map(function(f){
           return '<tr><td style="color:#94a3b8;font-weight:600;">' + f.label + '</td>'
             + rows.map(function(r){
@@ -272,7 +278,7 @@ function techCondition(r){
 function renderScreener(panel){
   panel.innerHTML =
     '<form id="ncScreenForm" class="tk-add-form" style="flex-wrap:wrap;">'
-    + '<input name="tickers" placeholder="Ticker universe, comma-separated" required class="tk-input" style="flex:1;"/>'
+    + '<input name="tickers" placeholder="One ticker or several, comma-separated (e.g. RELIANCE, TCS, MCX)" required class="tk-input" style="flex:1;"/>'
     + '<select name="filter" class="tk-select">'
     + '<option value="bullish">Bullish (Score ≥ 60)</option>'
     + '<option value="bearish">Bearish (Score ≤ 40)</option>'
@@ -286,8 +292,9 @@ function renderScreener(panel){
     e.preventDefault();
     var f = new FormData(e.target), out = document.getElementById("ncScreenResults");
     out.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">Screening…</div>';
-    var res = await NCUserTools.screen(f.get("tickers"), f.get("filter"));
-    if(!res || !res.length){ out.innerHTML = '<div class="tk-empty">No stocks matched the filter.</div>'; return; }
+    var filterName = f.get("filter");
+    var res = await NCUserTools.screen(f.get("tickers"), filterName);
+    if(!res || !res.length){ out.innerHTML = '<div class="tk-empty">None of the entered tickers are currently <b>' + esc(filterName) + '</b>. Try another condition (Bearish / Oversold / Overbought) or add more tickers.</div>'; return; }
     out.innerHTML = '<div class="tk-card-grid">'
       + res.map(function(r){
           var sc = r.technicalScore;
@@ -334,7 +341,11 @@ function renderAlerts(panel){
   panel.querySelector("#ncAlertForm").onsubmit = function(e){
     e.preventDefault();
     var f = new FormData(e.target);
-    try{ NCUserTools.addAlert({ticker:f.get("ticker"),type:f.get("type"),threshold:f.get("threshold")}); render(); }
+    try{
+      NCUserTools.addAlert({ticker:f.get("ticker"),type:f.get("type"),threshold:f.get("threshold")});
+      if (window.Notification && Notification.permission === "default") { try { Notification.requestPermission(); } catch(er){} }
+      render();
+    }
     catch(err){ alert(err.message); }
   };
   panel.querySelectorAll("[data-alert]").forEach(function(b){ b.onclick = function(){ NCUserTools.removeAlert(b.dataset.alert); render(); }; });

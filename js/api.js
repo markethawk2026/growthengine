@@ -16,7 +16,7 @@ var POLL_AI   = "https://text.pollinations.ai/";
 // │  Example: "https://nc-markets.yourname.workers.dev/?url="         │
 // │  Leave as "" to use only the public proxies.                     │
 // └─────────────────────────────────────────────────────────────────┘
-var WORKER_URL = "https://nc-markets.markethawk2026.workers.dev/?url=";
+var WORKER_URL = "";
 
 // Public fallback proxies. allorigins/codetabs accept Origin:null (work from
 // file://); corsproxy.io/.org reject null origin, so they go last.
@@ -138,7 +138,8 @@ async function yfQuote(ticker) {
   var symCandidates = [ticker];
   // Only append .NS/.BO for plain NSE/BSE stock symbols — NOT indices (^), currencies/futures (=), or crypto (-USD)
   if (!ticker.startsWith("^") && !ticker.includes(".") && !ticker.includes("=") && !/-USD$/.test(ticker)) {
-    symCandidates = [/^\d+$/.test(ticker) ? ticker + ".BO" : ticker + ".NS", ticker + ".BO", ticker + ".NS"];
+    // Numeric codes are BSE; everything else NSE-first, then BSE (deduped — no wasted repeat fetch)
+    symCandidates = /^\d+$/.test(ticker) ? [ticker + ".BO", ticker + ".NS"] : [ticker + ".NS", ticker + ".BO"];
   }
 
   var cResult = null;
