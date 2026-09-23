@@ -1352,7 +1352,16 @@ body.light [style*="color:#f8fafc"], body.light [style*="color: #e2e8f4"],
 body.light [style*="color: #f1f5f9"] { color: #1e293b !important; }
 /* Slightly darken the muted greys for contrast on white */
 body.light [style*="color:#64748b"], body.light [style*="color:#94a3b8"],
-body.light [style*="color:#5a7298"], body.light [style*="color:#8fafd4"] { color: #475569 !important; }
+body.light [style*="color:#5a7298"], body.light [style*="color:#8fafd4"],
+body.light [style*="color:#475569"], body.light [style*="color:#334155"] { color: #52627d !important; }
+/* Darken low-contrast accent colors (cyan / gold / blue) so values are readable on white */
+body.light [style*="color:#38bdf8"] { color: #0369a1 !important; }
+body.light [style*="color:#f59e0b"], body.light [style*="color:#f59e0b"] { color: #b45309 !important; }
+body.light [style*="color:#60a5fa"] { color: #2563eb !important; }
+body.light [style*="color:#3b82f6"] { color: #1d4ed8 !important; }
+body.light [style*="color:#22c55e"], body.light [style*="color:#00b06a"] { color: #15803d !important; }
+body.light [style*="color:#ef4444"] { color: #dc2626 !important; }
+body.light [style*="color:#a78bfa"] { color: #7c3aed !important; }
 /* Dark inline card backgrounds → light surfaces in light mode */
 body.light [style*="background:#0b0f19"], body.light [style*="background:#0b0e1a"],
 body.light [style*="background:#0f1525"], body.light [style*="background:#07090f"],
