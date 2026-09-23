@@ -8,14 +8,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <!-- Security headers via meta -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; connect-src https: wss:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; form-action 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; connect-src 'self' https://nc-markets.markethawk2026.workers.dev https://query1.finance.yahoo.com https://query2.finance.yahoo.com https://text.pollinations.ai https://abacus.jasoncameron.dev https://api.rss2json.com https://corsproxy.io https://corsproxy.org https://api.allorigins.win https://api.codetabs.com https://thingproxy.freeboard.io; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
 <title>NC Markets</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=7.0">
+<link rel="stylesheet" href="css/style.css?v=7.1">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/branding/favicon-32.png">
 </head>
@@ -51,6 +51,7 @@
   </div>
 
   <div class="bar-r">
+    <div class="visit-badge" id="visitBadge" title="Total visits to this site" style="display:none;font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.03);border:1px solid #1e2d46;border-radius:8px;padding:5px 10px;font-weight:600;white-space:nowrap;align-items:center;gap:5px;"></div>
     <div class="live-badge">
       <div class="ldot" aria-hidden="true"></div>
       <span class="ltxt" id="liveIndicator">LIVE</span>
@@ -85,10 +86,11 @@
   <!-- Market Summary — Full Width -->
   <div class="sec mkt-summary-sec">
     <div class="shr">
-      <div style="display:flex;align-items:center;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span class="stitle">Market Summary</span>
         <div id="mktStatus" class="mkt-status-pill"></div>
       </div>
+      <div id="vixBadge" title="India VIX — market volatility / sentiment" style="display:none;font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;white-space:nowrap;"></div>
     </div>
     <div class="mchip-row" id="marketChips">
       <button class="mchip active" data-region="india">India</button>
@@ -272,11 +274,11 @@
 <script src="js/security.js?v=4.2"></script>
 <script src="js/data-source.js?v=4.0"></script>
 <script src="js/request-manager.js?v=5.0"></script>
-<script src="js/api.js?v=6.7"></script>
+<script src="js/api.js?v=6.8"></script>
 <script src="js/user-tools.js?v=6.2"></script>
-<script src="js/user-tools-ui.js?v=6.7"></script>
+<script src="js/user-tools-ui.js?v=7.0"></script>
 <script src="js/product-polish.js?v=8.0"></script>
 <script src="js/quality-assurance.js?v=9.0"></script>
-<script src="js/main.js?v=7.8"></script>
+<script src="js/main.js?v=8.1"></script>
 </body>
 </html>
