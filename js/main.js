@@ -68,8 +68,25 @@ window.ncChartLeave = function() {
   var t = document.getElementById('ncChartTip'); if (t) t.style.display = 'none';
 };
 
-function drawCandlestickChart(opens, highs, lows, closes, volumes, up, times) {
+window.ncSetChartTimeframe = async function(tf) {
+  var ticker = window.activeTickerNode;
+  if (!ticker || typeof yfChartData !== "function") return;
+  var map = { "1D": ["1d", "5m"], "1W": ["5d", "15m"], "1M": ["1mo", "1d"], "3M": ["3mo", "1d"] };
+  var cfg = map[tf] || map["3M"];
+  window._ncChartTF = tf;
+  var card = document.getElementById("ncChartCard");
+  if (card) card.style.opacity = "0.5";
+  var data = await yfChartData(ticker, cfg[0], cfg[1]);
+  if (!data || !data.closes.length) { if (card) card.style.opacity = "1"; return; }
+  var html = drawCandlestickChart(data.opens, data.highs, data.lows, data.closes, data.volumes, data.up, data.times, tf);
+  var tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  if (card && tmp.firstChild) card.replaceWith(tmp.firstChild);
+};
+
+function drawCandlestickChart(opens, highs, lows, closes, volumes, up, times, tf) {
   if (!closes || closes.length < 2) return '';
+  tf = tf || window._ncChartTF || "3M";
   var n = closes.length;
   var hasOHLC = opens && opens.length === n && highs && highs.length === n && lows && lows.length === n;
 
@@ -144,13 +161,22 @@ function drawCandlestickChart(opens, highs, lows, closes, volumes, up, times) {
   var priceLbl = closes[n-1].toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   window._ncChartData = { opens: opens, highs: highs, lows: lows, closes: closes, times: times, n: n, ML: ML, plotW: plotW, W: W };
+  window._ncChartTF = tf;
 
-  return '<div style="margin:14px 0;background:#0b0f19;border:1px solid #1e293b;border-radius:12px;padding:14px 16px;width:100%">'
+  var tfList = ["1D", "1W", "1M", "3M"];
+  var tfBtns = '<div style="display:flex;gap:3px;">' + tfList.map(function(t) {
+    var a = t === tf;
+    return '<button onclick="ncSetChartTimeframe(\'' + t + '\')" style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid ' + (a ? "#f59e0b" : "#1e293b") + ';background:' + (a ? "rgba(245,158,11,0.12)" : "transparent") + ';color:' + (a ? "#f59e0b" : "#64748b") + ';">' + t + '</button>';
+  }).join("") + '</div>';
+  var freshness = (tf === "1D") ? "Intraday · 15-min delayed" : "Daily · 15-min delayed";
+
+  return '<div id="ncChartCard" style="margin:14px 0;background:#0b0f19;border:1px solid #1e293b;border-radius:12px;padding:14px 16px;width:100%">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">'
     + '<div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">'
-    + '<span style="width:6px;height:6px;background:' + color + ';border-radius:50%;display:inline-block;"></span>' + (hasOHLC ? "Candlestick Chart" : "Price Chart")
+    + '<span style="width:6px;height:6px;background:' + color + ';border-radius:50%;display:inline-block;"></span>' + (hasOHLC ? "Candlestick" : "Price") + '<span style="color:#475569;font-weight:500;text-transform:none;letter-spacing:0;font-size:9px;">· ' + freshness + '</span>'
     + '</div>'
-    + '<div style="display:flex;align-items:center;gap:6px;">'
+    + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+    + tfBtns
     + '<span style="font-size:10px;font-weight:800;color:' + pat.color + ';background:' + pat.color + '1a;border:1px solid ' + pat.color + '55;padding:2px 9px;border-radius:5px;">' + pat.signal + '</span>'
     + '<span style="font-size:9.5px;font-weight:800;font-family:monospace;color:' + color + ';background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.12);padding:2px 8px;border-radius:4px;">₹' + priceLbl + '</span>'
     + '</div></div>'
@@ -792,7 +818,7 @@ async function runAnalysis(ticker){
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444";
   var t = tSty(d.trend);
-  var chartHTML = drawCandlestickChart(d.opens, d.highs, d.lows, d.closes, d.volumes, d.up, d.times);
+  var chartHTML = drawCandlestickChart(d.opens, d.highs, d.lows, d.closes, d.volumes, d.up, d.times, "3M");
   var nHTML = d.news.map(n => `<div class="nc"><div class="nc-head">${escapeHTML(n.headline)}</div><div class="nc-meta"><span>${escapeHTML(n.source)}</span>·<span>${n.time}</span></div></div>`).join("");
   var aBodyEl = document.getElementById("aBody");
   if (!aBodyEl) return;
@@ -885,12 +911,18 @@ function renderAnalysis(d){
     </div>
     ${d.grahamVal !== "—" ? `
     <div class="sec">
-      <div class="stitle" style="margin-bottom:12px;">Benjamin Graham Valuation</div>
+      <div class="stitle" style="margin-bottom:12px;display:flex;align-items:center;gap:7px;">Benjamin Graham Valuation<span onclick="var e=document.getElementById('grahamInfo');e.style.display=(e.style.display==='none'||!e.style.display)?'block':'none';" title="What is this?" style="cursor:pointer;width:16px;height:16px;border-radius:50%;border:1px solid #475569;color:#94a3b8;font-size:11px;display:inline-flex;align-items:center;justify-content:center;font-style:italic;font-weight:700;font-family:Georgia,serif;">i</span></div>
+      <div id="grahamInfo" style="display:none;font-size:11.5px;color:#94a3b8;background:#0b0f19;border:1px solid #1e293b;border-radius:8px;padding:11px 13px;margin-bottom:12px;line-height:1.65;">
+        <b style="color:#cbd5e1;">What it tells you:</b> an estimate of the stock's intrinsic "fair value" from its earnings, so you can judge if it's cheap or expensive versus the current price.<br><br>
+        <b style="color:#cbd5e1;">Fair Value</b> = EPS × (8.5 + 2g) × 4.4 ÷ Y &nbsp;(g = growth 8.5%, Y = AAA bond yield 7.2%)<br>
+        <b style="color:#cbd5e1;">Margin of Safety</b> = how far the price sits below (safer) or above (pricier) fair value.<br><br>
+        <span style="color:#64748b;">EPS from Yahoo Finance (TTM). Indicative only — not investment advice.</span>
+      </div>
       <div class="g2">
         <div class="gc">
           <div class="gcl">Graham Fair Value</div>
           <div class="gcv" style="color:#38bdf8">${d.grahamVal}</div>
-          <div class="gcs">EPS × (8.5 + 2g), g=8.5%</div>
+          <div class="gcs">estimated intrinsic value</div>
         </div>
         <div class="gc">
           <div class="gcl">Margin of Safety</div>
@@ -898,7 +930,6 @@ function renderAnalysis(d){
           <div class="gcs">${d.marginOfSafety.startsWith('+') ? 'Trading below fair value' : 'Trading above fair value'}</div>
         </div>
       </div>
-      <div style="font-size:10px;color:#475569;margin-top:2px;">EPS from Yahoo Finance (TTM). Formula: V = EPS × (8.5 + 2g) × 4.4 / Y. Growth rate g = 8.5% assumed. AAA bond yield Y = 7.2% (static benchmark — actual rate may differ). Results are indicative only.</div>
     </div>` : ''}
     ${(function(){
       var pros = [], cons = [];
@@ -1201,6 +1232,7 @@ function renderTradeSetup(setup) {
     + '<div id="psSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">'
     + positionSizeSummary(shares, posValue, maxLoss, maxGainT1)
     + '</div>'
+    + '<div style="font-size:10px;color:#64748b;text-align:center;margin-top:8px;line-height:1.5;">Shares are sized so hitting the stop-loss risks exactly your <b style="color:#94a3b8;">Risk %</b> of <b style="color:#94a3b8;">Capital</b>. Edit either field above and all figures update live.</div>'
     + '</div>'
 
     + '<div style="font-size:10px;color:#334155;text-align:center;margin-top:10px;">All levels are algorithmic — not financial advice. Verify before trading.</div>'
@@ -1568,6 +1600,12 @@ function renderMarketStatus() {
   var dot = '<span style="width:6px;height:6px;border-radius:50%;display:inline-block;background:' + (open ? "#22c55e" : "#64748b") + ';' + (open ? "box-shadow:0 0 4px #22c55e;" : "") + '"></span>';
   pill.className = "mkt-status-pill " + (open ? "mkt-open" : "mkt-closed");
   pill.innerHTML = dot + (open ? " NSE OPEN" : " NSE CLOSED") + ' · <span style="font-family:monospace;letter-spacing:0.5px;">' + timeStr + ' IST</span>';
+
+  // Honest freshness in the header — Yahoo data is 15-min delayed, never truly "live"
+  var liveEl = document.getElementById("liveIndicator");
+  if (liveEl) liveEl.textContent = open ? "DELAYED 15m" : "CLOSED";
+  var ldot = document.querySelector(".live-badge .ldot");
+  if (ldot) ldot.style.background = open ? "#f59e0b" : "#64748b";
 }
 
 function renderTickerStrip(allItems) {
@@ -1626,6 +1664,16 @@ async function loadTickerStrip() {
   renderTickerStrip(allItems);
 }
 
+// Sector Performance heatmap (replaces Top Movers) — NSE sector indices coloured by % change
+var SECTOR_HEATMAP = [
+  { sym: "^NSEBANK", name: "Bank" }, { sym: "^CNXIT", name: "IT" },
+  { sym: "^CNXAUTO", name: "Auto" }, { sym: "^CNXPHARMA", name: "Pharma" },
+  { sym: "^CNXFMCG", name: "FMCG" }, { sym: "^CNXMETAL", name: "Metal" },
+  { sym: "^CNXENERGY", name: "Energy" }, { sym: "^CNXFIN", name: "Financials" },
+  { sym: "^CNXREALTY", name: "Realty" }, { sym: "^CNXPSUBANK", name: "PSU Bank" },
+  { sym: "^CNXMEDIA", name: "Media" }, { sym: "^CNXINFRA", name: "Infra" }
+];
+
 async function loadTopMovers() {
   var container = document.getElementById("topMovers");
   if (!container) return;
@@ -1633,92 +1681,55 @@ async function loadTopMovers() {
     container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">🔒 Live data blocked by network</div>';
     return;
   }
-  // Real movers: dedicated gainers + losers screeners (2 calls)
-  window._tickerNameCache = window._tickerNameCache || {};
-  function mapQ(quotes) {
-    var seen = {};
-    return (quotes || []).map(function(q) {
-      var sym = String(q.symbol || '').replace(/\.(NS|BO)$/, '');
-      var price = q.regularMarketPrice, chgPct = q.regularMarketChangePercent;
-      if (!sym || price == null || chgPct == null) return null;
-      if (seen[sym]) return null; // dedupe BSE/NSE listings of the same company
-      seen[sym] = true;
-      var name = q.longName || q.shortName || null;
-      if (name) window._tickerNameCache[sym] = name;
-      return {
-        sym: sym,
-        q: {
-          price: "₹" + Number(price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          raw: price,
-          changePct: (chgPct >= 0 ? "+" : "") + Number(chgPct).toFixed(2) + "%",
-          up: chgPct >= 0,
-          name: name || sym
-        }
-      };
-    }).filter(Boolean);
-  }
-  function quotesOf(r) {
-    return (r.status === "fulfilled" && r.value && r.value.finance && r.value.finance.result && r.value.finance.result[0] && r.value.finance.result[0].quotes) || [];
-  }
-
-  var gainers = [], losers = [];
-  try {
-    var base = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?count=10&scrIds=";
-    var res = await Promise.allSettled([
-      proxyFetch(base + "day_gainers_IN", 8000),
-      proxyFetch(base + "day_losers_IN", 8000)
-    ]);
-    gainers = mapQ(quotesOf(res[0])).filter(function(i){ return i.q.up; }).slice(0, 5);
-    losers  = mapQ(quotesOf(res[1])).filter(function(i){ return !i.q.up; }).slice(0, 5);
-  } catch(e) {}
-
-  if (!gainers.length && !losers.length) {
-    container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">Market data unavailable</div>';
+  var ts = Date.now();
+  var results = await Promise.all(SECTOR_HEATMAP.map(async function(s) {
+    var url = "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(s.sym) + "?interval=1d&range=1d&_=" + ts;
+    try {
+      var json = await proxyFetch(url, 5000);
+      var meta = json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta;
+      if (!meta || meta.regularMarketPrice == null) return null;
+      var price = meta.regularMarketPrice;
+      var prev = meta.chartPreviousClose != null ? meta.chartPreviousClose : (meta.previousClose != null ? meta.previousClose : price);
+      var chgPct = prev ? ((price - prev) / prev) * 100 : 0;
+      return { sym: s.sym, name: s.name, price: price, chgPct: chgPct, up: chgPct >= 0 };
+    } catch (e) { return null; }
+  }));
+  var valid = results.filter(Boolean);
+  if (!valid.length) {
+    container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;text-align:center;">Sector data unavailable</div>';
     return;
   }
+  valid.sort(function(a, b) { return b.chgPct - a.chgPct; });
 
-  // Ticker strip cache from movers
-  var moverPool = gainers.concat(losers);
-  window.TICKER_STOCK_CACHE = moverPool.map(function(i) {
-    return { name: i.sym, price: i.q.price, changePct: i.q.changePct, up: i.q.up, sym: i.sym };
+  // Feed ticker strip with indices + sectors
+  window.TICKER_STOCK_CACHE = valid.map(function(s) {
+    return { name: s.name, price: "₹" + s.price.toLocaleString("en-IN", { maximumFractionDigits: 2 }), changePct: (s.chgPct >= 0 ? "+" : "") + s.chgPct.toFixed(2) + "%", up: s.up, sym: s.sym };
   });
   if (typeof renderTickerStrip === "function") {
     var cached = window.MARKET_SUMMARY_CACHE["india"] || [];
     var idxItems = cached.map(function(item) {
-      var fPrice = "₹" + Number(item.price).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      return { name: item.ticker, price: fPrice, changePct: item.changePct, up: item.up, sym: item.sym };
+      return { name: item.ticker, price: "₹" + Number(item.price).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), changePct: item.changePct, up: item.up, sym: item.sym };
     });
-    var seenSyms = new Set(idxItems.map(function(i) { return i.sym; }));
-    var merged = idxItems.concat(window.TICKER_STOCK_CACHE.filter(function(s) { return !seenSyms.has(s.sym); }));
-    renderTickerStrip(merged);
+    var seen = new Set(idxItems.map(function(i) { return i.sym; }));
+    renderTickerStrip(idxItems.concat(window.TICKER_STOCK_CACHE.filter(function(s) { return !seen.has(s.sym); })));
   }
 
+  var adv = valid.filter(function(s) { return s.up; }).length;
   var adEl = document.getElementById("advDecCount");
-  if (adEl) adEl.innerHTML = '<span style="color:#22c55e;font-weight:700;">▲ ' + gainers.length + ' Gainers</span><span style="color:#475569;margin:0 6px;">|</span><span style="color:#ef4444;font-weight:700;">▼ ' + losers.length + ' Losers</span>';
+  if (adEl) adEl.innerHTML = '<span style="color:#22c55e;font-weight:700;">▲ ' + adv + '</span> <span style="color:#475569;">/</span> <span style="color:#ef4444;font-weight:700;">▼ ' + (valid.length - adv) + '</span> sectors';
 
-  function moverRow(item, up) {
-    var color = up ? "#22c55e" : "#ef4444";
-    var arrow = up ? "▲" : "▼";
-    var bg = up ? "rgba(34,197,94,0.05)" : "rgba(239,68,68,0.04)";
-    var bdr = up ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)";
-    var pctVal = parseFloat(String(item.q.changePct || "0").replace(/[+%]/g,"")) || 0;
-    var circuitBadge = pctVal >= 15 ? '<span style="font-size:9px;font-weight:800;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:1px 5px;border-radius:4px;margin-left:4px;">UC</span>'
-      : pctVal <= -15 ? '<span style="font-size:9px;font-weight:800;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25);padding:1px 5px;border-radius:4px;margin-left:4px;">LC</span>' : '';
-    return '<div onclick="runAnalysis(\'' + escapeHTML(item.sym) + '\')" class="mover-row" style="background:' + bg + ';border-color:' + bdr + ';">'
-      + '<div style="display:flex;align-items:center;gap:8px;">'
-      + '<div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:' + color + ';flex-shrink:0;">' + arrow + '</div>'
-      + '<div style="min-width:0;"><div style="font-size:12px;font-weight:700;color:#e2e8f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">' + escapeHTML(item.q.name || item.sym) + circuitBadge + '</div><div style="font-size:10px;color:#64748b;margin-top:1px;white-space:nowrap;">' + escapeHTML(item.sym) + ' · ' + escapeHTML(item.q.price) + '</div></div>'
-      + '</div>'
-      + '<div style="text-align:right;"><div style="font-size:12px;font-weight:800;color:' + color + ';">' + escapeHTML(item.q.changePct) + '</div></div>'
-      + '</div>';
+  function cellColor(pct) {
+    var mag = Math.min(Math.abs(pct) / 2, 1);
+    return (pct >= 0 ? "rgba(34,197,94," : "rgba(239,68,68,") + (0.10 + mag * 0.45).toFixed(2) + ")";
   }
-  container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
-    + '<div><div style="font-size:10px;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:4px;">▲ Gainers</div>'
-    + (gainers.length ? gainers.map(function(i) { return moverRow(i, true); }).join("") : '<div style="color:#64748b;font-size:11px;padding:8px 0;">No data</div>')
-    + '</div>'
-    + '<div><div style="font-size:10px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:4px;">▼ Losers</div>'
-    + (losers.length ? losers.map(function(i) { return moverRow(i, false); }).join("") : '<div style="color:#64748b;font-size:11px;padding:8px 0;">No data</div>')
-    + '</div>'
+  container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
+    + valid.map(function(s) {
+        var c = s.up ? "#22c55e" : "#ef4444";
+        return '<div onclick="runAnalysis(\'' + escapeHTML(s.sym) + '\')" style="cursor:pointer;background:' + cellColor(s.chgPct) + ';border:1px solid ' + (s.up ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)") + ';border-radius:8px;padding:10px 8px;transition:transform 0.1s;" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">'
+          + '<div style="font-size:11px;font-weight:700;color:#e2e8f4;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHTML(s.name) + '</div>'
+          + '<div style="font-size:15px;font-weight:800;color:' + c + ';">' + (s.chgPct >= 0 ? "+" : "") + s.chgPct.toFixed(2) + '%</div>'
+          + '</div>';
+      }).join("")
     + '</div>';
 }
 
@@ -1729,8 +1740,8 @@ function loadRecentStocks() {
   var recent = (state && state.recent) ? state.recent.slice(0, 8) : [];
   var recentSec = document.getElementById("recentSec");
   if (!recent.length) {
-    if (recentSec) recentSec.style.display = "none";
-    container.innerHTML = "";
+    if (recentSec) recentSec.style.display = "";
+    container.innerHTML = '<div style="font-size:11.5px;color:#64748b;line-height:1.6;padding:2px;">No stocks viewed yet. Search any NSE/BSE stock or tap a sector above — the ones you open will appear here for quick access.</div>';
     return;
   }
   if (recentSec) recentSec.style.display = "";

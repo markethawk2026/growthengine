@@ -136,7 +136,8 @@ async function yfQuote(ticker) {
   }
 
   var symCandidates = [ticker];
-  if (!ticker.startsWith("^") && !ticker.includes(".") && !ticker.includes("=")) {
+  // Only append .NS/.BO for plain NSE/BSE stock symbols — NOT indices (^), currencies/futures (=), or crypto (-USD)
+  if (!ticker.startsWith("^") && !ticker.includes(".") && !ticker.includes("=") && !/-USD$/.test(ticker)) {
     symCandidates = [/^\d+$/.test(ticker) ? ticker + ".BO" : ticker + ".NS", ticker + ".BO", ticker + ".NS"];
   }
 
@@ -240,6 +241,37 @@ async function yfQuote(ticker) {
     return null; 
   }
 }
+
+// Chart OHLC for an arbitrary range/interval (for the timeframe toggle)
+async function yfChartData(ticker, range, interval) {
+  var vt = validateTickerSymbol(ticker); if (!vt) return null;
+  var sym = vt;
+  if (sym === "NIFTY50" || sym === "NIFTY 50" || sym === "NIFTY") sym = "^NSEI";
+  if (sym === "SENSEX") sym = "^BSESN";
+  if (!sym.startsWith("^") && !sym.includes(".") && !sym.includes("=") && !/-USD$/.test(sym)) sym = sym + ".NS";
+  try {
+    var url = YF_QUOTE + sym + "?interval=" + (interval || "1d") + "&range=" + (range || "3mo");
+    var j = await proxyFetch(url, 6000);
+    var res = j && j.chart && j.chart.result && j.chart.result[0];
+    if (!res || !res.indicators || !res.indicators.quote) return null;
+    var q = res.indicators.quote[0] || {};
+    var cR = q.close || [], oR = q.open || [], hR = q.high || [], lR = q.low || [], vR = q.volume || [], tR = res.timestamp || [];
+    var opens = [], highs = [], lows = [], closes = [], vols = [], ts = [];
+    cR.forEach(function(c, i) {
+      if (c != null && isFinite(c)) {
+        closes.push(+c);
+        opens.push(isFinite(oR[i]) ? +oR[i] : +c);
+        highs.push(isFinite(hR[i]) ? +hR[i] : +c);
+        lows.push(isFinite(lR[i]) ? +lR[i] : +c);
+        vols.push(isFinite(vR[i]) ? +vR[i] : 0);
+        ts.push(tR[i] || 0);
+      }
+    });
+    if (!closes.length) return null;
+    return { opens: opens, highs: highs, lows: lows, closes: closes, volumes: vols, times: ts, up: closes[closes.length - 1] >= closes[0] };
+  } catch (e) { return null; }
+}
+window.yfChartData = yfChartData;
 
 function _acResultsToQuotes(results) {
   return results.filter(function(r) { return r.type === "S"; }).slice(0, 8)

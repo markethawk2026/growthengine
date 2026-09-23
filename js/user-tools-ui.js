@@ -258,6 +258,17 @@ function renderCompare(panel){
 }
 
 /* ─── SCREENER ─── */
+function techCondition(r){
+  if (r.error) return { label: "N/A", color: "#64748b" };
+  if (r.rsi !== null && r.rsi > 70) return { label: "Overbought", color: "#ef4444" };
+  if (r.rsi !== null && r.rsi < 30) return { label: "Oversold", color: "#22c55e" };
+  if (r.technicalScore !== null && r.technicalScore !== undefined) {
+    if (r.technicalScore >= 60) return { label: "Bullish", color: "#22c55e" };
+    if (r.technicalScore <= 40) return { label: "Bearish", color: "#ef4444" };
+    return { label: "Neutral", color: "#f59e0b" };
+  }
+  return { label: "N/A", color: "#64748b" };
+}
 function renderScreener(panel){
   panel.innerHTML =
     '<form id="ncScreenForm" class="tk-add-form" style="flex-wrap:wrap;">'
@@ -281,12 +292,14 @@ function renderScreener(panel){
       + res.map(function(r){
           var sc = r.technicalScore;
           var scColor = sc > 65 ? "#22c55e" : sc > 40 ? "#f59e0b" : "#ef4444";
+          var cond = techCondition(r);
           return '<div class="tk-stock-card" onclick="runAnalysis(\'' + esc(r.ticker) + '\')" style="cursor:pointer;">'
             + '<div class="tk-sc-top">'
             + '<div><div class="tk-sc-ticker">' + esc(r.ticker) + '</div><div class="tk-sc-name">Score: <strong style="color:' + scColor + ';">' + (sc!==null?sc:"—") + '%</strong></div></div>'
             + '<div style="text-align:right;"><div style="font-size:15px;font-weight:800;color:#f1f5f9;">₹' + (r.price ? Number(r.price).toLocaleString("en-IN",{minimumFractionDigits:2}) : "—") + '</div>'
             + '<div style="font-size:11px;color:' + (r.changePct&&!r.changePct.startsWith("-")?"#22c55e":"#ef4444") + ';font-weight:600;">' + esc(r.changePct||"") + '</div>'
             + '</div></div>'
+            + '<div style="margin:6px 0;"><span style="font-size:10px;font-weight:800;color:' + cond.color + ';background:' + cond.color + '1a;border:1px solid ' + cond.color + '55;padding:2px 9px;border-radius:5px;">' + cond.label + '</span></div>'
             + '<div class="tk-sc-meta"><span>RSI: ' + (r.rsi!==null?r.rsi:"—") + '</span><span>EMA: ' + esc(r.emaTrend||"—") + '</span></div>'
             + '</div>';
         }).join("")
