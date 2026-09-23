@@ -2,14 +2,14 @@
    NC MARKETS — Design System
    ════════════════════════════════════════ */
 :root {
-  --bg:         #07090f;
-  --surface:    #0b0e1a;
-  --surface-2:  #0f1525;
+  --bg:         #0a0d0b;
+  --surface:    #0f1310;
+  --surface-2:  #141a15;
   --border:     #1e2d46;
   --border-2:   #111827;
   --text:       #eef3fc;
-  --text-2:     #6b7fa8;
-  --text-3:     #334155;
+  --text-2:     #8ba1c6;
+  --text-3:     #56688a;
   --blue:       #3b82f6;
   --blue-bg:    #0d1d3a;
   --blue-bdr:   #1e3a6e;
@@ -32,6 +32,12 @@
 
 body {
   background: var(--bg);
+  /* Brand-aligned depth: soft gold glow (left) + green glow (right) over a warm-dark base */
+  background-image:
+    radial-gradient(900px 520px at 12% -10%, rgba(245,158,11,0.12), transparent 58%),
+    radial-gradient(900px 520px at 88% -6%, rgba(34,197,94,0.10), transparent 58%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--text);
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 13px;
@@ -1336,6 +1342,21 @@ body.light .theme-btn { background: var(--surface-2); border-color: var(--border
 body.light .tfb { background: var(--surface); border-color: var(--border); color: var(--text-2); }
 body.light .tfb.active { background: #e0f2fe; border-color: #0284c7; color: #0284c7; }
 body.light .asum { background: #f0f9ff; border-left-color: #0284c7; color: #1e293b; }
+
+/* Light mode: force common inline near-white text colors to dark so they stay readable.
+   (The app uses many inline color styles that CSS classes can't otherwise override.) */
+body.light [style*="color:#e2e8f4"], body.light [style*="color:#e2e8f0"],
+body.light [style*="color:#f1f5f9"], body.light [style*="color:#cbd5e1"],
+body.light [style*="color:#d8e8f8"], body.light [style*="color:#eef3fc"],
+body.light [style*="color:#f8fafc"], body.light [style*="color: #e2e8f4"],
+body.light [style*="color: #f1f5f9"] { color: #1e293b !important; }
+/* Slightly darken the muted greys for contrast on white */
+body.light [style*="color:#64748b"], body.light [style*="color:#94a3b8"],
+body.light [style*="color:#5a7298"], body.light [style*="color:#8fafd4"] { color: #475569 !important; }
+/* Dark inline card backgrounds → light surfaces in light mode */
+body.light [style*="background:#0b0f19"], body.light [style*="background:#0b0e1a"],
+body.light [style*="background:#0f1525"], body.light [style*="background:#07090f"],
+body.light [style*="background: #0b0f19"] { background: #ffffff !important; border-color: #e2e8f0 !important; }
 
 /* ═══════════════════════════════════════════
    PRINT
