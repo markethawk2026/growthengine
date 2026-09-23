@@ -278,7 +278,7 @@ function techCondition(r){
 function renderScreener(panel){
   panel.innerHTML =
     '<form id="ncScreenForm" class="tk-add-form" style="flex-wrap:wrap;">'
-    + '<input name="tickers" placeholder="One ticker or several, comma-separated (e.g. RELIANCE, TCS, MCX)" required class="tk-input" style="flex:1;"/>'
+    + '<input name="tickers" placeholder="One ticker or several, comma-separated" required class="tk-input" style="flex:1;"/>'
     + '<select name="filter" class="tk-select">'
     + '<option value="bullish">Bullish (Score ≥ 60)</option>'
     + '<option value="bearish">Bearish (Score ≤ 40)</option>'
