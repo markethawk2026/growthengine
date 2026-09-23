@@ -1234,7 +1234,7 @@ body {
 .skip-link:focus { top: 12px; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #38bdf8 !important; outline-offset: 2px; }
 .nc-offline-banner { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 9998; background: #7c2d12; color: #fff; border: 1px solid #fb923c; border-radius: 10px; padding: 10px 16px; box-shadow: var(--shadow); }
-.nc-cmd-fab { position: fixed; right: 18px; bottom: 18px; z-index: 9990; border: 1px solid #334155; background: var(--border-2); color: var(--text); border-radius: 12px; padding: 10px 13px; font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit; box-shadow: var(--shadow); }
+.nc-cmd-fab { position: fixed; left: 18px; bottom: 18px; z-index: 9990; border: 1px solid #334155; background: var(--border-2); color: var(--text); border-radius: 12px; padding: 10px 13px; font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit; box-shadow: var(--shadow); letter-spacing: 0.5px; }
 .nc-cmd-fab:hover { border-color: var(--blue); }
 .nc-cmd-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.7); padding: 12vh 16px 16px; }
 .nc-cmd { max-width: 640px; margin: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 25px 80px rgba(0,0,0,0.6); overflow: hidden; }
@@ -1245,7 +1245,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .nc-cmd-list button:hover, .nc-cmd-list button:focus { background: var(--border-2); }
 .nc-cmd-list small { display: block; color: var(--text-2); margin-top: 3px; font-size: 11px; }
 .nc-cmd-empty { padding: 24px; text-align: center; color: var(--text-2); }
-@media (max-width: 640px) { .nc-cmd-overlay { padding-top: 7vh; } .nc-cmd-fab { right: 10px; bottom: 10px; } }
+@media (max-width: 640px) { .nc-cmd-overlay { padding-top: 7vh; } .nc-cmd-fab { left: 10px; bottom: 10px; } }
 
 /* ═══════════════════════════════════════════
    GLOW UTILITIES
@@ -1349,11 +1349,18 @@ body.light [style*="color:#e2e8f4"], body.light [style*="color:#e2e8f0"],
 body.light [style*="color:#f1f5f9"], body.light [style*="color:#cbd5e1"],
 body.light [style*="color:#d8e8f8"], body.light [style*="color:#eef3fc"],
 body.light [style*="color:#f8fafc"], body.light [style*="color: #e2e8f4"],
+body.light [style*="color:#9cb8d8"], body.light [style*="color:#e6eef8"],
 body.light [style*="color: #f1f5f9"] { color: #1e293b !important; }
 /* Slightly darken the muted greys for contrast on white */
 body.light [style*="color:#64748b"], body.light [style*="color:#94a3b8"],
 body.light [style*="color:#5a7298"], body.light [style*="color:#8fafd4"],
-body.light [style*="color:#475569"], body.light [style*="color:#334155"] { color: #52627d !important; }
+body.light [style*="color:#475569"], body.light [style*="color:#334155"],
+body.light [style*="color:#6b7fa8"], body.light [style*="color:#4b6080"] { color: #52627d !important; }
+/* Dark inline card/panel backgrounds → white in light mode (analysis uses many) */
+body.light [style*="background:#0a1020"], body.light [style*="background:#111827"],
+body.light [style*="background:#0a0d0b"], body.light [style*="background:#0e1420"],
+body.light [style*="background:#0b0f16"], body.light [style*="background:linear-gradient(135deg,#0a1020"],
+body.light [style*="background:linear-gradient(135deg,#0f1828"] { background: #ffffff !important; border-color: #e2e8f0 !important; }
 /* Darken low-contrast accent colors (cyan / gold / blue) so values are readable on white */
 body.light [style*="color:#38bdf8"] { color: #0369a1 !important; }
 body.light [style*="color:#f59e0b"], body.light [style*="color:#f59e0b"] { color: #b45309 !important; }
