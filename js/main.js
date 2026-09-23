@@ -7,7 +7,7 @@ window.LIVE_CHART_POOL = { closes: [] };
 
 function isUp(v){ return !String(v || "0").trim().startsWith("-"); }
 function fmtVol(v){ if(!v) return "—"; if(v > 10000000) return (v / 10000000).toFixed(1) + "Cr"; if(v > 100000) return (v / 100000).toFixed(1) + "L"; return String(v); }
-function fmtCap(v){ if(!v) return "—"; if(v > 1e12) return "₹" + (v / 1e12).toFixed(1) + "T"; if(v > 1e9) return "₹" + (v / 1e9).toFixed(0) + "B"; return "₹" + (v / 1e7).toFixed(0) + "Cr"; }
+function fmtCap(v){ if(!v) return "—"; var cr = v / 1e7; if(cr >= 100000) return "₹" + (cr / 100000).toFixed(2) + " L Cr"; if(cr >= 1000) return "₹" + (cr / 1000).toFixed(1) + "K Cr"; return "₹" + cr.toFixed(0) + " Cr"; }
 function timeAgo(ts){ var m = Math.floor((Date.now() - ts) / 60000); if(m < 60) return m + "m ago"; if(m < 1440) return Math.floor(m / 60) + "h ago"; return Math.floor(m / 1440) + "d ago"; }
 function tSty(t){ if(t === "Bullish" || t === "BUY" || t === "Strong Buy") return { c: "#22c55e", bg: "#052016", b: "#22c55e" }; if(t === "Bearish" || t === "SELL" || t === "Strong Sell") return { c: "#ef4444", bg: "#1a0505", b: "#ef4444" }; return { c: "#94a3b8", bg: "#0f1525", b: "#1c2a45" }; }
 function ring(conf){ var cc = conf > 65 ? "#22c55e" : conf > 40 ? "#f59e0b" : "#ef4444"; var c = 2 * Math.PI * 33; return '<svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="33" fill="none" stroke="#1e293b" stroke-width="2"/><circle cx="42" cy="42" r="33" fill="none" stroke="' + cc + '" stroke-width="2" stroke-dasharray="' + (c * conf / 100) + ' ' + c + '" stroke-linecap="round" transform="rotate(-90 42 42)"/><text x="42" y="50" text-anchor="middle" fill="' + cc + '" font-size="24" font-weight="800" font-family="monospace">' + conf + '%</text></svg>'; }
@@ -481,6 +481,37 @@ async function fetchRegionData(region) {
   if (valid.length > 0) {
     window.MARKET_SUMMARY_CACHE[region] = valid;
   }
+}
+
+// Live refresh: fetches the active region's indices with cache-busting URLs
+// (bypasses the 2-min quote cache) so the Market Summary cards actually move.
+async function refreshMarketSummary() {
+  var region = window.activeMarketRegion || "india";
+  var symbols = window.MARKET_REGION_SYMBOLS[region] || window.MARKET_REGION_SYMBOLS.india;
+  var ts = Date.now();
+  var results = await Promise.all(symbols.map(async function(item) {
+    var url = "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(item.sym) + "?interval=1d&range=1d&_=" + ts;
+    try {
+      var json = await proxyFetch(url, 4000);
+      var meta = json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta;
+      if (!meta || meta.regularMarketPrice == null) return null;
+      var price = parseFloat(meta.regularMarketPrice);
+      var prevClose = parseFloat(meta.chartPreviousClose != null ? meta.chartPreviousClose : (meta.previousClose != null ? meta.previousClose : price));
+      var chg = price - prevClose;
+      var chgPct = prevClose ? (chg / prevClose) * 100 : 0;
+      return {
+        ticker: item.ticker, sym: item.sym, price: price,
+        change: (chg >= 0 ? "+" : "") + chg.toFixed(2),
+        changePct: (chgPct >= 0 ? "+" : "") + chgPct.toFixed(2) + "%",
+        high: "₹" + (meta.regularMarketDayHigh != null ? meta.regularMarketDayHigh : price).toFixed(2),
+        low: "₹" + (meta.regularMarketDayLow != null ? meta.regularMarketDayLow : price).toFixed(2),
+        up: chg >= 0
+      };
+    } catch (e) { return null; }
+  }));
+  var valid = results.filter(Boolean);
+  if (valid.length) window.MARKET_SUMMARY_CACHE[region] = valid;
+  forceRenderIndexUI();
 }
 
 async function forceRenderIndexUI() {
@@ -1605,10 +1636,13 @@ async function loadTopMovers() {
   // Real movers: dedicated gainers + losers screeners (2 calls)
   window._tickerNameCache = window._tickerNameCache || {};
   function mapQ(quotes) {
+    var seen = {};
     return (quotes || []).map(function(q) {
       var sym = String(q.symbol || '').replace(/\.(NS|BO)$/, '');
       var price = q.regularMarketPrice, chgPct = q.regularMarketChangePercent;
       if (!sym || price == null || chgPct == null) return null;
+      if (seen[sym]) return null; // dedupe BSE/NSE listings of the same company
+      seen[sym] = true;
       var name = q.longName || q.shortName || null;
       if (name) window._tickerNameCache[sym] = name;
       return {
@@ -1672,8 +1706,8 @@ async function loadTopMovers() {
       : pctVal <= -15 ? '<span style="font-size:9px;font-weight:800;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25);padding:1px 5px;border-radius:4px;margin-left:4px;">LC</span>' : '';
     return '<div onclick="runAnalysis(\'' + escapeHTML(item.sym) + '\')" class="mover-row" style="background:' + bg + ';border-color:' + bdr + ';">'
       + '<div style="display:flex;align-items:center;gap:8px;">'
-      + '<div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:' + color + ';">' + arrow + '</div>'
-      + '<div><div style="font-size:12px;font-weight:700;color:#e2e8f4;">' + escapeHTML(item.sym) + circuitBadge + '</div><div style="font-size:10px;color:#64748b;margin-top:1px;">' + escapeHTML(item.q.price) + '</div></div>'
+      + '<div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:' + color + ';flex-shrink:0;">' + arrow + '</div>'
+      + '<div style="min-width:0;"><div style="font-size:12px;font-weight:700;color:#e2e8f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">' + escapeHTML(item.q.name || item.sym) + circuitBadge + '</div><div style="font-size:10px;color:#64748b;margin-top:1px;white-space:nowrap;">' + escapeHTML(item.sym) + ' · ' + escapeHTML(item.q.price) + '</div></div>'
       + '</div>'
       + '<div style="text-align:right;"><div style="font-size:12px;font-weight:800;color:' + color + ';">' + escapeHTML(item.q.changePct) + '</div></div>'
       + '</div>';
@@ -1734,9 +1768,9 @@ if (window.RefreshScheduler) {
     forceRenderIndexUI();
 
     var tasks = [];
-    if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 30000) {
+    if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 20000) {
       window.LAST_IDX_REFRESH_TS = Date.now();
-      tasks.push(loadIdx());
+      tasks.push(refreshMarketSummary());
     }
     if (!window.LAST_MOVERS_REFRESH_TS || Date.now() - window.LAST_MOVERS_REFRESH_TS > 60000) {
       window.LAST_MOVERS_REFRESH_TS = Date.now();

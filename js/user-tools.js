@@ -56,7 +56,9 @@ async function portfolioSnapshot(){
   return rows;
 }
 async function compare(tickers){
-  var list=Array.from(new Set((tickers||[]).map(cleanTicker).filter(Boolean))).slice(0,5);
+  if(typeof tickers==="string") tickers=tickers.split(",");
+  if(!Array.isArray(tickers)) tickers=[];
+  var list=Array.from(new Set(tickers.map(cleanTicker).filter(Boolean))).slice(0,5);
   return Promise.all(list.map(async function(t){
     var q=await yfQuote(t); if(!q)return {ticker:t,error:"Unavailable"};
     var rsi=calcRSI(q.closes,14), md=calcMACDDetails(q.closes), e20=calcEMA(q.closes,20), e50=calcEMA(q.closes,50), e200=calcEMA(q.closes,200);

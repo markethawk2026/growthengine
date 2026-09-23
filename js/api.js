@@ -377,20 +377,23 @@ async function yfNews(q) {
       
       if (payload && payload.items && payload.items.length > 0) {
         payload.items.forEach(function(item) {
-          var title = item.title ? item.title.trim() : "";
+          var title = _decodeEntities(item.title ? item.title.trim() : "");
           if (title && !seenTitles.has(title.toLowerCase())) {
             seenTitles.add(title.toLowerCase());
-            
-            var summaryClean = item.description 
-              ? item.description.replace(/<[^>]*>/g, '').trim() 
-              : "";
+
+            var summaryClean = _decodeEntities(item.description
+              ? item.description.replace(/<[^>]*>/g, '').trim()
+              : "");
 
             var link = (item.link && typeof sanitizeURL === "function") ? sanitizeURL(item.link) : (item.link || "");
+            var ts = item.pubDate ? Date.parse(String(item.pubDate).replace(' ', 'T') + 'Z') : 0;
+            if (isNaN(ts)) ts = item.pubDate ? Date.parse(item.pubDate) : 0;
             masterArticles.push({
               id: "wire_" + Math.random().toString(36).substr(2, 9),
               headline: title,
               source: source.name.toUpperCase(),
-              time: new Date().toLocaleTimeString(),
+              time: _relTime(ts),
+              _ts: ts || 0,
               summary: summaryClean,
               link: link
             });
@@ -404,6 +407,9 @@ async function yfNews(q) {
 
   await Promise.allSettled(fetchPromises);
 
+  // Newest first
+  masterArticles.sort(function(a, b) { return (b._ts || 0) - (a._ts || 0); });
+
   if (queryStr && queryStr !== "NSE INDIA" && queryStr !== "NSE") {
     var filtered = masterArticles.filter(function(art) {
       return art.headline.toUpperCase().includes(queryStr) || art.summary.toUpperCase().includes(queryStr);
@@ -414,6 +420,29 @@ async function yfNews(q) {
   }
 
   return masterArticles.slice(0, 30);
+}
+
+function _decodeEntities(s) {
+  if (!s) return "";
+  try {
+    var t = document.createElement("textarea");
+    t.innerHTML = s;
+    return t.value;
+  } catch (e) { return s; }
+}
+
+function _relTime(ts) {
+  if (!ts) return "";
+  var diff = Date.now() - ts;
+  if (diff < 0) diff = 0;
+  var mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return mins + "m ago";
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  var days = Math.floor(hrs / 24);
+  if (days < 30) return days + "d ago";
+  return new Date(ts).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
 
@@ -553,18 +582,23 @@ function calculateTechnicalScore(closes, rsi, macd, ema20, ema50) {
 }
 
 async function freeAI(prompt) {
-  try {
-    var cleanUrl = POLL_AI + encodeURIComponent(prompt) + "?wrap=false";
-    var managed = await window.RequestManager.request(cleanUrl, {
-      timeout: 15000,
-      retries: 1,
-      ttl: 0,
-      responseType: "text",
-      cacheKey: "ai::" + cleanUrl,
-      allowStaleOnError: false
-    });
-    return managed.data || "";
-  } catch(e) {}
+  // Pollinations rate-limits rapid calls (returns empty) — retry up to 3x with backoff
+  var cleanUrl = POLL_AI + encodeURIComponent(prompt) + "?wrap=false";
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try {
+      var managed = await window.RequestManager.request(cleanUrl, {
+        timeout: 15000,
+        retries: 0,
+        ttl: 0,
+        responseType: "text",
+        cacheKey: "ai::" + attempt + "::" + cleanUrl,
+        allowStaleOnError: false
+      });
+      var txt = (managed && managed.data) ? String(managed.data).trim() : "";
+      if (txt.length > 5) return txt;
+    } catch(e) {}
+    if (attempt < 2) await new Promise(function(r){ setTimeout(r, 1200 * (attempt + 1)); });
+  }
   return "";
 }
 

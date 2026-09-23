@@ -114,7 +114,13 @@ async function render(){
 /* ─── WATCHLIST ─── */
 async function renderWatchlist(panel){
   var s = state();
-  var rows = await Promise.all(s.watchlist.map(async function(t){ return {ticker:t, q: await yfQuote(t)}; }));
+  var rows = await Promise.all(s.watchlist.map(async function(t){
+    var q = await yfQuote(t);
+    if (q && t.indexOf("^") !== 0) {
+      try { var f = await yfFundamentals(t); if (f && f.marketCap) q.mktCap = f.marketCap; } catch(e){}
+    }
+    return {ticker:t, q: q};
+  }));
   panel.innerHTML =
     '<form id="ncWatchForm" class="tk-add-form">'
     + '<input name="ticker" placeholder="Enter NSE / BSE ticker symbol" required class="tk-input"/>'
