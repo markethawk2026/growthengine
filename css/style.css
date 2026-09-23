@@ -1368,6 +1368,35 @@ body.light [style*="background:#0f1525"], body.light [style*="background:#07090f
 body.light [style*="background: #0b0f19"] { background: #ffffff !important; border-color: #e2e8f0 !important; }
 
 /* ═══════════════════════════════════════════
+   NARUTO ASSISTANT POLISH
+   ════════════════════════════════════════ */
+.nc-cursor { display:inline-block; width:8px; height:15px; margin-left:3px; vertical-align:text-bottom; border-radius:3px;
+  background:linear-gradient(180deg,#fbbf24,#f59e0b); box-shadow:0 0 8px rgba(245,158,11,0.85);
+  animation: ncBlink 1s ease-in-out infinite; }
+@keyframes ncBlink { 0%,100% { opacity:1; transform:scaleY(1); } 50% { opacity:0.2; transform:scaleY(0.75); } }
+
+/* Chat messages slide + fade in as they arrive */
+.cmsgs .cm { animation: ncMsgIn 0.4s cubic-bezier(0.22,0.9,0.25,1) both; }
+.cmsgs .cmu { animation-name: ncMsgInRight; }
+@keyframes ncMsgIn { from { opacity:0; transform: translateY(12px) scale(0.98); } to { opacity:1; transform: none; } }
+@keyframes ncMsgInRight { from { opacity:0; transform: translateX(16px); } to { opacity:1; transform: none; } }
+
+/* Ramen avatar on Naruto's replies — gentle idle bob */
+.cmai::before { content:"🍜"; margin-right:6px; font-size:13px; display:inline-block; animation: ncAvatarBob 2.8s ease-in-out infinite; }
+@keyframes ncAvatarBob { 0%,100%{ transform: translateY(0) rotate(0); } 50%{ transform: translateY(-2px) rotate(-7deg); } }
+
+/* Bobbing 'thinking' ramen */
+.mspn::after { content:"🍜"; display:inline-block; animation: ncBob 0.7s ease-in-out infinite; }
+@keyframes ncBob { 0%,100%{ transform: translateY(0) rotate(0); } 50%{ transform: translateY(-4px) rotate(12deg); } }
+
+/* Floating button — pulses + gently floats + wiggles on hover */
+#narutoFab { animation: ncFabPulse 2.6s ease-in-out infinite, ncFabFloat 3.4s ease-in-out infinite; }
+@keyframes ncFabPulse { 0%,100%{ box-shadow:0 6px 22px rgba(245,158,11,0.4); } 50%{ box-shadow:0 8px 34px rgba(245,158,11,0.75); } }
+@keyframes ncFabFloat { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-6px); } }
+#narutoFab:hover { animation: ncFabWiggle 0.5s ease-in-out infinite; }
+@keyframes ncFabWiggle { 0%,100%{ transform: rotate(-8deg) scale(1.1); } 50%{ transform: rotate(8deg) scale(1.1); } }
+
+/* ═══════════════════════════════════════════
    PRINT
    ════════════════════════════════════════ */
 @media print {
