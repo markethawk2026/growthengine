@@ -655,8 +655,10 @@ async function freeAI(prompt, minLen) {
 }
 
 async function _pollinate(prompt, need) {
-  var models = ["openai", "mistral", "openai-large", ""]; // openai = fullest; others are fallbacks
-  var deadline = Date.now() + 24000;
+  // Pollinations' only free anonymous model is openai-fast (GPT-OSS 20B reasoning).
+  // It's a reasoning model (~8s) and accurate; retry it on queue-full, then plain default.
+  var models = ["openai-fast", "openai-fast", ""];
+  var deadline = Date.now() + 28000;
   var queueRetries = 0;
   for (var i = 0; i < models.length && Date.now() < deadline; i++) {
     var model = models[i];

@@ -728,15 +728,9 @@ async function runAnalysis(ticker){
   var calculatedHealth = scoreDetails.score; // null when insufficient history
   var healthVerdict = calculatedHealth === null ? "Insufficient Data" : calculatedHealth > 75 ? "Strong Buy" : calculatedHealth > 50 ? "Buy" : calculatedHealth > 35 ? "Hold" : "Sell";
   var healthColor = calculatedHealth === null ? "#64748b" : calculatedHealth > 75 ? "#22c55e" : calculatedHealth > 50 ? "#00b06a" : calculatedHealth > 35 ? "#f59e0b" : "#ef4444";
-  var safeTicker = (typeof sanitizeAIPrompt === 'function') ? sanitizeAIPrompt(ticker) : ticker.replace(/[^A-Z0-9.\-^]/g, '');
-  var prompt = "Evaluate " + safeTicker + " NSE stock. Return JSON: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"summary\":\"brief analysis\"}";
-  // Cap the AI wait at 6s so the analysis renders fast even if the AI service is slow
-  var aiTxt = await Promise.race([
-    freeAI(prompt),
-    new Promise(function(res){ setTimeout(function(){ res(""); }, 6000); })
-  ]);
-  var aiRaw = pj(aiTxt);
-  var ai = (typeof validateAIResponse === 'function' && aiRaw) ? (validateAIResponse(aiRaw) || {}) : (aiRaw || {});
+  // AI evaluation is fetched AFTER render (non-blocking) so the page appears instantly
+  // and the AI has time to respond. See fillAIEvaluation() called at the end of runAnalysis.
+  var ai = {};
 
   var realEps = fundamentals.rawEps || null;
   var grahamVal = (realEps && realEps > 0 && window.NCUserTools) ? window.NCUserTools.calculateGrahamValue(realEps, 8.5) : null;
@@ -805,13 +799,44 @@ async function runAnalysis(ticker){
     stopLoss: sr.sup === null ? "—" : "₹" + sr.sup.toFixed(2),
     target1: sr.res === null ? "—" : "₹" + sr.res.toFixed(2),
     riskLevel: "Medium",
-    summary: ai.summary || "Technical setup established.",
+    summary: ai.summary || "🍜 Naruto is evaluating this stock…",
     dataSource: pData.dataSource,
     dataStatus: pData.dataStatus
   };
   window.CACHE.analysis[ticker] = { d: d, ts: Date.now() };
   window.LIVE_CHART_POOL.closes = [...closes];
   renderAnalysis(d);
+  fillAIEvaluation(ticker, d); // async, non-blocking — fills the AI Evaluation with fresh data
+}
+
+// Fetch the AI evaluation AFTER render, feeding it the stock's CURRENT numbers so it never
+// relies on the model's stale training data. Updates the section + cache in place.
+async function fillAIEvaluation(ticker, d) {
+  if (d.isIndex) { // indices: no fundamental AI eval; keep it clean
+    var sEl0 = document.getElementById("aiEvalSummary");
+    if (sEl0 && window.activeTickerNode === ticker) sEl0.innerHTML = escapeHTML("Sector index — technical read is " + d.trend + " (score " + (d.healthScore != null ? d.healthScore + "%" : "n/a") + ").");
+    return;
+  }
+  var safeTicker = (typeof sanitizeAIPrompt === 'function') ? sanitizeAIPrompt(ticker) : ticker.replace(/[^A-Z0-9.\-^=_]/g, '');
+  var prompt = "You are Naruto, an expert Indian equity analyst. Evaluate " + safeTicker
+    + " using ONLY its current data: price " + d.price + ", change " + d.changePct
+    + ", RSI(14) " + (d.rsi != null ? d.rsi : "n/a")
+    + ", technical score " + (d.healthScore != null ? d.healthScore + "/100" : "n/a")
+    + ", trend " + d.trend + (d.pe ? ", P/E " + d.pe : "") + (d.eps ? ", EPS " + d.eps : "")
+    + ". Return ONLY JSON: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":70,\"summary\":\"2-3 sentence specific take grounded in these exact numbers\"}";
+  var aiTxt = await freeAI(prompt, 30);
+  var aiRaw = pj(aiTxt);
+  var ai = (typeof validateAIResponse === 'function' && aiRaw) ? (validateAIResponse(aiRaw) || {}) : (aiRaw || {});
+  if (window.activeTickerNode !== ticker) return; // user moved on
+  var sumEl = document.getElementById("aiEvalSummary");
+  var confEl = document.getElementById("aiEvalConf");
+  if (sumEl) sumEl.innerHTML = ai.summary ? escapeHTML(ai.summary)
+    : escapeHTML("AI is busy — from the technicals, " + safeTicker + " reads " + d.trend + " (score " + (d.healthScore != null ? d.healthScore + "%" : "n/a") + ").");
+  if (confEl && ai.confidence != null) confEl.innerHTML = "Confidence: <strong>" + ai.confidence + "%</strong>";
+  if (ai.summary && window.CACHE.analysis[ticker] && window.CACHE.analysis[ticker].d) {
+    window.CACHE.analysis[ticker].d.summary = ai.summary;
+    if (ai.confidence != null) window.CACHE.analysis[ticker].d.confidence = ai.confidence;
+  }
 }
 
 window.ncQuickWatch = function(ticker) {
@@ -1056,12 +1081,12 @@ function renderAnalysis(d){
       <div style="font-size:11px;color:#64748b;margin-top:10px;">The technical score is deterministic and calculated only from available market indicators; no random financial values are used.</div>
     </div>
     <div class="sec">
-      <div class="stitle">AI Evaluation</div>
+      <div class="stitle">🍜 Naruto AI Evaluation</div>
       <div class="pr">
-        <span class="pb2" style="color:${t.c};background:${t.bg};border-color:${t.b}">${d.tradeDirection}</span>
-        <div style="font-size:11px;color:#94a3b8;">Confidence: <strong>${d.confidence !== null ? d.confidence + "%" : "—"}</strong></div>
+        <span class="pb2" id="aiEvalDir" style="color:${t.c};background:${t.bg};border-color:${t.b}">${d.tradeDirection}</span>
+        <div style="font-size:11px;color:#94a3b8;" id="aiEvalConf">Confidence: <strong>${d.confidence !== null ? d.confidence + "%" : "—"}</strong></div>
       </div>
-      <div class="asum">${escapeHTML(d.summary)}</div>
+      <div class="asum" id="aiEvalSummary">${escapeHTML(d.summary)}</div>
     </div>
     <div class="sec tsg-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
@@ -1773,18 +1798,38 @@ async function sendChat(){
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
   var activeTicker = window.activeTickerNode;
-  var tickerContext = activeTicker ? "The user is currently analyzing " + (typeof sanitizeAIPrompt === 'function' ? sanitizeAIPrompt(activeTicker) : activeTicker) + " (NSE India). Current data: " + (function(){
+  // Build fresh live context for the active ticker (live quote first, cache as fallback)
+  var tickerContext = "";
+  if (activeTicker) {
+    var safeTk = (typeof sanitizeAIPrompt === 'function' ? sanitizeAIPrompt(activeTicker) : activeTicker);
+    var liveLine = "";
+    try {
+      if (typeof yfQuoteBatch === "function") {
+        var qb = await yfQuoteBatch([activeTicker]);
+        var qd = qb && qb[activeTicker];
+        if (qd && typeof qd.price === "number") {
+          liveLine = "LIVE price ₹" + qd.price.toFixed(2)
+            + ", change " + (qd.change >= 0 ? "+" : "") + (qd.change || 0).toFixed(2)
+            + " (" + (qd.changePct >= 0 ? "+" : "") + (qd.changePct || 0).toFixed(2) + "%). ";
+        }
+      }
+    } catch (e) {}
     var cache = window.CACHE && window.CACHE.analysis && window.CACHE.analysis[activeTicker];
-    if (!cache || !cache.d) return "no cached data.";
-    var d = cache.d;
-    return "Price " + d.price + ", RSI " + (d.rsi || "—") + ", Score " + d.healthScore + "%, Trend " + d.trend + ".";
-  })() + " " : "";
+    var techLine = (cache && cache.d)
+      ? "Technicals: RSI " + (cache.d.rsi || "—") + ", Health Score " + cache.d.healthScore + "%, Trend " + cache.d.trend + ". "
+      : "";
+    tickerContext = "The user is currently analyzing " + safeTk + " (NSE India). " + liveLine + techLine;
+  }
 
   var safeQ = String(q || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 300);
-  var prompt = "You are Naruto, an upbeat, expert financial analyst for Indian stock markets (NSE/BSE). "
+  var prompt = "You are Naruto, an upbeat, expert financial analyst for Indian stock markets (NSE/BSE). Today's date is "
+    + new Date().toISOString().slice(0, 10) + ". "
     + tickerContext
+    + "IMPORTANT: You do NOT have live market data except any LIVE figures explicitly given above. "
+    + "Never state a specific current price, index level, or day's change from memory — those numbers would be outdated. "
+    + "If the user asks for a live price/level you were not given above, tell them to open that stock or index in the Analysis tab for the real-time figure, then give qualitative guidance instead. "
     + "Give a clear, well-structured, genuinely helpful answer with specific, concrete insight — "
-    + "use short bullet points or numbered steps where useful, include relevant numbers/levels/examples, "
+    + "use short bullet points or numbered steps where useful, include relevant levels/examples, "
     + "and end with a practical takeaway. Keep it professional and accurate; a touch of positive energy is fine but never at the cost of clarity. Aim for 5–10 sentences. Skip generic disclaimers. User asks: " + safeQ;
 
   var txt = await freeAI(prompt, 60);
