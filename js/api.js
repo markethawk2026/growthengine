@@ -426,12 +426,13 @@ async function yfNews(q) {
 
   var fetchPromises = feedSources.map(async function(source) {
     try {
-      var endpoint = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(source.url);
+      var bucket = Math.floor(Date.now() / 300000); // new value every 5 min → forces fresh feed
+      var endpoint = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(source.url) + "&_=" + bucket;
       var managed = await window.RequestManager.request(endpoint, {
         timeout: 7000,
         retries: 2,
         ttl: window.TTL.m,
-        cacheKey: "rss::" + source.url,
+        cacheKey: "rss::" + source.url + "::" + bucket,
         allowStaleOnError: true
       });
       var payload = managed.data;

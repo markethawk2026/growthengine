@@ -64,9 +64,9 @@ function validateTickerSymbol(ticker) {
   if (!ticker || typeof ticker !== 'string') return null;
   
   // Allow letters, numbers, dots (.NS/.BO), dashes (BTC-USD), caret (^NSEI),
-  // equals (USDINR=X currencies, GC=F futures/commodities)
+  // equals (USDINR=X, GC=F), underscore (NIFTY_IND_DEFENCE.NS index)
   const sanitized = ticker.trim().toUpperCase();
-  if (!/^[A-Z0-9.\-^=]{1,20}$/.test(sanitized)) {
+  if (!/^[A-Z0-9.\-^=_]{1,25}$/.test(sanitized)) {
     return null;
   }
   return sanitized;

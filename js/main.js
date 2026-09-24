@@ -1477,12 +1477,18 @@ async function loadGlobal(force){
   try {
     var allItems = [];
     GLOBAL_MARKET_GROUPS.forEach(function(g) { g.items.forEach(function(i) { allItems.push(i); }); });
-    var results = await Promise.allSettled(allItems.map(function(item) {
-      return yfQuote(item.sym).then(function(q) { return { sym: item.sym, name: item.name, q: q }; });
-    }));
+    // One batched call with official change values (correct for indices)
+    var batch = (typeof yfQuoteBatch === "function") ? await yfQuoteBatch(allItems.map(function(i){ return i.sym; })) : {};
     var resultMap = {};
-    results.forEach(function(r) {
-      if (r.status === "fulfilled" && r.value) resultMap[r.value.sym] = r.value;
+    allItems.forEach(function(item) {
+      var b = batch[item.sym];
+      if (b && b.price != null) {
+        resultMap[item.sym] = { sym: item.sym, name: item.name, q: {
+          raw: b.price, up: b.change >= 0,
+          change: (b.change >= 0 ? "+" : "") + b.change.toFixed(2),
+          changePct: (b.changePct >= 0 ? "+" : "") + b.changePct.toFixed(2) + "%"
+        }};
+      }
     });
     var grouped = GLOBAL_MARKET_GROUPS.map(function(group) {
       return {
@@ -1589,6 +1595,30 @@ function renderCal(arr){
 }
 var btnCalEl = document.getElementById("btnCal");
 if (btnCalEl) { btnCalEl.addEventListener("click", function(){ loadCal(true); }); }
+
+// Next Day + Outlook search — wire the Predict/Go buttons + Enter, resolve company names generically
+async function ncRunNextDay() {
+  var el = document.getElementById("ndIn"); var v = el ? el.value.trim() : "";
+  if (!v) return;
+  var body = document.getElementById("ndBody"); if (body) body.innerHTML = ldng("Resolving " + escapeHTML(v) + "…");
+  var sym = (typeof ncResolveSymbol === "function" ? await ncResolveSymbol(v) : null) || v.toUpperCase();
+  if (el) el.value = sym;
+  runNextDay(sym);
+}
+async function ncRunOutlook() {
+  var el = document.getElementById("tmIn"); var v = el ? el.value.trim() : "";
+  if (!v) return;
+  var body = document.getElementById("tmBody"); if (body) body.innerHTML = ldng("Resolving " + escapeHTML(v) + "…");
+  var sym = (typeof ncResolveSymbol === "function" ? await ncResolveSymbol(v) : null) || v.toUpperCase();
+  if (el) el.value = sym;
+  runOutlook(sym);
+}
+var ndBtnEl = document.getElementById("ndBtn"), ndInEl = document.getElementById("ndIn");
+if (ndBtnEl) ndBtnEl.addEventListener("click", ncRunNextDay);
+if (ndInEl) ndInEl.addEventListener("keydown", function(e){ if (e.key === "Enter") ncRunNextDay(); });
+var tmBtnEl = document.getElementById("tmBtn"), tmInEl = document.getElementById("tmIn");
+if (tmBtnEl) tmBtnEl.addEventListener("click", ncRunOutlook);
+if (tmInEl) tmInEl.addEventListener("keydown", function(e){ if (e.key === "Enter") ncRunOutlook(); });
 
 var chatSendEl = document.getElementById("chatSend");
 if (chatSendEl) chatSendEl.addEventListener("click", sendChat);
@@ -1939,22 +1969,6 @@ function loadRecentStocks() {
     + '</div>';
 }
 
-async function loadVisitorCount() {
-  try {
-    // Increment once per browser (unique visitors); just read on repeat visits
-    var counted = localStorage.getItem("nc_visit_counted");
-    var base = "https://abacus.jasoncameron.dev/" + (counted ? "get" : "hit") + "/markethawk2026-nc/visits";
-    var r = await fetch(base);
-    var j = await r.json();
-    if (!counted) { try { localStorage.setItem("nc_visit_counted", "1"); } catch (e) {} }
-    var el = document.getElementById("visitBadge");
-    if (el && j && typeof j.value === "number") {
-      el.innerHTML = '<span aria-hidden="true">👁</span> ' + j.value.toLocaleString("en-IN") + ' visitors';
-      el.style.display = "inline-flex";
-    }
-  } catch (e) {}
-}
-
 async function loadVIX() {
   try {
     var url = "https://query1.finance.yahoo.com/v8/finance/chart/^INDIAVIX?interval=1d&range=5d&_=" + Date.now();
@@ -2002,7 +2016,6 @@ async function bootDashboard() {
   setInterval(renderMarketStatus, 1000);
   loadRecentStocks();
   initChatSuggestions();
-  loadVisitorCount(); // async, non-blocking
   loadVIX();          // async, non-blocking
   _loadNSETickers(); // async, non-blocking
   // Ask for notification permission if the user has price alerts set
@@ -2026,21 +2039,25 @@ async function bootDashboard() {
 
 if (window.RefreshScheduler) {
   window.RefreshScheduler.register("master-exchange-orchestrator", async function () {
-    if (!isIndianMarketOpen()) { forceRenderIndexUI(); return; }
     forceRenderIndexUI();
-
     var tasks = [];
+    // News refreshes 24/7 (news happens even when the market is closed)
+    if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 180000) {
+      window.LAST_NEWS_REFRESH_TS = Date.now();
+      tasks.push(loadNews());
+    }
+    // Market Summary refreshes for the ACTIVE region always — US/Global/Crypto trade
+    // on their own hours (and crypto is 24/7), so this must not depend on NSE hours.
     if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 20000) {
       window.LAST_IDX_REFRESH_TS = Date.now();
       tasks.push(refreshMarketSummary());
     }
-    if (!window.LAST_MOVERS_REFRESH_TS || Date.now() - window.LAST_MOVERS_REFRESH_TS > 60000) {
-      window.LAST_MOVERS_REFRESH_TS = Date.now();
-      tasks.push(loadTopMovers());
-    }
-    if (!window.LAST_NEWS_REFRESH_TS || Date.now() - window.LAST_NEWS_REFRESH_TS > 300000) {
-      window.LAST_NEWS_REFRESH_TS = Date.now();
-      tasks.push(loadNews());
+    // Indian movers/sectors only while the NSE session is live
+    if (isIndianMarketOpen()) {
+      if (!window.LAST_MOVERS_REFRESH_TS || Date.now() - window.LAST_MOVERS_REFRESH_TS > 60000) {
+        window.LAST_MOVERS_REFRESH_TS = Date.now();
+        tasks.push(loadTopMovers());
+      }
     }
     if (!window.LAST_VIX_REFRESH_TS || Date.now() - window.LAST_VIX_REFRESH_TS > 60000) {
       window.LAST_VIX_REFRESH_TS = Date.now();
